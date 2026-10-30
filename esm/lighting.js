@@ -1,0 +1,13 @@
+import FaoxomJs from "../FaoxomJs.js";
+export const Light = FaoxomJs.Light;
+export const DirectionalLight = FaoxomJs.DirectionalLight;
+export const PointLight = FaoxomJs.PointLight;
+export const SpotLight = FaoxomJs.SpotLight;
+export const AmbientLight = FaoxomJs.AmbientLight;
+export const HemisphereLight = FaoxomJs.HemisphereLight;
+export const RectAreaLight = FaoxomJs.RectAreaLight;
+export const CSM = FaoxomJs.CSM;
+export const CascadedShadowMap = FaoxomJs.CascadedShadowMap;
+export const LightClusterGrid = FaoxomJs.LightClusterGrid;
+export const ClusteredLightingManager = FaoxomJs.ClusteredLightingManager;
+export const AtmosphericSky = FaoxomJs.AtmosphericSky;
