@@ -1,0 +1,15 @@
+import FaoxomJs from "../FaoxomJs.js";
+export default FaoxomJs;
+export * from "./math.js";
+export * from "./core.js";
+export * from "./geometry.js";
+export * from "./materials.js";
+export * from "./lighting.js";
+export * from "./postprocessing.js";
+export * from "./physics.js";
+export * from "./compute.js";
+export * from "./loaders.js";
+export * from "./audio.js";
+export * from "./xr.js";
+export * from "./react.js";
+export * from "./controls.js";
