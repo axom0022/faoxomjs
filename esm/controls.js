@@ -1,0 +1,11 @@
+import FaoxomJs from "../FaoxomJs.js";
+export const OrbitControls = FaoxomJs.OrbitControls;
+export const FirstPersonControls = FaoxomJs.FirstPersonControls;
+export const PointerLockControls = FaoxomJs.PointerLockControls;
+export const MapControls = FaoxomJs.MapControls;
+export const TransformControls = FaoxomJs.TransformControls;
+export const StatsPanel = FaoxomJs.StatsPanel;
+export const CameraHelper = FaoxomJs.CameraHelper;
+export const DirectionalLightHelper = FaoxomJs.DirectionalLightHelper;
+export const PointLightHelper = FaoxomJs.PointLightHelper;
+export const BoxHelper = FaoxomJs.BoxHelper;
