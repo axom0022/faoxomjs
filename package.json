@@ -1,0 +1,84 @@
+{
+  "name": "faoxomjs",
+  "version": "0.5.0",
+  "description": "Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU",
+  "type": "module",
+  "main": "./FaoxomJs.js",
+  "module": "./esm/index.js",
+  "types": "./FaoxomJs.d.ts",
+  "unpkg": "./dist/faoxom.min.js",
+  "jsdelivr": "./dist/faoxom.min.js",
+  "exports": {
+    ".": {
+      "types": "./FaoxomJs.d.ts",
+      "import": "./esm/index.js",
+      "default": "./FaoxomJs.js"
+    },
+    "./math": {
+      "types": "./esm/math.d.ts",
+      "default": "./esm/math.js"
+    },
+    "./core": {
+      "types": "./esm/core.d.ts",
+      "default": "./esm/core.js"
+    },
+    "./geometry": {
+      "types": "./esm/geometry.d.ts",
+      "default": "./esm/geometry.js"
+    },
+    "./materials": {
+      "types": "./esm/materials.d.ts",
+      "default": "./esm/materials.js"
+    },
+    "./lighting": {
+      "types": "./esm/lighting.d.ts",
+      "default": "./esm/lighting.js"
+    },
+    "./postprocessing": {
+      "types": "./esm/postprocessing.d.ts",
+      "default": "./esm/postprocessing.js"
+    },
+    "./physics": {
+      "types": "./esm/physics.d.ts",
+      "default": "./esm/physics.js"
+    },
+    "./compute": {
+      "types": "./esm/compute.d.ts",
+      "default": "./esm/compute.js"
+    },
+    "./loaders": {
+      "types": "./esm/loaders.d.ts",
+      "default": "./esm/loaders.js"
+    },
+    "./audio": {
+      "types": "./esm/audio.d.ts",
+      "default": "./esm/audio.js"
+    },
+    "./xr": {
+      "types": "./esm/xr.d.ts",
+      "default": "./esm/xr.js"
+    },
+    "./react": {
+      "types": "./esm/react.d.ts",
+      "default": "./esm/react.js"
+    },
+    "./controls": {
+      "types": "./esm/controls.d.ts",
+      "default": "./esm/controls.js"
+    }
+  },
+  "scripts": {
+    "build": "node tools/build_faoxom_ultimate.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:browser": "node tests/run_browser_validation.mjs tests/browser-report.json",
+    "test:game": "node tests/run_game_validation.mjs tests/game-parity-report.json tests/game-faoxom-baseline.png",
+    "test:reference": "node tests/run_reference_validation.mjs tests/reference-report.json",
+    "test:feature": "node tests/run_feature_validation.mjs tests/feature-report.json",
+    "test": "npm run typecheck && npm run test:browser && npm run test:game && npm run test:reference && npm run test:feature"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.0",
+    "terser": "^5.39.0",
+    "typescript": "^5.0.0"
+  }
+}
