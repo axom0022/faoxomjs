@@ -1,0 +1,15 @@
+import FaoxomJs from "../FaoxomJs.js";
+export const Vector2 = FaoxomJs.Vector2;
+export const Vector3 = FaoxomJs.Vector3;
+export const Vector4 = FaoxomJs.Vector4;
+export const Quaternion = FaoxomJs.Quaternion;
+export const Matrix3 = FaoxomJs.Matrix3;
+export const Matrix4 = FaoxomJs.Matrix4;
+export const Euler = FaoxomJs.Euler;
+export const Color = FaoxomJs.Color;
+export const Ray = FaoxomJs.Ray;
+export const Plane = FaoxomJs.Plane;
+export const Box3 = FaoxomJs.Box3;
+export const Sphere = FaoxomJs.Sphere;
+export const Frustum = FaoxomJs.Frustum;
+export const MathUtils = FaoxomJs.MathUtils;
