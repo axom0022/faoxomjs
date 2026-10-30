@@ -1,0 +1,18 @@
+import FaoxomJs from "../FaoxomJs.js";
+export const Material = FaoxomJs.Material;
+export const BasicMaterial = FaoxomJs.BasicMaterial;
+export const StandardMaterial = FaoxomJs.StandardMaterial;
+export const PhysicalMaterial = FaoxomJs.PhysicalMaterial;
+export const PhongMaterial = FaoxomJs.PhongMaterial;
+export const LambertMaterial = FaoxomJs.LambertMaterial;
+export const ToonMaterial = FaoxomJs.ToonMaterial;
+export const PointsMaterial = FaoxomJs.PointsMaterial;
+export const LineBasicMaterial = FaoxomJs.LineBasicMaterial;
+export const ShaderMaterial = FaoxomJs.ShaderMaterial;
+export const NodeMaterial = FaoxomJs.NodeMaterial;
+export const MeshStandardNodeMaterial = FaoxomJs.MeshStandardNodeMaterial;
+export const MeshBasicNodeMaterial = FaoxomJs.MeshBasicNodeMaterial;
+export const ShaderNode = FaoxomJs.ShaderNode;
+export const tsl = FaoxomJs.tsl;
+export const SSSSProfile = FaoxomJs.SSSSProfile;
+export const TSLBufferPacker = FaoxomJs.TSLBufferPacker;
