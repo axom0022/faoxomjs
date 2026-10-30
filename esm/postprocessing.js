@@ -1,0 +1,14 @@
+import FaoxomJs from "../FaoxomJs.js";
+export const EffectComposer = FaoxomJs.EffectComposer;
+export const Pass = FaoxomJs.Pass;
+export const RenderPass = FaoxomJs.RenderPass;
+export const GTAOPass = FaoxomJs.GTAOPass;
+export const HBAOPass = FaoxomJs.HBAOPass;
+export const ScreenSpaceReflectionsPass = FaoxomJs.ScreenSpaceReflectionsPass;
+export const SSRPass = FaoxomJs.SSRPass;
+export const SSGIPass = FaoxomJs.SSGIPass;
+export const BokehDepthOfFieldPass = FaoxomJs.BokehDepthOfFieldPass;
+export const ProgressiveBloomPass = FaoxomJs.ProgressiveBloomPass;
+export const BloomPass = FaoxomJs.BloomPass;
+export const TAAPass = FaoxomJs.TAAPass;
+export const VolumetricPass = FaoxomJs.VolumetricPass;
