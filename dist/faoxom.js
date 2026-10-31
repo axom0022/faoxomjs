@@ -4724,6 +4724,7 @@ FaoxomJs.prototype.createStatsPanel = function(options) { return new StatsPanel(
 
 
 
+
 class LightClusterGrid {
     constructor(options) {
         options = options || {};
@@ -6104,7 +6105,7 @@ FaoxomJs.WebXRPlaneDetector = WebXRPlaneDetector;
 FaoxomJs.WebXRLightEstimator = WebXRLightEstimator;
 FaoxomJs.WebXRHaptics = WebXRHaptics;
 
-FaoxomJs.VERSION = "0.5.0";
+FaoxomJs.VERSION = "v5";
 
 
 
