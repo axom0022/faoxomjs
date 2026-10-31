@@ -1,12 +1,12 @@
 # FaoxomJS
 
-[![NPM Version](https://img.shields.io/badge/version-0.5.0-green.svg)](package.json)
+[![NPM Version](https://img.shields.io/badge/version-v5-green.svg)](package.json)
 [![Zero Dependencies](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen.svg)](FaoxomJs.js)
 [![jsDelivr](https://data.jsdelivr.com/v1/package/npm/faoxomjs/badge)](https://www.jsdelivr.com/package/npm/faoxomjs)
 
 > Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU.
 
-FaoxomJS provides a complete, modern 3D graphics and physics runtime
+FaoxomJS provides a complete, modern 3D graphics and physics runtime.
 
 ---
 
@@ -90,32 +90,6 @@ import { PositionalAudio, AudioListener } from "faoxomjs/audio";
 import { WebXRHandTracker } from "faoxomjs/xr";
 ```
 
----
 
-## Testing & Verification
-
-Run the full validation suite:
-
-```bash
-# Typecheck TypeScript definitions
-npm run typecheck
-
-# Run headless browser validation (WebGL2, WebGPU, Physics, Audio, LOD)
-npm run test:browser
-
-# Run Cannon Shoots game parity validation
-npm run test:game
-
-# Run Blender reference GLB comparison
-npm run test:reference
-
-# Run procedural modifier and feature validation
-npm run test:feature
-
-# Run all test suites
-npm test
-```
-
----
-
-
+# [OUR DISCORD SERVER](https://discord.gg/Sps39CydcZ)
+# [OUR YOUTUBE CHANNEL](https://youtube.com/@axos0022)
