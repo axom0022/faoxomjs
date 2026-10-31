@@ -1,6 +1,6 @@
 {
   "name": "faoxomjs",
-  "version": "0.5.0",
+  "version": "5.0.0",
   "description": "Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU",
   "type": "module",
   "main": "./FaoxomJs.js",
