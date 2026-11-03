@@ -68,7 +68,6 @@
     }
   },
   "scripts": {
-    "build": "node tools/build_faoxom_ultimate.mjs",
     "typecheck": "tsc --noEmit",
     "test:browser": "node tests/run_browser_validation.mjs tests/browser-report.json",
     "test:game": "node tests/run_game_validation.mjs tests/game-parity-report.json tests/game-faoxom-baseline.png",
