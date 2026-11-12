@@ -1,4 +1,6 @@
 import FaoxomJs from "../FaoxomJs.js";
+export const GPUBroadphase = FaoxomJs.GPUBroadphase;
+export const FixedSimulation = FaoxomJs.FixedSimulation;
 export const PhysicsWorld = FaoxomJs.PhysicsWorld;
 export const RigidBody = FaoxomJs.RigidBody;
 export const BVHNode = FaoxomJs.BVHNode;

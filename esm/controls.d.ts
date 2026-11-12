@@ -148,3 +148,12 @@ export class BoxHelper extends LineSegments {
   update(object?: Object3D): void;
   setFromObject(object: Object3D): this;
 }
+
+export class FaoxomSceneElement extends HTMLElement {
+  static get observedAttributes(): string[];
+  getApp(): any | null;
+  getScene(): any | null;
+  getCamera(): any | null;
+  getControls(): any | null;
+  isLoaded(): boolean;
+}

@@ -110,3 +110,21 @@ export class AssetLoader {
   static loadFBX(url: string): Promise<Group>;
   static loadTexture(url: string): Promise<any>;
 }
+
+export class FaoxWriter {
+  static hashBytes(bytes: Uint8Array): number;
+  static fileHash(bytes: Uint8Array): string;
+  static write(head: any, payloads: { fourcc: string; nameId?: number; bytes: Uint8Array }[]): { bytes: Uint8Array; hash: string; chunkCount: number; byteLength: number };
+  static read(source: ArrayBuffer | Uint8Array): { head: any; chunks: any[]; hash: string; byteLength: number };
+}
+
+export class FaoxPacker {
+  pack(scene: any, options?: { clips?: any[] }): { bytes: Uint8Array; hash: string; chunkCount: number; byteLength: number; head: any };
+}
+
+export class FaoxLoader {
+  parse(source: ArrayBuffer | Uint8Array): { scene: any; clips: any[]; hash: string; head: any; byteLength: number };
+  load(url: string): Promise<{ scene: any; clips: any[]; hash: string; head: any; byteLength: number }>;
+}
+
+export const FAOX_VERSION: number;

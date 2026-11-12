@@ -42,3 +42,40 @@ export class WebXRLightEstimator {
 export class WebXRHaptics {
   static pulse(source: any, intensity?: number, durationMs?: number): Promise<boolean>;
 }
+
+export interface WebXRHitResult {
+  position: Vector3;
+  orientation: Quaternion;
+  distance?: number;
+  anchorSupported: boolean;
+}
+
+export interface WebXRAnchorEntry {
+  anchor: any;
+  position: Vector3;
+  orientation: Quaternion;
+}
+
+export class WebXRAR {
+  options: Record<string, any>;
+  session: any | null;
+  enabled: boolean;
+  hitTestEnabled: boolean;
+  anchorsSupported: boolean;
+  hits: WebXRHitResult[];
+  constructor(options?: Record<string, any>);
+  supportsSession(mode?: string, features?: string[]): Promise<any>;
+  start(mode?: string): Promise<any>;
+  attachTo(manager: any): this;
+  enableHitTest(): this;
+  disableHitTest(): this;
+  update(frame: any, referenceSpace: any): void;
+  createAnchorFromHit(hit: WebXRHitResult): Promise<any>;
+  removeAnchor(anchor: any): this;
+  getAnchors(): WebXRAnchorEntry[];
+  getPlanes(): any[];
+  setFoveation(level: number): this;
+  getFoveation(): number;
+  requestPassthrough(): any | null;
+  end(): Promise<any>;
+}

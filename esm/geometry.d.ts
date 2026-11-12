@@ -253,3 +253,111 @@ export class VirtualGeometryStreamer {
   registerCluster(id: string | number, boundingSphere: Sphere, lodGeometries: BufferGeometry[]): void;
   update(camera: Camera): { loaded: number; evicted: number; activeChunks: number };
 }
+
+export class MeshletSet {
+  meshlets: any[];
+  geometry: any;
+  stats: any;
+  constructor(geometry: any, options?: any);
+  cull(viewPos: number[]): Uint8Array;
+  cullView(planes: number[], viewPos: number[]): Uint8Array;
+  mergeIndices(visibility?: Uint8Array): Uint32Array;
+  meshletGeometry(visibility?: Uint8Array): any;
+}
+
+export class FXOMVGS {
+  clusters: any[];
+  levelRanges: { start: number; count: number }[];
+  stats: any;
+  constructor(geometry: any, options?: { maxVertices?: number; maxTriangles?: number; groupSize?: number; maxLevels?: number; renderer?: any });
+  select(camera: any, options?: { threshold?: number; viewportHeight?: number; useCone?: boolean }): FXOMVGS;
+  readback(): Promise<Uint32Array>;
+  selectedIndices(selection?: Uint32Array): Uint32Array;
+  selectionGeometry(selection?: Uint32Array): any;
+  setMemoryBudget(clusterBudget: number): FXOMVGS;
+  updateResidency(selection?: Uint32Array, frame?: number): FXOMVGS;
+  dispose(): void;
+}
+
+export class PCGRandom {
+  seed: number;
+  constructor(seed?: number);
+  next(): number;
+  range(min: number, max: number): number;
+  int(min: number, max: number): number;
+  chance(probability: number): boolean;
+  pick(list: any[]): any;
+  gauss(mu: number, sigma: number): number;
+  shuffle(list: any[]): any[];
+}
+
+export class PCGNoise {
+  seed: number;
+  constructor(seed?: number);
+  hash2(ix: number, iy: number): number;
+  value2(x: number, y: number): number;
+  fbm2(x: number, y: number, options?: { octaves?: number; lacunarity?: number; gain?: number; ridge?: boolean; warp?: number }): number;
+}
+
+export class PCGTerrain {
+  seed: number;
+  width: number;
+  depth: number;
+  segmentsX: number;
+  segmentsZ: number;
+  heights: Float32Array;
+  normals: Float32Array;
+  slopes: Float32Array;
+  zoneIndices: Int16Array;
+  colors: Float32Array;
+  zones: any[];
+  constructor(options?: any);
+  zoneIndexByName(name: string): number;
+  heightAt(wx: number, wz: number): number;
+  slopeAt(wx: number, wz: number): number;
+  zoneAt(wx: number, wz: number): number;
+  toMesh(material?: any): any;
+}
+
+export class PCGScatter {
+  source: any;
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  transforms: { position: number[]; rotationY: number; scale: number }[];
+  constructor(source: any);
+  satisfies(x: number, z: number, rules?: any): boolean;
+  scatter(rules?: any): { position: number[]; rotationY: number; scale: number }[];
+  matrices(): any[];
+  toInstancedMesh(geometry: any, material: any): any;
+}
+
+export class PCGDungeon {
+  seed: number;
+  cols: number;
+  rows: number;
+  rooms: { x: number; z: number; w: number; h: number; cx: number; cz: number }[];
+  corridors: any[];
+  doors: { x: number; z: number; room: number }[];
+  tiles: Uint8Array;
+  constructor(options?: any);
+  tileAt(x: number, z: number): number;
+  connected(): boolean;
+  toMeshes(options?: any): { floor: any; walls: any; floorTriangles: number; wallTriangles: number };
+}
+
+export class PCGGrammar {
+  expand(axiom: string, rules: any, iterations: number): string;
+  turtle(str: string, options?: { step?: number; angle?: number; x?: number; z?: number; dir?: number }): { segments: any[]; transforms: any[]; end: { x: number; z: number; dir: number } };
+}
+
+export class MegaGeometry {
+  geometry: any;
+  materials: any[];
+  stats: any;
+  add(geometry: any, matrix?: any, options?: any): number;
+  addMaterial(material: any): number;
+  build(): any;
+  uploadMaterials(renderer: any): any;
+  objectIdOfTriangle(triIndex: number): number;
+  materialIndexOfTriangle(triIndex: number): number;
+  dispose(): void;
+}

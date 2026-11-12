@@ -9,3 +9,4 @@ export const CameraHelper = FaoxomJs.CameraHelper;
 export const DirectionalLightHelper = FaoxomJs.DirectionalLightHelper;
 export const PointLightHelper = FaoxomJs.PointLightHelper;
 export const BoxHelper = FaoxomJs.BoxHelper;
+export const FaoxomSceneElement = FaoxomJs.FaoxomSceneElement;

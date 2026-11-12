@@ -1,4 +1,8 @@
 import FaoxomJs from "../FaoxomJs.js";
+export const FaoxWriter = FaoxomJs.FaoxWriter;
+export const FaoxPacker = FaoxomJs.FaoxPacker;
+export const FaoxLoader = FaoxomJs.FaoxLoader;
+export const FAOX_VERSION = FaoxomJs.FAOX_VERSION;
 export const AssetLoader = FaoxomJs.AssetLoader;
 export const GLTFLoader = FaoxomJs.GLTFLoader;
 export const GLTFExporter = FaoxomJs.GLTFExporter;
@@ -7,6 +11,9 @@ export const OBJExporter = FaoxomJs.OBJExporter;
 export const STLLoader = FaoxomJs.STLLoader;
 export const STLExporter = FaoxomJs.STLExporter;
 export const PLYLoader = FaoxomJs.PLYLoader;
+export const SplatPLYLoader = FaoxomJs.SplatPLYLoader;
+export const SPZLoader = FaoxomJs.SPZLoader;
+export const SOGLoader = FaoxomJs.SOGLoader;
 export const PLYExporter = FaoxomJs.PLYExporter;
 export const SVGLoader = FaoxomJs.SVGLoader;
 export const FBXLoader = FaoxomJs.FBXLoader;

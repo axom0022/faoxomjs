@@ -249,3 +249,48 @@ export class TSLBufferPacker {
   static packStd140(structDefinition: Array<{ name: string; type: string; value: any }>): { buffer: ArrayBuffer; size: number; offsets: { [key: string]: number } };
   static packStd430(structDefinition: Array<{ name: string; type: string; value: any }>): { buffer: ArrayBuffer; size: number; offsets: { [key: string]: number } };
 }
+
+export class FNNode {
+  emit(ctx: any): { expr: string; type: string };
+}
+
+export class FNFloat extends FNNode { constructor(value: number); }
+export class FNVec2 extends FNNode { constructor(x: any, y: any); }
+export class FNVec3 extends FNNode { constructor(x: any, y: any, z: any); }
+export class FNVec4 extends FNNode { constructor(x: any, y: any, z: any, w: any); }
+export class FNColor extends FNNode { constructor(hex: any); }
+export class FNUV extends FNNode { constructor(); }
+export class FNSurfaceNormal extends FNNode { constructor(); }
+export class FNViewDir extends FNNode { constructor(); }
+export class FNVertexColor extends FNNode { constructor(); }
+export class FNMaterialColor extends FNNode { constructor(); }
+export class FNMaterialAlpha extends FNNode { constructor(); }
+export class FNTexture extends FNNode { constructor(uv?: FNNode); }
+export class FNMath extends FNNode { constructor(op: string, a: FNNode, b: FNNode); }
+export class FNMix extends FNNode { constructor(a: FNNode, b: FNNode, t: FNNode); }
+export class FNClamp extends FNNode { constructor(a: FNNode, lo: FNNode, hi: FNNode); }
+export class FNSaturate extends FNNode { constructor(a: FNNode); }
+export class FNChannel extends FNNode { constructor(node: FNNode, swizzle: string); }
+export class FNDot extends FNNode { constructor(a: FNNode, b: FNNode); }
+export class FNNormalize extends FNNode { constructor(a: FNNode); }
+export class FNFresnel extends FNNode { constructor(power: FNNode); }
+export class FNChecker extends FNNode { constructor(uv: FNNode, scale: FNNode); }
+export class FNNoise extends FNNode { constructor(uv: FNNode, scale: FNNode); }
+
+export class FNMaterial extends Material {
+  isFNMaterial: boolean;
+  mode: string;
+  nodeVersion: number;
+  colorNode: FNNode | null;
+  alphaNode: FNNode | null;
+  metallicNode: FNNode | null;
+  roughnessNode: FNNode | null;
+  emissiveNode: FNNode | null;
+  constructor(options?: MaterialParameters & { mode?: string });
+  setColor(node: any): FNMaterial;
+  setAlpha(node: any): FNMaterial;
+  setMetallic(node: any): FNMaterial;
+  setRoughness(node: any): FNMaterial;
+  setEmissive(node: any): FNMaterial;
+  buildFragment(engineFrag: string): string;
+}

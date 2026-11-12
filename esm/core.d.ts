@@ -288,6 +288,9 @@ export class WebGPURenderer {
   setPixelRatio(value: number): void;
   render(scene: Scene, camera: Camera): Promise<void> | void;
   setAnimationLoop(callback: (time: number) => void): void;
+  setMegaMaterials(records: any[]): WebGPURenderer;
+  megaMaterialCount: number;
+  clusteredLighting: any;
   dispose(): void;
 }
 
@@ -355,4 +358,70 @@ export class Clock {
   stop(): void;
   getElapsedTime(): number;
   getDelta(): number;
+}
+
+export class FloatingOrigin {
+  threshold: number;
+  origin: { x: number; y: number; z: number };
+  rebaseCount: number;
+  onRebase: ((shift: { x: number; y: number; z: number }, origin: FloatingOrigin) => void) | null;
+  constructor(options?: { threshold?: number; onRebase?: (shift: { x: number; y: number; z: number }, origin: FloatingOrigin) => void });
+  rebase(scene: any, camera: any, shift: { x: number; y: number; z: number }, physicsWorld?: any): FloatingOrigin;
+  update(scene: any, camera: any, physicsWorld?: any): boolean;
+  cameraWorldPosition(camera: any, target?: any): any;
+  worldPosition(object: any, target?: any): any;
+}
+
+export interface TaskGraph {
+  nodes: Array<{
+    id: string;
+    task: string;
+    payload?: any;
+    transfer?: Transferable[];
+    deps?: string[];
+  }>;
+  onNode?: (id: string, result: any, progress: number) => void;
+}
+
+export class TaskPool {
+  size: number;
+  engineUrl: string | null;
+  workerUrl: string | null;
+  stats: { workers: number; dispatched: number; completed: number; failed: number; queued: number };
+  constructor(options?: { workers?: number; engineUrl?: string; workerUrl?: string });
+  static get supportsSharedArrayBuffer(): boolean;
+  get supportsSharedArrayBuffer(): boolean;
+  run(task: string, payload?: any, transfer?: Transferable[]): Promise<any>;
+  submit(graph: TaskGraph): Promise<Record<string, any>>;
+  terminate(): this;
+}
+
+export class OffscreenEngine {
+  canvas: HTMLCanvasElement | null;
+  workerUrl: string | null;
+  width: number;
+  height: number;
+  ready: boolean;
+  lastHash: string | null;
+  lastDraws: number;
+  stats: { renders: number; loaded: number };
+  constructor(options?: {
+    canvas?: HTMLCanvasElement;
+    workerUrl?: string;
+    width?: number;
+    height?: number;
+    background?: number;
+    fov?: number;
+  });
+  on(event: string, callback: (payload: any) => void): this;
+  init(): Promise<this>;
+  load(bytesOrUrl: Uint8Array | string): Promise<any>;
+  setCamera(settings?: { fov?: number; position?: number[]; target?: number[] }): this;
+  render(): Promise<{ hash: string; draws: number; triangles: number; frames: number }>;
+  renderPNG(): Promise<{ hash: string; byteLength: number; draws: number; png?: Uint8Array }>;
+  resize(width: number, height: number): this;
+  ping(): Promise<number>;
+  start(): this;
+  stop(): this;
+  terminate(): this;
 }

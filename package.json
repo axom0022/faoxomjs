@@ -1,7 +1,7 @@
 {
   "name": "faoxomjs",
-  "version": "5.0.0",
-  "description": "Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU",
+  "version": "6.0.0",
+  "description": "Zero-dependency, high-performance, single-file and modular 3D engine for WebGL2 and WebGPU",
   "type": "module",
   "main": "./FaoxomJs.js",
   "module": "./esm/index.js",
@@ -73,11 +73,14 @@
     "test:game": "node tests/run_game_validation.mjs tests/game-parity-report.json tests/game-faoxom-baseline.png",
     "test:reference": "node tests/run_reference_validation.mjs tests/reference-report.json",
     "test:feature": "node tests/run_feature_validation.mjs tests/feature-report.json",
-    "test": "npm run typecheck && npm run test:browser && npm run test:game && npm run test:reference && npm run test:feature"
+    "test": "npm run typecheck && npm run test:browser && npm run test:game && npm run test:reference && npm run test:feature",
+    "build": "node tools/build_from_src.mjs",
+    "test:round12": "node tests/run_round12_webgpu_validation.mjs",
+    "test:localdist": "node tests/run_localdist_boot_validation.mjs"
   },
   "devDependencies": {
-    "playwright": "^1.58.0",
-    "terser": "^5.39.0",
-    "typescript": "^5.0.0"
+    "playwright": "^1.65.0",
+    "terser": "^5.51.2",
+    "typescript": "^5.9.3"
   }
 }

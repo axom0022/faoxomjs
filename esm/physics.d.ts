@@ -179,3 +179,37 @@ export class PhysicsWorld {
   removeConstraint(constraint: Constraint): void;
   step(dt: number): void;
 }
+
+export class GPUBroadphase {
+  pairs: number[][];
+  updateCount: number;
+  constructor(renderer: any);
+  update(world: any): Promise<GPUBroadphase>;
+  bodyPairs(world: any): any[][];
+}
+
+export class FixedSimulation {
+  timeStep: number;
+  maxSubSteps: number;
+  accumulator: number;
+  tick: number;
+  time: number;
+  world: any;
+  onTick: ((tick: number, input: any, sim: FixedSimulation) => void) | null;
+  onSnapshot: (() => any) | null;
+  onRestore: ((extra: any, sim: FixedSimulation) => void) | null;
+  inputDelay: number;
+  defaultInput: any;
+  inputs: Record<number, any>;
+  constructor(options?: { timeStep?: number; maxSubSteps?: number; world?: any; onTick?: (tick: number, input: any, sim: FixedSimulation) => void; onSnapshot?: () => any; onRestore?: (extra: any, sim: FixedSimulation) => void; inputDelay?: number; defaultInput?: any });
+  pushInput(tick: number, input: any): FixedSimulation;
+  inputAt(tick: number): any;
+  currentInput(): any;
+  advance(frameDelta: number): number;
+  stepOnce(): FixedSimulation;
+  snapshot(): any;
+  restore(state: any): FixedSimulation;
+  interpolatedPosition(body: any, alpha: number, target?: any): any;
+  applyInterpolation(alpha: number): FixedSimulation;
+  reset(): FixedSimulation;
+}

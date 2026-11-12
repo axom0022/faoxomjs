@@ -1,4 +1,5 @@
 import FaoxomJs from "../FaoxomJs.js";
+export const FloatingOrigin = FaoxomJs.FloatingOrigin;
 export const Object3D = FaoxomJs.Object3D;
 export const Scene = FaoxomJs.Scene;
 export const Camera = FaoxomJs.Camera;
@@ -19,3 +20,5 @@ export const WebGLRenderTarget = FaoxomJs.WebGLRenderTarget;
 export const Raycaster = FaoxomJs.Raycaster;
 export const Clock = FaoxomJs.Clock;
 export const EventDispatcher = FaoxomJs.EventDispatcher;
+export const TaskPool = FaoxomJs.TaskPool;
+export const OffscreenEngine = FaoxomJs.OffscreenEngine;
