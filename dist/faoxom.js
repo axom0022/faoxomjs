@@ -573,7 +573,7 @@ class DataTexture extends Texture {
 }
 
 
-// LTCData — baked LTC lookup (roadmap item 14). Produced by
+// LTCData - baked LTC lookup (roadmap item 14). Produced by
 // LTCLookup.generate(32): Gauss-Newton GGX fit + render-space amplitude
 // calibration + Frobenius scale canonicalization + bad-cell neighbour
 // smoothing, fully deterministic. Embedded so engine init is instant.
@@ -1611,11 +1611,11 @@ var LTC_BAKED_AMP = [
 ];
 
 
-// LTCLookup — runtime-fitted Linearly Transformed Cosines (roadmap item 14).
+// LTCLookup - runtime-fitted Linearly Transformed Cosines (roadmap item 14).
 //
 // Generates the LTC lookup for GGX specular area-light shading at engine
 // startup (lazily, on first RectAreaLight/TubeLight draw):
-//   * diffuse area shading is EXACT — the analytic vector-irradiance edge
+//   * diffuse area shading is EXACT - the analytic vector-irradiance edge
 //     integral over the polygon (LTC with identity transform), verified
 //     against Monte-Carlo reference;
 //   * specular uses a real LTC fit: a Gauss-Newton least-squares fit of the
@@ -1627,7 +1627,7 @@ var LTC_BAKED_AMP = [
 //     runtime fit; the engine ships no baked LUT data).
 //
 // Everything is deterministic (fixed Fibonacci sample sets, fixed starts),
-// so the generated textures — and therefore render hashes — are stable.
+// so the generated textures - and therefore render hashes - are stable.
 
 var LTC_PI = Math.PI;
 
@@ -4194,7 +4194,7 @@ class ProgressiveBloomPass extends Pass {
 }
 
 
-// TAAPass — temporal anti-aliasing (roadmap item 15).
+// TAAPass - temporal anti-aliasing (roadmap item 15).
 //
 // Blends the current frame with a velocity-reprojected history buffer and
 // clamps the history to the current frame's 3x3 neighbourhood so ghosting
@@ -9380,7 +9380,7 @@ class SkinnedCrowd {
 }
 
 
-// ResourceLedger — GPU resource accounting and leak detection (roadmap item 36).
+// ResourceLedger - GPU resource accounting and leak detection (roadmap item 36).
 // Tracks every resource created through an instrumented GPUDevice handle:
 // buffers, textures, shader modules, pipelines, bind groups and samplers, with
 // byte estimates, live/disposed counters, destroy interception and a leak
@@ -9610,7 +9610,7 @@ class ResourceLedger {
 }
 
 
-// DeviceLossManager — WebGPU device-loss recovery (roadmap item 36).
+// DeviceLossManager - WebGPU device-loss recovery (roadmap item 36).
 // Watches GPUDevice.lost, invalidates every cached GPU object on the renderer
 // (all resources are reconstructable from CPU-resident copies held by the
 // scene graph and the resource-manager source objects), reacquires a device,
@@ -9724,7 +9724,7 @@ class DeviceLossManager {
 }
 
 
-// FrameProfiler — profiler overlay with GPU timestamps (roadmap item 39).
+// FrameProfiler - profiler overlay with GPU timestamps (roadmap item 39).
 // Instruments the renderer's render passes: GPU timestamp deltas through the
 // timestamp-query feature (with a CPU-timing fallback), draw/pipeline counts,
 // texture+buffer ledger integration, shader-cache stats, an in-canvas HUD
@@ -9900,7 +9900,7 @@ class FrameProfiler {
                 if (end >= begin) pass.gpuMs = (end - begin) * period / 1000000;
             }
             staging.unmap();
-        }).catch(function() { /* timestamps lost — keep cpu fallback */ }).then(function() {
+        }).catch(function() { /* timestamps lost - keep cpu fallback */ }).then(function() {
             self._pending = false;
             self._finishFrame();
         });
@@ -9959,7 +9959,7 @@ class FrameProfiler {
             var last = this.history[this.history.length - 1];
             if (!last) return;
             ctx.fillStyle = "#9be29b";
-            ctx.fillText("faoxom profiler — " + last.source + " timestamps", 8, 14);
+            ctx.fillText("faoxom profiler - " + last.source + " timestamps", 8, 14);
             ctx.fillStyle = "#dddddd";
             ctx.fillText("fps " + (last.fps ? last.fps.toFixed(1) : "--") + "  gpu " + (last.source === "gpu" ? last.totalGpuMs.toFixed(3) + "ms" : "n/a") + "  cpu " + last.totalCpuMs.toFixed(2) + "ms", 8, 28);
             ctx.fillText("draws " + last.draws + "  tris " + last.triangles + "  pipelines " + last.pipelines, 8, 42);
@@ -10058,7 +10058,7 @@ class FrameProfiler {
 }
 
 
-// ShaderDX — shader developer experience (roadmap item 18).
+// ShaderDX - shader developer experience (roadmap item 18).
 //
 // * captures shader compile errors from both backends (WebGL info logs,
 //   WebGPU compilationInfo) instead of letting them vanish silently;
@@ -10256,13 +10256,13 @@ class ShaderDX {
             material.needsUpdate = true;
             this._logEvent("hot reload ok (" + (vertexChanged ? "vertex" : "") + (vertexChanged && fragmentChanged ? "+" : "") + (fragmentChanged ? "fragment" : "") + ", " + elapsed + "ms)");
         } else if (this.renderer && this.renderer.gl) {
-            // WebGL: compilation failed — revert so the scene keeps rendering
+            // WebGL: compilation failed - revert so the scene keeps rendering
             material.vertexShader = entry.lastGoodVertex;
             material.fragmentShader = entry.lastGoodFragment;
             entry.pendingVertex = entry.lastGoodVertex;
             entry.pendingFragment = entry.lastGoodFragment;
             material.needsUpdate = true;
-            this._logEvent("hot reload FAILED — reverted to last good source (" + elapsed + "ms)");
+            this._logEvent("hot reload FAILED - reverted to last good source (" + elapsed + "ms)");
         } else if (this.renderer && this.renderer.device) {
             // WebGPU: pipeline/module caches are rebuilt lazily on the next
             // draw; a failed module surfaces through compilationInfo.
@@ -10359,7 +10359,7 @@ class ShaderDX {
 }
 
 
-// VelocityBuffer — camera motion vectors (roadmap item 15).
+// VelocityBuffer - camera motion vectors (roadmap item 15).
 //
 // Renders a per-pixel screen-space velocity texture by reconstructing world
 // positions from the scene depth buffer and reprojecting them with the
@@ -10371,7 +10371,7 @@ class ShaderDX {
 //   composer.addPass(new MotionBlurPass({ velocity: velocity }))
 //   composer.addPass(new TAAPass({ velocity: velocity }))
 //
-// Scope note: velocities cover CAMERA motion (the standard first tier —
+// Scope note: velocities cover CAMERA motion (the standard first tier -
 // correct for static geometry, which is what TAA jitter and camera motion
 // blur need). Per-object motion requires a per-mesh previous-matrix
 // G-buffer and is intentionally left out of this tier.
@@ -10456,7 +10456,7 @@ class VelocityBuffer {
 }
 
 
-// MotionBlurPass — velocity-aware camera motion blur (roadmap item 15).
+// MotionBlurPass - velocity-aware camera motion blur (roadmap item 15).
 // Consumes the shared VelocityBuffer texture produced earlier in the chain:
 //
 //   composer.addPass(velocity)
@@ -10530,7 +10530,7 @@ class SSSSProfile {
 }
 
 
-// SSSPass — screen-space subsurface scattering (roadmap item 16).
+// SSSPass - screen-space subsurface scattering (roadmap item 16).
 //
 // Separable transmittance blur driven by an SSSSProfile kernel, masked to a
 // configurable surface colour (skin by default) and depth-rejected so light
@@ -12639,7 +12639,7 @@ class FaoxLoader {
 }
 
 
-// PNGCodec — dependency-free PNG encode/decode + golden-image comparison
+// PNGCodec - dependency-free PNG encode/decode + golden-image comparison
 // (roadmap item 38). The encoder writes valid zlib streams using stored
 // (uncompressed) deflate blocks so output is deterministic and needs no
 // compression library; pass options.deflate for real compression. The decoder
@@ -12691,7 +12691,7 @@ function pngPaethPredictor(a, b, c) {
     return c;
 }
 
-// zlib stream of stored (uncompressed) deflate blocks — deterministic, no
+// zlib stream of stored (uncompressed) deflate blocks - deterministic, no
 // compression library needed. BFINAL set on the last block.
 function deflateStored(data) {
     var blockCount = Math.max(1, Math.ceil(data.length / 65535));
@@ -12908,7 +12908,7 @@ function pngChunk(type, data) {
 
 class PNGCodec {
     // rgba: Uint8Array (or array-like) of width*height*4 bytes.
-    // options.filter: row filter applied to every scanline (0-4, default 0) —
+    // options.filter: row filter applied to every scanline (0-4, default 0) -
     // exists to exercise the decoder; options.deflate(bytes) replaces the
     // stored-block compressor (e.g. node:zlib deflateSync).
     static encode(width, height, rgba, options) {
@@ -13078,7 +13078,7 @@ class PNGCodec {
 }
 
 
-// HeadlessRenderer — deterministic offscreen WebGPU rendering without a
+// HeadlessRenderer - deterministic offscreen WebGPU rendering without a
 // canvas (roadmap item 38). Renders a scene into an offscreen texture, reads
 // the pixels back, and produces PNG bytes / deterministic pixel fingerprints
 // for CI golden-image comparison. Works anywhere navigator.gpu exists
@@ -13115,7 +13115,7 @@ class HeadlessRenderer {
 
     async init() {
         if (this.initialized) return this;
-        if (typeof navigator === "undefined" || !navigator.gpu) throw new Error("HeadlessRenderer requires WebGPU — use Node 22+ (Dawn) or a browser");
+        if (typeof navigator === "undefined" || !navigator.gpu) throw new Error("HeadlessRenderer requires WebGPU - use Node 22+ (Dawn) or a browser");
         if (!this.adapter) this.adapter = await navigator.gpu.requestAdapter();
         if (!this.adapter) throw new Error("HeadlessRenderer: adapter request failed");
         if (!this.device) this.device = await this.adapter.requestDevice();
@@ -13236,7 +13236,7 @@ class HeadlessRenderer {
 }
 
 
-// OffscreenEngine — main-thread controller for worker-first offscreen
+// OffscreenEngine - main-thread controller for worker-first offscreen
 // rendering (roadmap item 43). Transfers a canvas to an engine worker
 // (src/extras/faoxom-worker.js), loads .faox scenes, drives the camera and
 // collects deterministic render hashes / PNG bytes / draw stats. The main
@@ -13418,7 +13418,7 @@ class OffscreenEngine {
 }
 
 
-// PerfGovernor — adaptive performance governor as an engine service
+// PerfGovernor - adaptive performance governor as an engine service
 // (roadmap item 37). Real-time fps/frame-time EMA, tier budgets with density
 // ladders, dynamic resolution scaling, hysteresis on every transition and a
 // cooldown so quality never flip-flops. One line to enable:
@@ -13674,7 +13674,7 @@ class PerfGovernor {
 }
 
 
-// TaskPool — worker-first task graph (roadmap item 43). A pool of workers
+// TaskPool - worker-first task graph (roadmap item 43). A pool of workers
 // running registered task handlers with a dependency-ordered graph scheduler,
 // transferable-friendly payloads, optional SharedArrayBuffer sharing (when
 // the platform exposes it) and engine-backed tasks (BVH builds) when an
@@ -13906,7 +13906,7 @@ class TaskPool {
 }
 
 
-// WebXRAR — WebXR core for AR sessions (roadmap item 44): immersive-ar
+// WebXRAR - WebXR core for AR sessions (roadmap item 44): immersive-ar
 // sessions, viewer/controller hit-test, anchors with lifecycle tracking,
 // plane detection wiring, passthrough layer requests and foveated submission
 // where the platform exposes them. Fully driven by explicit update(frame)
@@ -17900,7 +17900,7 @@ class StatsPanel {
 class HemisphereLight extends Light { constructor(skyColor, groundColor, intensity) { super(skyColor, intensity); this.type = "HemisphereLight"; this.groundColor = new Color(faoxomvalue(groundColor, 0x444444)); } }
 
 
-// RectAreaLight — LTC area light (roadmap item 14). Renders with exact
+// RectAreaLight - LTC area light (roadmap item 14). Renders with exact
 // diffuse (analytic polygon irradiance) and runtime-fitted LTC specular on
 // the WebGL backend. `shape` selects "rect" (default) or "tube"; tube lights
 // shade with segment-integration (closest-point sphere approximation).
@@ -23871,7 +23871,7 @@ class GameInput {
 }
 
 
-// FaoxomSceneElement — the zero-config `<faoxom-scene>` custom element
+// FaoxomSceneElement - the zero-config `<faoxom-scene>` custom element
 // (roadmap item 41). Declarative scene embedding with attributes:
 //   src               .faox container URL to load
 //   backend           "webgl" (default) or "webgpu"
@@ -24143,7 +24143,7 @@ if (typeof customElements !== "undefined" && !customElements.get("faoxom-scene")
 }
 
 
-// FurShells — shell-based fur (roadmap item 16).
+// FurShells - shell-based fur (roadmap item 16).
 //
 // Builds a stack of extruded copies of a mesh that fade out toward the tips
 // with a hash-based strand mask, plus a wind sway that grows quadratically
@@ -24246,7 +24246,7 @@ function hexToRgb(hex) {
 }
 
 
-// DecalProjector — projected decals with normal conformance (roadmap item 17).
+// DecalProjector - projected decals with normal conformance (roadmap item 17).
 //
 // Renders a decal by projecting a grid of rays along the projector's local
 // -Z axis onto the target meshes, keeping only hits inside the projector's
@@ -27333,7 +27333,7 @@ class SpatialAudioSystem {
 }
 
 
-// TubeLight — capsule/linear area light (roadmap item 14). Shaded with
+// TubeLight - capsule/linear area light (roadmap item 14). Shaded with
 // segment integration: diffuse from the closest point on the segment with
 // sphere falloff, specular via the Karis-style roughness-corrected sphere
 // highlight. `length` spans the tube along the light's local X axis; the
