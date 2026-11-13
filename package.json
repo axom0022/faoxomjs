@@ -65,6 +65,18 @@
     "./controls": {
       "types": "./esm/controls.d.ts",
       "default": "./esm/controls.js"
+    },
+    "./bindings/react": {
+      "default": "./bindings/react/index.js"
+    },
+    "./bindings/vue": {
+      "default": "./bindings/vue/index.js"
+    },
+    "./bindings/svelte": {
+      "default": "./bindings/svelte/index.js"
+    },
+    "./worker": {
+      "default": "./src/extras/faoxom-worker.js"
     }
   },
   "scripts": {
@@ -82,5 +94,8 @@
     "playwright": "^1.65.0",
     "terser": "^5.51.2",
     "typescript": "^5.9.3"
+  },
+  "bin": {
+    "faoxom": "./bin/faoxom.mjs"
   }
 }
