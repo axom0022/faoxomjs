@@ -1,0 +1,18 @@
+import { Geometry, faoxomgeometry } from "../geometries/index.js";
+import { StandardMaterial } from "../materials/index.js";
+import { faoxomclamp, faoxomvalue } from "../math/index.js";
+import { Mesh } from "../objects/index.js";
+
+class Terrain extends Mesh {
+    constructor(width, depth, segmentsX, segmentsZ, options) { options = options || {}; var sx = Math.max(1, Math.floor(faoxomvalue(segmentsX, 32))); var sz = Math.max(1, Math.floor(faoxomvalue(segmentsZ, 32))); var g = new Geometry(); var heights = new Float32Array((sx + 1) * (sz + 1)); var p = [], n = [], u = [], ind = []; var heightScale = faoxomvalue(options.heightScale, 1); var heightmap = options.heightmap || null; for (var z = 0; z <= sz; z++) for (var x = 0; x <= sx; x++) { var index = z * (sx + 1) + x; var h = heightmap ? (heightmap[index] || 0) : 0; heights[index] = h * heightScale; p.push((x / sx - 0.5) * faoxomvalue(width, 10), heights[index], (z / sz - 0.5) * faoxomvalue(depth, 10)); n.push(0, 1, 0); u.push(x / sx, z / sz); } for (var zz = 0; zz < sz; zz++) for (var xx = 0; xx < sx; xx++) { var a = zz * (sx + 1) + xx; var b = a + 1; var c = a + sx + 1; var d = c + 1; ind.push(a, c, b, b, c, d); } g.attributes = faoxomgeometry(p, n, u, ind).attributes; g.index = new Uint32Array(ind); g.computeVertexNormals(); super(g, options.material || new StandardMaterial()); this.type = "Terrain"; this.width = faoxomvalue(width, 10); this.depth = faoxomvalue(depth, 10); this.segmentsX = sx; this.segmentsZ = sz; this.heights = heights; this.lodLevels = options.lodLevels || []; this.heightScale = heightScale; this.rebuild(); }
+    rebuild() { var p = this.geometry.attributes.position.array; for (var z = 0; z <= this.segmentsZ; z++) for (var x = 0; x <= this.segmentsX; x++) { var i = z * (this.segmentsX + 1) + x; p[i * 3 + 1] = this.heights[i]; } this.geometry.computeVertexNormals(); this.geometry.computeBoundingBox(); this.geometry.computeBoundingSphere(); return this; }
+    indexAt(x, z) { return faoxomclamp(Math.round(z), 0, this.segmentsZ) * (this.segmentsX + 1) + faoxomclamp(Math.round(x), 0, this.segmentsX); }
+    getHeight(x, z) { var fx = faoxomclamp(x / this.width + 0.5, 0, 1) * this.segmentsX; var fz = faoxomclamp(z / this.depth + 0.5, 0, 1) * this.segmentsZ; var x0 = Math.floor(fx); var z0 = Math.floor(fz); var x1 = Math.min(this.segmentsX, x0 + 1); var z1 = Math.min(this.segmentsZ, z0 + 1); var tx = fx - x0; var tz = fz - z0; var h00 = this.heights[this.indexAt(x0, z0)], h10 = this.heights[this.indexAt(x1, z0)], h01 = this.heights[this.indexAt(x0, z1)], h11 = this.heights[this.indexAt(x1, z1)]; return (h00 * (1 - tx) + h10 * tx) * (1 - tz) + (h01 * (1 - tx) + h11 * tx) * tz; }
+    setHeight(x, z, value) { this.heights[this.indexAt(x, z)] = value; return this.rebuild(); }
+    addHeight(x, z, value) { return this.setHeight(x, z, this.heights[this.indexAt(x, z)] + value); }
+    smooth(radius) { radius = Math.max(1, Math.floor(faoxomvalue(radius, 1))); var out = new Float32Array(this.heights.length); for (var z = 0; z <= this.segmentsZ; z++) for (var x = 0; x <= this.segmentsX; x++) { var sum = 0, count = 0; for (var dz = -radius; dz <= radius; dz++) for (var dx = -radius; dx <= radius; dx++) { var xx = faoxomclamp(x + dx, 0, this.segmentsX); var zz = faoxomclamp(z + dz, 0, this.segmentsZ); sum += this.heights[this.indexAt(xx, zz)]; count++; } out[this.indexAt(x, z)] = sum / count; } this.heights = out; return this.rebuild(); }
+    exportHeightmap() { return { width: this.segmentsX + 1, height: this.segmentsZ + 1, values: Array.prototype.slice.call(this.heights) }; }
+    importHeightmap(data) { if (!data || !data.values) return this; this.heights = new Float32Array(data.values); return this.rebuild(); }
+}
+
+export { Terrain };

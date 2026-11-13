@@ -1,0 +1,5 @@
+function faoxomprepareshadersource(source, stage, glsl3) { var text = String(source || ""), version = text.match(/^\s*#version\s+[^\n]+\n?/); if (version) text = text.slice(version[0].length); else { var embeddedVersion = text.match(/(^|\n)\s*#version\s+[^\n]+\n?/); if (embeddedVersion) { version = embeddedVersion[0].replace(/^\n/, "").trim() + "\n"; text = text.replace(embeddedVersion[0], "\n"); } } if (glsl3) { if (stage === "vertex") { text = text.replace(/\battribute\b/g, "in").replace(/\bvarying\b/g, "out"); } else { text = text.replace(/\bvarying\b/g, "in").replace(/\btexture2D\s*\(/g, "texture(").replace(/\btextureCube\s*\(/g, "texture("); if (text.indexOf("gl_FragColor") >= 0) { text = text.replace(/\bgl_FragColor\b/g, "faoxomFragColor"); if (!/\bout\s+vec4\s+faoxomFragColor\s*;/.test(text)) text = "out vec4 faoxomFragColor;\n" + text; } } } var prefix = glsl3 ? "#version 300 es\n" : (version ? version[0] : "");
+        if (stage === "fragment" && !/\bprecision\s+(?:lowp|mediump|highp)\s+float\s*;/.test(text)) prefix += "precision highp float;\n";
+        return prefix + text; }
+
+export { faoxomprepareshadersource };

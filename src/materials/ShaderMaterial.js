@@ -1,0 +1,9 @@
+import { BackSide, DoubleSide, FrontSide } from "../core/index.js";
+import { Material } from "./Material.js";
+
+class ShaderMaterial extends Material {
+    constructor(options) { options = options || {}; super(options); this.type = "ShaderMaterial"; this.vertexShader = options.vertexShader || "uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix; attribute vec3 position; void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }"; this.fragmentShader = options.fragmentShader || "precision highp float; void main(){ gl_FragColor=vec4(1.0); }"; this.uniforms = options.uniforms || {}; this.defines = options.defines || {}; this.lights = !!options.lights; this.fog = !!options.fog; this.glslVersion = options.glslVersion || options.glsl || null; this.extensions = options.extensions || {}; this.defaultAttributeValues = options.defaultAttributeValues || {}; this.clipping = !!options.clipping; this.vertexColors = options.vertexColors === true || options.vertexColors === "true"; this.transparent = !!options.transparent; this.side = options.side === "back" || options.side === BackSide ? BackSide : options.side === "double" || options.side === DoubleSide ? DoubleSide : FrontSide; }
+    clone() { return new ShaderMaterial({ vertexShader: this.vertexShader, fragmentShader: this.fragmentShader, uniforms: this.uniforms, defines: Object.assign({}, this.defines), lights: this.lights, fog: this.fog, glslVersion: this.glslVersion, extensions: Object.assign({}, this.extensions), defaultAttributeValues: Object.assign({}, this.defaultAttributeValues), clipping: this.clipping, vertexColors: this.vertexColors, opacity: this.opacity, transparent: this.transparent, depthTest: this.depthTest, depthWrite: this.depthWrite, blending: this.blending, side: this.side }); }
+}
+
+export { ShaderMaterial };

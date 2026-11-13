@@ -1,11 +1,18 @@
+# ==========================================
+# FaoxomJS Production .gitignore
+# ==========================================
 
+# Dependencies & Package Managers
 node_modules/
 .npm/
 .yarn/
 package-lock.json.log
 
+# Sandbox & Runtime Environment Packages
 runtime-libs/
+.sudo_as_admin_successful
 
+# Cache, Config & System Dirs
 .cache/
 .config/
 .local/
@@ -13,6 +20,7 @@ runtime-libs/
 tmp/
 temp/
 
+# Build & Test Execution Artifacts (Generated at runtime)
 tests/*-report.json
 tests/doodleshooter-faoxom.png
 tests/faoxom-reference-runtime.png
@@ -20,12 +28,13 @@ tests/game-validation-report.json
 tests/lifecycle-report.json
 tests/performance-report.json
 
-
+# Local / Scratch Files
 Unselected files/
 *.log
 *.tmp
 *.bak
 
+# OS Metadata
 .DS_Store
 .DS_Store?
 ._*
@@ -34,6 +43,7 @@ Unselected files/
 ehthumbs.db
 Thumbs.db
 
+# IDE & Editor Configurations
 .vscode/
 .idea/
 *.swp

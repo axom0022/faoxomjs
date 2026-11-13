@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "description": "FaoxomJS v5 -> v6 identifier migration codemods. Applied by `faoxom codemod <name> <files...> [--write]`; dry-run by default.",
+  "codemods": [
+    {
+      "name": "rename-game-input",
+      "description": "GamepadInput -> GameInput (v6 unified input)",
+      "renames": { "GamepadInput": "GameInput" },
+      "notes": "Renames identifiers and .GamepadInput namespace member accesses."
+    },
+    {
+      "name": "rename-spatial-audio",
+      "description": "AudioSystem3D -> SpatialAudioSystem (v6 audio)",
+      "renames": { "AudioSystem3D": "SpatialAudioSystem" }
+    },
+    {
+      "name": "rename-automatic-lod",
+      "description": "LODManager -> AutomaticLOD (v6 LOD)",
+      "renames": { "LODManager": "AutomaticLOD" }
+    },
+    {
+      "name": "rename-perf-governor",
+      "description": "PerfManager -> PerfGovernor (v6 performance governance)",
+      "renames": { "PerfManager": "PerfGovernor" }
+    },
+    {
+      "name": "rename-frame-profiler",
+      "description": "GPUProfiler -> FrameProfiler (v6 profiling)",
+      "renames": { "GPUProfiler": "FrameProfiler" }
+    },
+    {
+      "name": "v5-to-v6",
+      "description": "All v5 -> v6 renames in one pass",
+      "renames": {
+        "GamepadInput": "GameInput",
+        "AudioSystem3D": "SpatialAudioSystem",
+        "LODManager": "AutomaticLOD",
+        "PerfManager": "PerfGovernor",
+        "GPUProfiler": "FrameProfiler"
+      }
+    }
+  ]
+}

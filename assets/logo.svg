@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" width="280" height="200">
+  <rect width="280" height="200" fill="#ffffff" />
+  <g transform="translate(140, 72) rotate(-8)">
+    <!-- Triangulated geometric symbol (flat faceted polygon) -->
+    <!-- Triangle 1: Top Red -->
+    <polygon points="0,-48 -38,-14 0,-4" fill="#E53935" />
+    <!-- Triangle 2: Top Right Light Blue -->
+    <polygon points="0,-48 0,-4 38,-14" fill="#38BDF8" />
+    <!-- Triangle 3: Center Left Black -->
+    <polygon points="-38,-14 0,-4 -24,32" fill="#111111" />
+    <!-- Triangle 4: Center Right Red -->
+    <polygon points="0,-4 38,-14 24,32" fill="#E53935" />
+    <!-- Triangle 5: Bottom Left Light Blue -->
+    <polygon points="-24,32 0,-4 0,44" fill="#38BDF8" />
+    <!-- Triangle 6: Bottom Right Black -->
+    <polygon points="0,-4 24,32 0,44" fill="#111111" />
+  </g>
+  <!-- Full text FaoxomJS centered below icon -->
+  <text x="140" y="162" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="900" letter-spacing="-0.5px">
+    <tspan fill="#E53935">Faoxom</tspan><tspan fill="#F97316">JS</tspan>
+  </text>
+</svg>

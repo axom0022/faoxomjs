@@ -1,0 +1,7 @@
+import { PostProcessPass } from "./PostProcessPass.js";
+
+class FXAAPass extends PostProcessPass {
+    render(renderer, input, output, context) { var program = renderer.getPostProgram("precision highp float; uniform sampler2D inputTexture; uniform vec2 texelSize; varying vec2 vUv; float luma(vec3 c){ return dot(c,vec3(0.299,0.587,0.114)); } void main(){ vec3 rgbM=texture2D(inputTexture,vUv).rgb; float lumaM=luma(rgbM); float lumaNW=luma(texture2D(inputTexture,vUv+vec2(-1.0,-1.0)*texelSize).rgb); float lumaNE=luma(texture2D(inputTexture,vUv+vec2(1.0,-1.0)*texelSize).rgb); float lumaSW=luma(texture2D(inputTexture,vUv+vec2(-1.0,1.0)*texelSize).rgb); float lumaSE=luma(texture2D(inputTexture,vUv+vec2(1.0,1.0)*texelSize).rgb); float lumaMin=min(lumaM,min(min(lumaNW,lumaNE),min(lumaSW,lumaSE))); float lumaMax=max(lumaM,max(max(lumaNW,lumaNE),max(lumaSW,lumaSE))); vec2 dir=vec2(-((lumaNW+lumaNE)-(lumaSW+lumaSE)),((lumaNW+lumaSW)-(lumaNE+lumaSE))); float dirReduce=max((lumaNW+lumaNE+lumaSW+lumaSE)*0.25*0.25,0.001); float rcpDirMin=1.0/(min(abs(dir.x),abs(dir.y))+dirReduce); dir=clamp(dir*rcpDirMin,vec2(-8.0),vec2(8.0))*texelSize; vec3 rgbA=0.5*(texture2D(inputTexture,vUv+dir*(1.0/3.0-0.5)).rgb+texture2D(inputTexture,vUv+dir*(2.0/3.0-0.5)).rgb); vec3 rgbB=rgbA*0.5+0.25*(texture2D(inputTexture,vUv+dir*-0.5).rgb+texture2D(inputTexture,vUv+dir*0.5).rgb); float lumaB=luma(rgbB); gl_FragColor=vec4((lumaB<lumaMin||lumaB>lumaMax)?rgbA:rgbB,1.0); }"); renderer.drawPost(program,input,output,{texelSize:[1/input.width,1/input.height]},context); }
+}
+
+export { FXAAPass };

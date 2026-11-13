@@ -1,0 +1,5 @@
+import { Vector3 } from "../math/index.js";
+
+function faoxomaabbcontact(a, b) { var aa = a.shape.getAABB(a.position, null, a.rotation); var bb = b.shape.getAABB(b.position, null, b.rotation); if (!aa.intersectsBox(bb)) return null; var overlapX = Math.min(aa.max.x, bb.max.x) - Math.max(aa.min.x, bb.min.x); var overlapY = Math.min(aa.max.y, bb.max.y) - Math.max(aa.min.y, bb.min.y); var overlapZ = Math.min(aa.max.z, bb.max.z) - Math.max(aa.min.z, bb.min.z); var normal = new Vector3(1, 0, 0); var penetration = overlapX; if (overlapY < penetration) { penetration = overlapY; normal.set(0, 1, 0); } if (overlapZ < penetration) { penetration = overlapZ; normal.set(0, 0, 1); } var centerDelta = new Vector3().subVectors(b.position, a.position); if (normal.dot(centerDelta) < 0) normal.negate(); var point = new Vector3((Math.max(aa.min.x, bb.min.x) + Math.min(aa.max.x, bb.max.x)) * 0.5, (Math.max(aa.min.y, bb.min.y) + Math.min(aa.max.y, bb.max.y)) * 0.5, (Math.max(aa.min.z, bb.min.z) + Math.min(aa.max.z, bb.max.z)) * 0.5); return { normal: normal, penetration: Math.max(0, penetration), point: point }; }
+
+export { faoxomaabbcontact };
