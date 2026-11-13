@@ -6,7 +6,7 @@ import { faoxomvalue } from "./faoxomvalue.js";
 
 class Color {
     constructor(r, g, b) { this.r = 1; this.g = 1; this.b = 1; if (r !== undefined) this.set(r, g, b); }
-    set(value, g, b) { if (value instanceof Color) return this.copy(value); if (typeof value === "number" && g === undefined) return this.setHex(value); this.r = faoxomvalue(value, 1); this.g = faoxomvalue(g, 1); this.b = faoxomvalue(b, 1); return this; }
+    set(value, g, b) { if (value instanceof Color) return this.copy(value); if (typeof value === "string" && g === undefined) return this.setStyle(value); if (typeof value === "number" && g === undefined) return this.setHex(value); this.r = faoxomvalue(value, 1); this.g = faoxomvalue(g, 1); this.b = faoxomvalue(b, 1); return this; }
     setRGB(r, g, b) { return this.set(r, g, b); }
     setHex(hex) { this.r = ((hex >> 16) & 255) / 255; this.g = ((hex >> 8) & 255) / 255; this.b = (hex & 255) / 255; return this; }
     clone() { return new Color(this.r, this.g, this.b); }

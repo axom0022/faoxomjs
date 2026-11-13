@@ -2,6 +2,7 @@ export * from "./faoxomtrianglebody.js";
 export * from "./faoxommeshcontact.js";
 export * from "./faoxomcollisioncontact.js";
 export * from "./CollisionShape.js";
+export * from "./PrimitiveColliders.js";
 export * from "./ConvexCollisionShape.js";
 export * from "./MeshCollisionShape.js";
 export * from "./CompoundCollisionShape.js";

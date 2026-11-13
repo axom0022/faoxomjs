@@ -2,20 +2,20 @@
 
 [![NPM Version](https://img.shields.io/badge/version-v6-green.svg)](package.json)
 [![Zero Dependencies](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen.svg)](FaoxomJs.js)
-[![jsDelivr](https://data.jsdelivr.com/v1/package/npm/faoxomjs/badge)](https://www.jsdelivr.com/package/npm/faoxomjs)
+[![jsDelivr](https://data.jsdelivr.com/v1/package/gh/axom0022/faoxomjs/badge)](https://www.jsdelivr.com/package/gh/axom0022/faoxomjs)
 
-> Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU.
+> Zero-dependency, high-performance, single-file and modular 3D engine for WebGL2 and WebGPU.
 
-FaoxomJS provides a complete, modern 3D graphics and physics runtime.
+FaoxomJS provides a complete, modern 3D graphics and physics runtime in both a single standalone distribution file (`FaoxomJs.js` / `dist/faoxom.min.js`) and modular tree-shakable ESM packages (`esm/*`).
 
 ---
 
-## Quick Start & CDN Usage
+## ⚡ Quick Start & CDN Usage
 
 ### 1. jsDelivr CDN - Classic Script Tag (Global `window.FaoxomJs`)
 ```html
 <!-- Load the production-minified UMD standalone bundle -->
-<script src="https://cdn.jsdelivr.net/npm/faoxomjs/dist/faoxom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/axom0022/faoxomjs@main/dist/faoxom.min.js"></script>
 
 <script>
   const scene = new FaoxomJs.Scene();
@@ -55,7 +55,7 @@ FaoxomJS provides a complete, modern 3D graphics and physics runtime.
     BoxGeometry, 
     PhysicalMaterial, 
     DirectionalLight 
-  } from "https://cdn.jsdelivr.net/npm/faoxomjs/dist/faoxom.module.min.js";
+  } from "https://cdn.jsdelivr.net/gh/axom0022/faoxomjs@main/dist/faoxom.module.min.js";
 
   const scene = new Scene();
   const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -72,8 +72,10 @@ FaoxomJS provides a complete, modern 3D graphics and physics runtime.
 ```
 
 ### 3. NPM & Bundlers (Vite / Webpack / Next.js / Rollup)
+
+Installs straight from GitHub until the package lands on the npm registry:
 ```bash
-npm install faoxomjs
+npm install axom0022/faoxomjs
 ```
 
 ```ts
@@ -90,6 +92,70 @@ import { PositionalAudio, AudioListener } from "faoxomjs/audio";
 import { WebXRHandTracker } from "faoxomjs/xr";
 ```
 
+---
+
+## 📦 GitHub Repository File Structure
+
+A clean, production-ready FaoxomJS repository consists of:
+
+```
+faoxomjs/
+├── dist/                               # Prebuilt CDN & distribution bundles
+│   ├── faoxom.js                       # Standalone UMD / globalThis script bundle
+│   ├── faoxom.min.js                   # Primary jsDelivr / unpkg CDN target (<script>)
+│   ├── faoxom.module.js                # Single-file ES module bundle
+│   └── faoxom.module.min.js            # Minified ES module bundle for CDN ESM
+├── esm/                                # Modular, tree-shakable ES packages & typings
+│   ├── index.js / index.d.ts           # Root ESM package
+│   ├── math.js / math.d.ts             # faoxomjs/math
+│   ├── core.js / core.d.ts             # faoxomjs/core
+│   ├── geometry.js / geometry.d.ts     # faoxomjs/geometry
+│   ├── materials.js / materials.d.ts   # faoxomjs/materials
+│   ├── lighting.js / lighting.d.ts     # faoxomjs/lighting
+│   ├── postprocessing.js / postprocessing.d.ts # faoxomjs/postprocessing
+│   ├── physics.js / physics.d.ts       # faoxomjs/physics
+│   ├── compute.js / compute.d.ts       # faoxomjs/compute
+│   ├── loaders.js / loaders.d.ts       # faoxomjs/loaders
+│   ├── audio.js / audio.d.ts           # faoxomjs/audio
+│   ├── xr.js / xr.d.ts                 # faoxomjs/xr
+│   ├── react.js / react.d.ts           # faoxomjs/react
+│   └── controls.js / controls.d.ts     # faoxomjs/controls
+├── docs/                               # Architecture and API documentation
+├── .gitignore                          # Git ignore rules
+├── package.json                        # Package manifest with conditional subpath exports
+├── package-lock.json                   # Locked dependency versions
+├── tsconfig.json                       # TypeScript compiler options
+├── VERSION                             # Version descriptor
+├── FaoxomJs.js                         # Unified single-file engine (zero dependencies)
+└── FaoxomJs.d.ts                       # Single-file root TypeScript definition
+```
+
+---
+
+## 🚀 Key Subsystems & Features
+
+- **Rendering Backends**: Modern WebGL2 pipeline and full WebGPU compute-driven renderer (GPU culling, indirect draw, GPU particles).
+- **Clustered / Forward+ Lighting**: 3D view-frustum cluster grid support handling thousands of active real-time point, spot, and area lights.
+- **Advanced PBR Material Optics**: Full support for Subsurface Scattering (SSSS Gaussian profiles), Charlie sheen, thin-film iridescence, transmission, dispersion, and anisotropy.
+- **Screen-Space Post-Processing Suite**: Integrated `EffectComposer`, GTAO, HBAO, Screen Space Reflections (SSR), Screen Space Global Illumination (SSGI), Bokeh Depth of Field, Progressive Bloom, and Temporal Anti-Aliasing (TAA).
+- **Advanced Physics Engine**: Continuous Collision Detection (CCD), TriMesh BVH, GJK & EPA convex/trimesh collision, 6-DOF articulated constraints & ragdolls, Position-Based Dynamics (PBD) cloth & soft bodies, and SPH fluid simulation.
+- **Continuous LOD & Virtual Geometry**: Screen-space error metrics, QEM mesh decimation, and out-of-core cluster streaming.
+- **Positional & Spatial 3D Audio**: WebAudio HRTF panner models, distance rolloffs, and acoustic environmental occlusion.
+- **WebXR Suite**: 25-joint full hand tracking poses, AR plane detection, spherical harmonics light estimation, and controller haptic pulses.
+
+---
+
+## 🧪 Testing & Verification
+
+Typecheck the shipped TypeScript definitions:
+
+```bash
+npm run typecheck
+```
+
+The full headless-browser validation suites (WebGL2, WebGPU, physics, audio, LOD, game parity, Blender render parity) are executed in the development environment for every release.
+
+---
 
 # [OUR DISCORD SERVER](https://discord.gg/Sps39CydcZ)
 # [OUR YOUTUBE CHANNEL](https://youtube.com/@axos0022)

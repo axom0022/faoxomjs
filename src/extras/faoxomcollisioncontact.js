@@ -1,8 +1,40 @@
-import { faoxomaabbcontact, faoxomgjkcontact, faoxomheightfieldcontact, faoxomobbcontact } from "../core/index.js";
+import { faoxomaabbcontact, faoxomgjkcontact, faoxomheightfieldcontact, faoxomobbcontact, faoxomshapevertices, faoxomworldpoint } from "../core/index.js";
 import { Vector3 } from "../math/index.js";
 import { faoxommeshcontact } from "./faoxommeshcontact.js";
 
+function faoxomplanecontact(plane, other) {
+    var normal = (plane.shape.normal ? plane.shape.normal.clone() : new Vector3(0, 1, 0)).normalize();
+    normal.applyQuaternion(plane.rotation);
+    var anchor = plane.position.clone().addScaledVector(normal, plane.shape.constant || 0);
+    var deepest = null;
+    var depth = 0;
+    if (other.shape.type === "sphere") {
+        deepest = other.position.clone().addScaledVector(normal, -other.shape.radius);
+        depth = other.shape.radius - other.position.clone().sub(anchor).dot(normal);
+    } else {
+        var verts = other.shape.vertices && other.shape.vertices.length ? other.shape.vertices : faoxomshapevertices(other.shape);
+        var best = Infinity;
+        for (var i = 0; i < verts.length; i++) {
+            var world = faoxomworldpoint(other.position, other.rotation, verts[i]);
+            var projection = world.clone().sub(anchor).dot(normal);
+            if (projection < best) { best = projection; deepest = world; }
+        }
+        depth = -best;
+    }
+    if (!isFinite(depth) || depth <= 0) return null;
+    return { normal: normal, penetration: depth, point: deepest };
+}
+
 function faoxomcollisioncontact(a, b) {
+    var planeA = a.shape.type === "plane";
+    var planeB = b.shape.type === "plane";
+    if (planeA || planeB) {
+        if (planeA && planeB) return null;
+        if (planeA) return faoxomplanecontact(a, b);
+        var flipped = faoxomplanecontact(b, a);
+        if (flipped) { flipped.normal.negate(); return flipped; }
+        return null;
+    }
     var heightContact = faoxomheightfieldcontact(a, b);
     if (heightContact) return heightContact;
     if (a.shape.type === "mesh") {

@@ -1,4 +1,1 @@
-import FaoxomJs from "../FaoxomJs.js";
-export const AudioListener = FaoxomJs.AudioListener;
-export const PositionalAudio = FaoxomJs.PositionalAudio;
-export const AudioEnvironment = FaoxomJs.AudioEnvironment;
+export * from "../src/audio/index.js";

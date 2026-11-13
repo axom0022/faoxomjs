@@ -17,7 +17,6 @@ export * from "./faoxomdecodepcd.js";
 export * from "./PCDLoader.js";
 export * from "./faoxomdecodevtk.js";
 export * from "./VTKLoader.js";
-export * from "./faoxomdecodegcode.js";
 export * from "./GCodeLoader.js";
 export * from "./faoxommd2animations.js";
 export * from "./faoxomdecodemd2.js";

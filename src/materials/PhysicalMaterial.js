@@ -29,7 +29,11 @@ class PhysicalMaterial extends StandardMaterial {
         this.retroreflectivity = 0.0;
         this.roughDiffuse = 0.0;
         if (parameters) {
-            for (var key in parameters) this[key] = parameters[key];
+            for (var key in parameters) {
+                var current = this[key], value = parameters[key];
+                if (current instanceof Color && typeof value !== "undefined" && value !== null) current.set(value);
+                else this[key] = value;
+            }
         }
     }
     evalRetroReflect(normal, viewDir, lightDir, roughness) {

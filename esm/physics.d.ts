@@ -72,6 +72,29 @@ export class ConvexHullCollider {
   getSupport(direction: Vector3): Vector3;
 }
 
+export class BoxCollider {
+  size: Vector3;
+  constructor(width?: number, height?: number, depth?: number, options?: any);
+  constructor(dimensions?: { width?: number, height?: number, depth?: number });
+}
+
+export class SphereCollider {
+  radius: number;
+  constructor(radius?: number, options?: any);
+}
+
+export class CapsuleCollider {
+  radius: number;
+  height: number;
+  constructor(radius?: number, height?: number, options?: any);
+}
+
+export class PlaneCollider {
+  normal: Vector3;
+  constant: number;
+  constructor(normal?: Vector3, constant?: number, options?: any);
+}
+
 export class TriMeshCollider {
   geometry: BufferGeometry;
   bvh: TriMeshBVH;

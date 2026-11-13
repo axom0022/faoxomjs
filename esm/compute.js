@@ -1,14 +1,1 @@
-import FaoxomJs from "../FaoxomJs.js";
-export const GPUComputePass = FaoxomJs.GPUComputePass;
-export const GPUCullingPipeline = FaoxomJs.GPUCullingPipeline;
-export const GPUIndirectDrawBuffer = FaoxomJs.GPUIndirectDrawBuffer;
-export const GPUParticleComputeSystem = FaoxomJs.GPUParticleComputeSystem;
-export const GPUDrivenPipeline = FaoxomJs.GPUDrivenPipeline;
-export const HiZBuffer = FaoxomJs.HiZBuffer;
-export const GPURayQuery = FaoxomJs.GPURayQuery;
-export const GPURTShadows = FaoxomJs.GPURTShadows;
-export const GPURTReflections = FaoxomJs.GPURTReflections;
-export const GPUMeshletCuller = FaoxomJs.GPUMeshletCuller;
-export const ClusteredLighting = FaoxomJs.ClusteredLighting;
-export const FXOMDGIAR = FaoxomJs.FXOMDGIAR;
-export const FrameGraph = FaoxomJs.FrameGraph;
+export * from "../src/renderers/index.js";

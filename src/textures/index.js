@@ -12,7 +12,6 @@ export * from "./TextureFormatSelector.js";
 export * from "./TextureStreamer.js";
 export * from "./PMREMEnvironment.js";
 export * from "./PMREMGenerator.js";
-export * from "./faoxomsvgbuildgradienttexture.js";
 export * from "./Data3DTexture.js";
 export * from "./VirtualTexture.js";
 export * from "./VTStreamer.js";

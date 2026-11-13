@@ -1,7 +1,7 @@
 import { Scene } from "../scenes/index.js";
 import { BloomPass, ColorGradePass, FXAAPass, GBufferTarget, GPUCompute, PostProcessingComposer, RenderTarget, SSAOPass, SSRPass, VignettePass, WebGLRenderer, WebGPUBloomPass, WebGPUCompute, WebGPUFXAAPass, WebGPUPostProcessingComposer, WebGPURenderer, WebGPUToneMappingPass } from "../renderers/index.js";
 import { CubeTexture, PMREMGenerator, Texture, TextureFormatSelector, TextureStreamer } from "../textures/index.js";
-import { CharacterController, Cloth, CollisionShape, CompoundCollisionShape, ConvexCollisionShape, CylinderCollisionShape, Decal, DestructionBody, Fluid, HeadlessRenderer, HeightfieldShape, JointLimit, MeshCollisionShape, Navmesh, NavmeshManager, OffscreenEngine, Pathfinder, PerfGovernor, PhysicsWorld, PNGCodec, Ragdoll, ReflectionProbe, RigidBody, Rope, SoftBody, TaskPool, Terrain, TerrainManager, Vehicle, WebXRAR, WebXRManager, WorldStreamer } from "../extras/index.js";
+import { BoxCollider, CapsuleCollider, CharacterController, Cloth, CollisionShape, CompoundCollisionShape, ConvexCollisionShape, CylinderCollisionShape, Decal, DestructionBody, Fluid, HeadlessRenderer, HeightfieldShape, JointLimit, MeshCollisionShape, Navmesh, NavmeshManager, OffscreenEngine, Pathfinder, PerfGovernor, PhysicsWorld, PlaneCollider, PNGCodec, Ragdoll, ReflectionProbe, RigidBody, Rope, SoftBody, SphereCollider, TaskPool, Terrain, TerrainManager, Vehicle, WebXRAR, WebXRManager, WorldStreamer } from "../extras/index.js";
 import { DeviceLossManager, FrameProfiler, ResourceLedger } from "../renderers/index.js";
 import { AnimationClip, AnimationCompressor, AnimationController, AnimationManager, AnimationMixer, AnimationRetargeter, AnimationStateMachine, AnimationTrack, BlendTree, FacialAnimation, MotionMatcher, RootMotionExtractor, TwoBoneIKSolver } from "../animation/index.js";
 import { AssetLoader, DRACOLoader, FBXLoader, GLTFLoader, KTX2Loader, SceneExporter } from "../loaders/index.js";
@@ -95,6 +95,10 @@ class FaoxomJs {
     createWebXRAR(options) { return new WebXRAR(options); }
     createOffscreenEngine(options) { return new OffscreenEngine(options); }
     createRigidBody(options) { var body = new RigidBody(options); this.physics.addBody(body); return body; }
+    createBoxCollider(width, height, depth, options) { return new BoxCollider(width, height, depth, options); }
+    createSphereCollider(radius, options) { return new SphereCollider(radius, options); }
+    createCapsuleCollider(radius, height, options) { return new CapsuleCollider(radius, height, options); }
+    createPlaneCollider(normal, constant, options) { return new PlaneCollider(normal, constant, options); }
     createConvexCollisionShape(points, options) { return new ConvexCollisionShape(points, options); }
     createMeshCollisionShape(vertices, indices, options) { return new MeshCollisionShape(vertices, indices, options); }
     createCompoundCollisionShape(children, options) { return new CompoundCollisionShape(children, options); }

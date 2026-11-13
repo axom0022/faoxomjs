@@ -1,574 +1,795 @@
-import { DoubleSide, faoxomsvggettransformscale, faoxomsvggradienturlre, faoxomsvgparsearccommand, faoxomsvgparsefloats, faoxomsvgparsefloatwithunits, faoxomsvgparsetransformstring, faoxomsvgtransformpath } from "../core/index.js";
+import { DoubleSide } from "../core/index.js";
 import { Geometry } from "../geometries/index.js";
 import { BasicMaterial } from "../materials/index.js";
-import { Color, Matrix3, Path, ShapePath, ShapeUtils, Vector2 } from "../math/index.js";
-import { faoxomsvgbuildgradienttexture } from "../textures/index.js";
+import { Color, Matrix3, Path, ShapePath, Vector2 } from "../math/index.js";
+import { DataTexture } from "../textures/DataTexture.js";
+
+var GRADIENT_REFERENCE = /^\s*url\(\s*(?:["']\s*)?#([^)'"\s]+)(?:\s*["'])?\s*\)\s*$/;
+var UNIT_INCHES = { pt: 1 / 72, pc: 1 / 6, mm: 1 / 25.4, cm: 1 / 2.54, "in": 1 };
+var CORNER_KAPPA = 1 - 0.551915024494;
+var TWO_PI = Math.PI * 2;
+
+function scanNumbers(text) {
+    var values = [];
+    var pattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g;
+    var match;
+    while ((match = pattern.exec(text))) values.push(parseFloat(match[0]));
+    return values;
+}
+
+function readLength(raw, dpi, fallbackUnit) {
+    if (raw === null || raw === undefined) return 0;
+    var text = String(raw).trim();
+    var unit = "px";
+    for (var name in UNIT_INCHES) {
+        if (text.endsWith(name)) { unit = name; text = text.slice(0, -name.length); break; }
+    }
+    var value = parseFloat(text);
+    if (isNaN(value)) return 0;
+    if (unit === "px" && fallbackUnit === "px") return value;
+    var inches = unit === "px" ? 1 / dpi : UNIT_INCHES[unit];
+    var scale = fallbackUnit === "px" ? inches * dpi : inches / UNIT_INCHES[fallbackUnit];
+    return scale * value;
+}
+
+function signedAngle(ux, uy, vx, vy) {
+    var lengths = Math.sqrt(ux * ux + uy * uy) * Math.sqrt(vx * vx + vy * vy);
+    var angle = Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / lengths)));
+    return ux * vy - uy * vx < 0 ? -angle : angle;
+}
+
+function parseTransformList(text) {
+    var total = new Matrix3();
+    var pattern = /([a-zA-Z]+)\s*\(([^)]*)\)/g;
+    var match;
+    while ((match = pattern.exec(text))) {
+        var name = match[1];
+        var values = scanNumbers(match[2]);
+        var step = new Matrix3();
+        if (name === "translate" && values.length >= 1) step.makeTranslation(values[0], values.length >= 2 ? values[1] : 0);
+        else if (name === "scale" && values.length >= 1) step.makeScale(values[0], values.length >= 2 ? values[1] : values[0]);
+        else if (name === "rotate" && values.length >= 1) {
+            var radians = values[0] * Math.PI / 180;
+            if (values.length >= 3) {
+                var pivot = new Matrix3().makeTranslation(values[1], values[2]);
+                var spin = new Matrix3().makeRotation(radians);
+                var unpivot = new Matrix3().makeTranslation(-values[1], -values[2]);
+                step.multiplyMatrices(pivot, spin).multiply(unpivot);
+            } else step.makeRotation(radians);
+        } else if (name === "skewX" && values.length === 1) step.set(1, Math.tan(values[0] * Math.PI / 180), 0, 0, 1, 0, 0, 0, 1);
+        else if (name === "skewY" && values.length === 1) step.set(1, 0, 0, Math.tan(values[0] * Math.PI / 180), 1, 0, 0, 0, 1);
+        else if (name === "matrix" && values.length >= 6) step.set(values[0], values[2], values[4], values[1], values[3], values[5], 0, 0, 1);
+        total.multiply(step);
+    }
+    return total;
+}
+
+function symmetricEigen(a, b, c) {
+    var angle = 0.5 * Math.atan2(2 * b, a - c);
+    var cos = Math.cos(angle), sin = Math.sin(angle);
+    var major = a * cos * cos + 2 * b * cos * sin + c * sin * sin;
+    var minor = a * sin * sin - 2 * b * cos * sin + c * cos * cos;
+    if (a > c ? cos > 0 : sin < 0) { cos = -cos; sin = -sin; }
+    return { lambda1: major, lambda2: minor, axis1: [cos, sin], axis2: [-sin, cos] };
+}
+
+function mapPoint(m, x, y) { var e = m.elements; return { x: e[0] * x + e[3] * y + e[6], y: e[1] * x + e[4] * y + e[7] }; }
+
+function mapVector(m, x, y) { var e = m.elements; return [e[0] * x + e[3] * y, e[1] * x + e[4] * y]; }
+
+function transformScale(m) { var e = m.elements; return Math.sqrt(Math.abs(e[0] * e[4] - e[1] * e[3])); }
+
+function transformFlipped(m) { var e = m.elements; return e[0] * e[4] - e[1] * e[3] < 0; }
+
+function transformSkewed(m) {
+    var e = m.elements;
+    var basisDot = e[0] * e[3] + e[1] * e[4];
+    if (basisDot === 0) return false;
+    var sx = Math.sqrt(e[0] * e[0] + e[1] * e[1]), sy = Math.sqrt(e[3] * e[3] + e[4] * e[4]);
+    return Math.abs(basisDot / (sx * sy)) > 1e-6;
+}
+
+function applyMatrixToPath(path, m) {
+    function stamp(vector) {
+        var mapped = mapPoint(m, vector.x, vector.y);
+        vector.set(mapped.x, mapped.y);
+    }
+    function refitEllipse(curve) {
+        var cosR = Math.cos(curve.rotation), sinR = Math.sin(curve.rotation);
+        var axisU = mapVector(m, cosR * curve.xRadius, sinR * curve.xRadius);
+        var axisV = mapVector(m, -sinR * curve.yRadius, cosR * curve.yRadius);
+        var w11 = axisU[0], w21 = axisU[1], w12 = axisV[0], w22 = axisV[1];
+        var det = w11 * w22 - w12 * w21;
+        if (Math.abs(det) < 1e-14) { curve.xRadius = 0; curve.yRadius = 0; return; }
+        var i11 = w22 / det, i12 = -w12 / det, i21 = -w21 / det, i22 = w11 / det;
+        var gA = i11 * i11 + i21 * i21;
+        var gB = i11 * i12 + i21 * i22;
+        var gC = i12 * i12 + i22 * i22;
+        var eigen = symmetricEigen(gA, gB, gC);
+        var radius1 = 1 / Math.sqrt(Math.max(eigen.lambda1, 1e-14));
+        var radius2 = 1 / Math.sqrt(Math.max(eigen.lambda2, 1e-14));
+        curve.xRadius = radius1;
+        curve.yRadius = radius2;
+        curve.rotation = Math.atan2(eigen.axis1[1], eigen.axis1[0]);
+        var isFull = (curve.endAngle - curve.startAngle) % TWO_PI < Number.EPSILON;
+        if (!isFull) {
+            function remap(phi) {
+                var image = [w11 * Math.cos(phi) + w12 * Math.sin(phi), w21 * Math.cos(phi) + w22 * Math.sin(phi)];
+                var along1 = eigen.axis1[0] * image[0] + eigen.axis1[1] * image[1];
+                var along2 = eigen.axis2[0] * image[0] + eigen.axis2[1] * image[1];
+                return Math.atan2(along2 / radius2, along1 / radius1);
+            }
+            curve.startAngle = remap(curve.startAngle);
+            curve.endAngle = remap(curve.endAngle);
+            if (transformFlipped(m)) curve.clockwise = !curve.clockwise;
+        }
+    }
+    function rescaleEllipse(curve) {
+        var e = m.elements;
+        var sx = Math.sqrt(e[0] * e[0] + e[1] * e[1]), sy = Math.sqrt(e[3] * e[3] + e[4] * e[4]);
+        curve.xRadius *= sx;
+        curve.yRadius *= sy;
+        curve.rotation += sx > Number.EPSILON ? Math.atan2(e[1], e[0]) : Math.atan2(-e[3], e[4]);
+        if (transformFlipped(m)) {
+            curve.startAngle *= -1;
+            curve.endAngle *= -1;
+            curve.clockwise = !curve.clockwise;
+        }
+    }
+    for (var i = 0; i < path.subPaths.length; i++) {
+        var curves = path.subPaths[i].curves;
+        for (var j = 0; j < curves.length; j++) {
+            var curve = curves[j];
+            if (curve.type === "line") { stamp(curve.v1); stamp(curve.v2); }
+            else if (curve.type === "quadratic") { stamp(curve.v0); stamp(curve.v1); stamp(curve.v2); }
+            else if (curve.type === "bezier") { stamp(curve.v0); stamp(curve.v1); stamp(curve.v2); stamp(curve.v3); }
+            else if (curve.type === "arc") {
+                var center = mapPoint(m, curve.cx, curve.cy);
+                curve.cx = center.x;
+                curve.cy = center.y;
+                if (transformSkewed(m)) refitEllipse(curve);
+                else rescaleEllipse(curve);
+            }
+        }
+    }
+}
+
+function appendArc(path, from, to, rx, ry, rotationDegrees, largeArc, sweep) {
+    if (rx === 0 || ry === 0) { path.lineTo(to.x, to.y); return; }
+    rx = Math.abs(rx);
+    ry = Math.abs(ry);
+    var phi = rotationDegrees * Math.PI / 180;
+    var cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+    var halfX = (from.x - to.x) / 2, halfY = (from.y - to.y) / 2;
+    var px = cosPhi * halfX + sinPhi * halfY;
+    var py = -sinPhi * halfX + cosPhi * halfY;
+    var stretch = Math.sqrt(Math.max(0, (px * px) / (rx * rx) + (py * py) / (ry * ry)));
+    if (stretch > 1) { rx *= stretch; ry *= stretch; }
+    var numerator = rx * rx * ry * ry - rx * rx * py * py - ry * ry * px * px;
+    var denominator = rx * rx * py * py + ry * ry * px * px;
+    var factor = Math.sqrt(Math.max(0, numerator / denominator));
+    if (largeArc === sweep) factor = -factor;
+    var stepX = factor * rx * py / ry;
+    var stepY = -factor * ry * px / rx;
+    var centerX = cosPhi * stepX - sinPhi * stepY + (from.x + to.x) / 2;
+    var centerY = sinPhi * stepX + cosPhi * stepY + (from.y + to.y) / 2;
+    var startUnitX = (px - stepX) / rx, startUnitY = (py - stepY) / ry;
+    var endUnitX = (-px - stepX) / rx, endUnitY = (-py - stepY) / ry;
+    var startAngle = signedAngle(1, 0, startUnitX, startUnitY);
+    var sweepAngle = signedAngle(startUnitX, startUnitY, endUnitX, endUnitY) % TWO_PI;
+    if (!path.currentPath) path.moveTo(from.x, from.y);
+    path.currentPath.absellipse(centerX, centerY, rx, ry, startAngle, startAngle + sweepAngle, sweep === 0, phi);
+}
+
+var PATH_ARITY = { M: 2, L: 2, T: 2, S: 4, Q: 4, C: 6, A: 7, H: 1, V: 1 };
+
+function buildPathFromData(data) {
+    if (data === "" || data === "none" || data === null || data === undefined) return null;
+    var path = new ShapePath();
+    var cursor = new Vector2();
+    var control = new Vector2();
+    var anchor = new Vector2();
+    var awaitingAnchor = true;
+    var index = 0;
+    var length = data.length;
+    var numberPattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
+    function skipFiller() { while (index < length && (data[index] === " " || data[index] === "\t" || data[index] === "\r" || data[index] === "\n" || data[index] === ",")) index++; }
+    function readNumber() {
+        skipFiller();
+        numberPattern.lastIndex = index;
+        var hit = numberPattern.exec(data);
+        if (!hit) return null;
+        index = numberPattern.lastIndex;
+        return parseFloat(hit[0]);
+    }
+    function readFlag() {
+        skipFiller();
+        var glyph = data[index];
+        if (glyph === "0" || glyph === "1") { index++; return glyph === "1" ? 1 : 0; }
+        return null;
+    }
+    function noteAnchor(x, y) { if (awaitingAnchor) { anchor.set(x, y); awaitingAnchor = false; } }
+    while (index < length) {
+        skipFiller();
+        if (index >= length) break;
+        var kind = data[index];
+        if (!/[a-zA-Z]/.test(kind)) { index++; continue; }
+        index++;
+        if (kind === "Z" || kind === "z") {
+            if (path.currentPath) {
+                path.currentPath.autoClose = true;
+                if (path.currentPath.curves.length > 0) {
+                    cursor.copy(anchor);
+                    path.currentPath.currentPoint.copy(cursor);
+                    awaitingAnchor = true;
+                }
+            }
+            continue;
+        }
+        var arity = PATH_ARITY[kind.toUpperCase()];
+        if (!arity) { console.warn("SVGLoader: unknown path command " + kind); continue; }
+        var relative = kind.toLowerCase() === kind;
+        var runIndex = 0;
+        while (true) {
+            var values = [];
+            var usable = true;
+            for (var a = 0; a < arity; a++) {
+                if (arity === 7 && (a === 3 || a === 4)) {
+                    var flag = readFlag();
+                    if (flag === null) { usable = false; break; }
+                    values.push(flag);
+                } else {
+                    var number = readNumber();
+                    if (number === null) { usable = false; break; }
+                    values.push(number);
+                }
+            }
+            if (!usable) break;
+            switch (kind) {
+                case "M": case "m": {
+                    var mx = relative ? cursor.x + values[0] : values[0];
+                    var my = relative ? cursor.y + values[1] : values[1];
+                    if (runIndex === 0) path.moveTo(mx, my);
+                    else path.lineTo(mx, my);
+                    cursor.set(mx, my);
+                    control.copy(cursor);
+                    anchor.set(mx, my);
+                    awaitingAnchor = false;
+                    break;
+                }
+                case "L": case "l": {
+                    var lx = relative ? cursor.x + values[0] : values[0];
+                    var ly = relative ? cursor.y + values[1] : values[1];
+                    path.lineTo(lx, ly);
+                    cursor.set(lx, ly);
+                    control.copy(cursor);
+                    noteAnchor(lx, ly);
+                    break;
+                }
+                case "H": case "h": {
+                    var hx = relative ? cursor.x + values[0] : values[0];
+                    path.lineTo(hx, cursor.y);
+                    cursor.x = hx;
+                    control.copy(cursor);
+                    noteAnchor(hx, cursor.y);
+                    break;
+                }
+                case "V": case "v": {
+                    var vy = relative ? cursor.y + values[0] : values[0];
+                    path.lineTo(cursor.x, vy);
+                    cursor.y = vy;
+                    control.copy(cursor);
+                    noteAnchor(cursor.x, vy);
+                    break;
+                }
+                case "C": case "c": {
+                    var c1x = relative ? cursor.x + values[0] : values[0];
+                    var c1y = relative ? cursor.y + values[1] : values[1];
+                    var c2x = relative ? cursor.x + values[2] : values[2];
+                    var c2y = relative ? cursor.y + values[3] : values[3];
+                    var cex = relative ? cursor.x + values[4] : values[4];
+                    var cey = relative ? cursor.y + values[5] : values[5];
+                    path.bezierCurveTo(c1x, c1y, c2x, c2y, cex, cey);
+                    control.set(c2x, c2y);
+                    cursor.set(cex, cey);
+                    noteAnchor(cex, cey);
+                    break;
+                }
+                case "S": case "s": {
+                    var r1x = 2 * cursor.x - control.x;
+                    var r1y = 2 * cursor.y - control.y;
+                    var scx = relative ? cursor.x + values[0] : values[0];
+                    var scy = relative ? cursor.y + values[1] : values[1];
+                    var sex = relative ? cursor.x + values[2] : values[2];
+                    var sey = relative ? cursor.y + values[3] : values[3];
+                    path.bezierCurveTo(r1x, r1y, scx, scy, sex, sey);
+                    control.set(scx, scy);
+                    cursor.set(sex, sey);
+                    noteAnchor(sex, sey);
+                    break;
+                }
+                case "Q": case "q": {
+                    var qcx = relative ? cursor.x + values[0] : values[0];
+                    var qcy = relative ? cursor.y + values[1] : values[1];
+                    var qex = relative ? cursor.x + values[2] : values[2];
+                    var qey = relative ? cursor.y + values[3] : values[3];
+                    path.quadraticCurveTo(qcx, qcy, qex, qey);
+                    control.set(qcx, qcy);
+                    cursor.set(qex, qey);
+                    noteAnchor(qex, qey);
+                    break;
+                }
+                case "T": case "t": {
+                    var tcx = 2 * cursor.x - control.x;
+                    var tcy = 2 * cursor.y - control.y;
+                    var tex = relative ? cursor.x + values[0] : values[0];
+                    var tey = relative ? cursor.y + values[1] : values[1];
+                    path.quadraticCurveTo(tcx, tcy, tex, tey);
+                    control.set(tcx, tcy);
+                    cursor.set(tex, tey);
+                    noteAnchor(tex, tey);
+                    break;
+                }
+                case "A": case "a": {
+                    var aex = relative ? cursor.x + values[5] : values[5];
+                    var aey = relative ? cursor.y + values[6] : values[6];
+                    if (relative ? (values[5] === 0 && values[6] === 0) : (aex === cursor.x && aey === cursor.y)) break;
+                    var start = cursor.clone();
+                    cursor.set(aex, aey);
+                    control.copy(cursor);
+                    appendArc(path, start, cursor, values[0], values[1], values[2], values[3], values[4]);
+                    noteAnchor(aex, aey);
+                    break;
+                }
+            }
+            runIndex++;
+        }
+    }
+    if (!path.subPaths.length) return null;
+    return path;
+}
+
+function stopsToRGBA(stops, t) {
+    if (!stops || !stops.length) return [0, 0, 0, 1];
+    var lower = stops[0], upper = stops[stops.length - 1];
+    for (var i = 0; i < stops.length; i++) {
+        if (stops[i].offset <= t + 1e-9) lower = stops[i];
+        if (stops[i].offset >= t - 1e-9) { upper = stops[i]; break; }
+    }
+    if (t <= lower.offset) { var first = new Color().setStyle(lower.color, "srgb"); return [first.r, first.g, first.b, lower.opacity]; }
+    if (t >= upper.offset) { var last = new Color().setStyle(upper.color, "srgb"); return [last.r, last.g, last.b, upper.opacity]; }
+    var span = upper.offset - lower.offset;
+    var k = span > 0 ? (t - lower.offset) / span : 0;
+    var a = new Color().setStyle(lower.color, "srgb");
+    var b = new Color().setStyle(upper.color, "srgb");
+    return [a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k, lower.opacity + (upper.opacity - lower.opacity) * k];
+}
+
+function localBounds(shapePath, worldTransform) {
+    var inverse = worldTransform ? new Matrix3().copy(worldTransform).invert() : null;
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < shapePath.subPaths.length; i++) {
+        var pts = shapePath.subPaths[i].getPoints();
+        for (var p = 0; p < pts.length; p++) {
+            var x = pts[p].x, y = pts[p].y;
+            if (inverse) {
+                var mapped = mapPoint(inverse, x, y);
+                x = mapped.x;
+                y = mapped.y;
+            }
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+    }
+    if (minX === Infinity) return null;
+    return { minX: minX, minY: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function bakeGradientTexture(gradient, shapePath, resolution) {
+    if (!gradient || !Array.isArray(gradient.stops) || gradient.stops.length === 0) return null;
+    resolution = resolution || 256;
+    var world = shapePath.userData.transform;
+    var boxUnits = gradient.gradientUnits === "objectBoundingBox";
+    var bounds = null;
+    if (boxUnits) {
+        bounds = localBounds(shapePath, world);
+        if (bounds === null) return null;
+    }
+    function place(x, y) {
+        var point = { x: x, y: y };
+        if (gradient.gradientTransform) point = mapPoint(gradient.gradientTransform, point.x, point.y);
+        if (boxUnits) point = { x: bounds.minX + point.x * bounds.width, y: bounds.minY + point.y * bounds.height };
+        if (world) point = mapPoint(world, point.x, point.y);
+        return point;
+    }
+    function pack(rgba) {
+        return [Math.round(Math.min(1, Math.max(0, rgba[0])) * 255), Math.round(Math.min(1, Math.max(0, rgba[1])) * 255), Math.round(Math.min(1, Math.max(0, rgba[2])) * 255), Math.round(Math.min(1, Math.max(0, rgba[3])) * 255)];
+    }
+    var width, height, data, matrix;
+    if (gradient.type === "linearGradient") {
+        width = resolution;
+        height = 1;
+        data = new Uint8Array(width * 4);
+        for (var x = 0; x < width; x++) {
+            var rgba = pack(stopsToRGBA(gradient.stops, x / (resolution - 1)));
+            data[x * 4] = rgba[0];
+            data[x * 4 + 1] = rgba[1];
+            data[x * 4 + 2] = rgba[2];
+            data[x * 4 + 3] = rgba[3];
+        }
+        var p1 = place(gradient.x1, gradient.y1);
+        var p2 = place(gradient.x2, gradient.y2);
+        var dx = p2.x - p1.x, dy = p2.y - p1.y;
+        var squared = dx * dx + dy * dy || 1e-20;
+        var a = dx / squared, b = dy / squared;
+        matrix = new Matrix3().set(a, b, -(a * p1.x + b * p1.y), 0, 0, 0.5, 0, 0, 1);
+    } else {
+        var cx = gradient.cx, cy = gradient.cy, fx = gradient.fx, fy = gradient.fy, r = gradient.r;
+        if (gradient.gradientTransform) {
+            var c = mapPoint(gradient.gradientTransform, cx, cy);
+            var f = mapPoint(gradient.gradientTransform, fx, fy);
+            cx = c.x; cy = c.y; fx = f.x; fy = f.y;
+        }
+        if (boxUnits) {
+            cx = bounds.minX + cx * bounds.width;
+            cy = bounds.minY + cy * bounds.height;
+            fx = bounds.minX + fx * bounds.width;
+            fy = bounds.minY + fy * bounds.height;
+            r = r * Math.sqrt((bounds.width * bounds.width + bounds.height * bounds.height) / 2);
+        }
+        if (r <= 0) return null;
+        var fdx = fx - cx, fdy = fy - cy;
+        var fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+        if (fdist >= r) {
+            var pull = (r - 1e-6) / fdist;
+            fx = cx + fdx * pull;
+            fy = cy + fdy * pull;
+        }
+        width = resolution;
+        height = resolution;
+        data = new Uint8Array(width * height * 4);
+        var originX = cx - r, originY = cy - r, span = 2 * r;
+        for (var py = 0; py < height; py++) {
+            for (var px = 0; px < width; px++) {
+                var sampleX = originX + (px / (resolution - 1)) * span;
+                var sampleY = originY + (py / (resolution - 1)) * span;
+                var rayX = sampleX - fx, rayY = sampleY - fy;
+                var t = 0;
+                var rayLength2 = rayX * rayX + rayY * rayY;
+                if (rayLength2 > 0) {
+                    var offX = fx - cx, offY = fy - cy;
+                    var b2 = offX * rayX + offY * rayY;
+                    var c2 = offX * offX + offY * offY - r * r;
+                    var disc = b2 * b2 - rayLength2 * c2;
+                    if (disc <= 0) t = 1;
+                    else t = rayLength2 / (-b2 + Math.sqrt(disc));
+                    if (t < 0) t = 0;
+                    if (t > 1) t = 1;
+                }
+                var rgba2 = pack(stopsToRGBA(gradient.stops, t));
+                var offset = (py * width + px) * 4;
+                data[offset] = rgba2[0];
+                data[offset + 1] = rgba2[1];
+                data[offset + 2] = rgba2[2];
+                data[offset + 3] = rgba2[3];
+            }
+        }
+        var inverseWorld = world ? new Matrix3().copy(world).invert() : new Matrix3();
+        var normalize = new Matrix3().set(1 / span, 0, -originX / span, 0, 1 / span, -originY / span, 0, 0, 1);
+        matrix = normalize.multiply(inverseWorld);
+    }
+    var texture = new DataTexture(data, width, height, { minFilter: "linear", magFilter: "linear", colorSpace: "srgb" });
+    texture.matrixAutoUpdate = false;
+    texture.matrix = matrix;
+    texture.wrapS = gradient.spreadMethod === "reflect" ? "mirror" : gradient.spreadMethod === "repeat" ? "repeat" : "clamp";
+    texture.wrapT = texture.wrapS;
+    return texture;
+}
 
 class SVGLoader {
     constructor(manager) { this.manager = manager; this.defaultDPI = 90; this.defaultUnit = "px"; }
     parse(text) {
         var scope = this;
-        function parseNode(node, style) {
-            if (node.nodeType !== 1) return;
-            if (node.hasAttribute("filter")) console.warn("SVGLoader: Filters are not supported.");
-            var transform = getNodeTransform(node);
-            var isDefsNode = false;
-            var path = null;
-            switch (node.nodeName) {
-                case "svg": style = parseStyle(node, style); break;
-                case "style": parseCSSStylesheet(node); break;
-                case "g": style = parseStyle(node, style); break;
-                case "path": style = parseStyle(node, style); if (node.hasAttribute("d")) path = parsePathNode(node); break;
-                case "rect": style = parseStyle(node, style); path = parseRectNode(node); break;
-                case "polygon": style = parseStyle(node, style); path = parsePolygonNode(node); break;
-                case "polyline": style = parseStyle(node, style); path = parsePolylineNode(node); break;
-                case "circle": style = parseStyle(node, style); path = parseCircleNode(node); break;
-                case "ellipse": style = parseStyle(node, style); path = parseEllipseNode(node); break;
-                case "line": style = parseStyle(node, style); path = parseLineNode(node); break;
-                case "defs": isDefsNode = true; break;
-                case "use":
-                    style = parseStyle(node, style);
-                    var href = (node.getAttributeNS && node.getAttributeNS("http://www.w3.org/1999/xlink", "href")) || "";
-                    var usedNodeId = href.substring(1);
-                    var usedNode = node.viewportElement ? node.viewportElement.getElementById(usedNodeId) : null;
-                    if (usedNode) parseNode(usedNode, style);
-                    else console.warn("SVGLoader: 'use node' references non-existent node id: " + usedNodeId);
-                    break;
-                default: break;
-            }
-            if (path) {
-                if (style.fill !== undefined && style.fill !== "none" && style.fill.indexOf("url") !== 0) path.color.setStyle(style.fill, "srgb");
-                faoxomsvgtransformpath(path, currentTransform);
-                paths.push(path);
-                var pathStyle = {};
-                for (var key in style) pathStyle[key] = style[key];
-                pathStyle.strokeWidth = style.strokeWidth * faoxomsvggettransformscale(currentTransform);
-                path.userData = { node: node, style: pathStyle, transform: new Matrix3().copy(currentTransform), gradients: gradients };
-            }
-            var childNodes = node.childNodes;
-            for (var i = 0; i < childNodes.length; i++) {
-                var child = childNodes[i];
-                if (isDefsNode && child.nodeName !== "style" && child.nodeName !== "defs") continue;
-                parseNode(child, style);
-            }
-            if (transform) {
-                transformStack.pop();
-                if (transformStack.length > 0) currentTransform.copy(transformStack[transformStack.length - 1]);
-                else currentTransform.identity();
-            }
+        var document = new DOMParser().parseFromString(text, "image/svg+xml");
+        var gradients = {};
+        var selectors = {};
+        var paths = [];
+        var stack = [new Matrix3()];
+        var STYLE_PROPERTIES = [
+            ["fill", "fill", null],
+            ["fill-opacity", "fillOpacity", "fraction"],
+            ["fill-rule", "fillRule", null],
+            ["opacity", "opacity", "fraction"],
+            ["stroke", "stroke", null],
+            ["stroke-opacity", "strokeOpacity", "fraction"],
+            ["stroke-width", "strokeWidth", "positive"],
+            ["stroke-linejoin", "strokeLineJoin", null],
+            ["stroke-linecap", "strokeLineCap", null],
+            ["stroke-miterlimit", "strokeMiterLimit", "positive"],
+            ["visibility", "visibility", null]
+        ];
+        function adjust(value, mode) {
+            if (mode === "fraction") return Math.max(0, Math.min(1, readLength(value, scope.defaultDPI, scope.defaultUnit)));
+            if (mode === "positive") return Math.max(0, readLength(value, scope.defaultDPI, scope.defaultUnit));
+            return value;
         }
-        function parsePathNode(node) {
-            var path = new ShapePath();
-            var point = new Vector2();
-            var control = new Vector2();
-            var firstPoint = new Vector2();
-            var isFirstPoint = true;
-            var doSetFirstPoint = false;
-            var d = node.getAttribute("d");
-            if (d === "" || d === "none") return null;
-            var commands = d.match(/[a-df-z][^a-df-z]*/ig);
-            if (!commands) return null;
-            for (var i = 0, l = commands.length; i < l; i++) {
-                var command = commands[i];
-                var type = command.charAt(0);
-                var data = command.slice(1).trim();
-                if (isFirstPoint === true) {
-                    doSetFirstPoint = true;
-                    isFirstPoint = false;
-                }
-                var numbers;
-                switch (type) {
-                    case "M":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j = 0, jl = numbers.length; j < jl; j += 2) {
-                            point.x = numbers[j + 0];
-                            point.y = numbers[j + 1];
-                            control.x = point.x;
-                            control.y = point.y;
-                            if (j === 0) path.moveTo(point.x, point.y);
-                            else path.lineTo(point.x, point.y);
-                            if (j === 0) firstPoint.copy(point);
+        function collectStylesheets(root) {
+            var nodes = root.getElementsByTagName("style");
+            for (var i = 0; i < nodes.length; i++) {
+                var sheet = nodes[i].sheet;
+                if (!sheet || !sheet.cssRules) continue;
+                for (var r = 0; r < sheet.cssRules.length; r++) {
+                    var rule = sheet.cssRules[r];
+                    if (rule.type !== 1 || !rule.selectorText || !rule.style) continue;
+                    var names = rule.selectorText.split(",").map(function(part) { return part.trim(); }).filter(Boolean);
+                    for (var n = 0; n < names.length; n++) {
+                        if (!selectors[names[n]]) selectors[names[n]] = {};
+                        var captured = {};
+                        for (var propName in rule.style) {
+                            var propValue = rule.style[propName];
+                            if (propValue !== "") captured[propName] = propValue;
                         }
-                        break;
-                    case "H":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j2 = 0, jl2 = numbers.length; j2 < jl2; j2++) {
-                            point.x = numbers[j2];
-                            control.x = point.x;
-                            control.y = point.y;
-                            path.lineTo(point.x, point.y);
-                            if (j2 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "V":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j3 = 0, jl3 = numbers.length; j3 < jl3; j3++) {
-                            point.y = numbers[j3];
-                            control.x = point.x;
-                            control.y = point.y;
-                            path.lineTo(point.x, point.y);
-                            if (j3 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "L":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j4 = 0, jl4 = numbers.length; j4 < jl4; j4 += 2) {
-                            point.x = numbers[j4 + 0];
-                            point.y = numbers[j4 + 1];
-                            control.x = point.x;
-                            control.y = point.y;
-                            path.lineTo(point.x, point.y);
-                            if (j4 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "C":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j5 = 0, jl5 = numbers.length; j5 < jl5; j5 += 6) {
-                            path.bezierCurveTo(numbers[j5 + 0], numbers[j5 + 1], numbers[j5 + 2], numbers[j5 + 3], numbers[j5 + 4], numbers[j5 + 5]);
-                            control.x = numbers[j5 + 2];
-                            control.y = numbers[j5 + 3];
-                            point.x = numbers[j5 + 4];
-                            point.y = numbers[j5 + 5];
-                            if (j5 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "S":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j6 = 0, jl6 = numbers.length; j6 < jl6; j6 += 4) {
-                            path.bezierCurveTo(getReflection(point.x, control.x), getReflection(point.y, control.y), numbers[j6 + 0], numbers[j6 + 1], numbers[j6 + 2], numbers[j6 + 3]);
-                            control.x = numbers[j6 + 0];
-                            control.y = numbers[j6 + 1];
-                            point.x = numbers[j6 + 2];
-                            point.y = numbers[j6 + 3];
-                            if (j6 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "Q":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j7 = 0, jl7 = numbers.length; j7 < jl7; j7 += 4) {
-                            path.quadraticCurveTo(numbers[j7 + 0], numbers[j7 + 1], numbers[j7 + 2], numbers[j7 + 3]);
-                            control.x = numbers[j7 + 0];
-                            control.y = numbers[j7 + 1];
-                            point.x = numbers[j7 + 2];
-                            point.y = numbers[j7 + 3];
-                            if (j7 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "T":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j8 = 0, jl8 = numbers.length; j8 < jl8; j8 += 2) {
-                            var rx = getReflection(point.x, control.x);
-                            var ry = getReflection(point.y, control.y);
-                            path.quadraticCurveTo(rx, ry, numbers[j8 + 0], numbers[j8 + 1]);
-                            control.x = rx;
-                            control.y = ry;
-                            point.x = numbers[j8 + 0];
-                            point.y = numbers[j8 + 1];
-                            if (j8 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "A":
-                        numbers = faoxomsvgparsefloats(data, [3, 4], 7);
-                        for (var j9 = 0, jl9 = numbers.length; j9 < jl9; j9 += 7) {
-                            if (numbers[j9 + 5] == point.x && numbers[j9 + 6] == point.y) continue;
-                            var start = point.clone();
-                            point.x = numbers[j9 + 5];
-                            point.y = numbers[j9 + 6];
-                            control.x = point.x;
-                            control.y = point.y;
-                            faoxomsvgparsearccommand(path, numbers[j9], numbers[j9 + 1], numbers[j9 + 2], numbers[j9 + 3], numbers[j9 + 4], start, point);
-                            if (j9 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "m":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j10 = 0, jl10 = numbers.length; j10 < jl10; j10 += 2) {
-                            point.x += numbers[j10 + 0];
-                            point.y += numbers[j10 + 1];
-                            control.x = point.x;
-                            control.y = point.y;
-                            if (j10 === 0) path.moveTo(point.x, point.y);
-                            else path.lineTo(point.x, point.y);
-                            if (j10 === 0) firstPoint.copy(point);
-                        }
-                        break;
-                    case "h":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j11 = 0, jl11 = numbers.length; j11 < jl11; j11++) {
-                            point.x += numbers[j11];
-                            control.x = point.x;
-                            control.y = point.y;
-                            path.lineTo(point.x, point.y);
-                            if (j11 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "v":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j12 = 0, jl12 = numbers.length; j12 < jl12; j12++) {
-                            point.y += numbers[j12];
-                            control.x = point.x;
-                            control.y = point.y;
-                            path.lineTo(point.x, point.y);
-                            if (j12 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "l":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j13 = 0, jl13 = numbers.length; j13 < jl13; j13 += 2) {
-                            point.x += numbers[j13 + 0];
-                            point.y += numbers[j13 + 1];
-                            control.x = point.x;
-                            control.y = point.y;
-                            path.lineTo(point.x, point.y);
-                            if (j13 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "c":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j14 = 0, jl14 = numbers.length; j14 < jl14; j14 += 6) {
-                            path.bezierCurveTo(point.x + numbers[j14 + 0], point.y + numbers[j14 + 1], point.x + numbers[j14 + 2], point.y + numbers[j14 + 3], point.x + numbers[j14 + 4], point.y + numbers[j14 + 5]);
-                            control.x = point.x + numbers[j14 + 2];
-                            control.y = point.y + numbers[j14 + 3];
-                            point.x += numbers[j14 + 4];
-                            point.y += numbers[j14 + 5];
-                            if (j14 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "s":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j15 = 0, jl15 = numbers.length; j15 < jl15; j15 += 4) {
-                            path.bezierCurveTo(getReflection(point.x, control.x), getReflection(point.y, control.y), point.x + numbers[j15 + 0], point.y + numbers[j15 + 1], point.x + numbers[j15 + 2], point.y + numbers[j15 + 3]);
-                            control.x = point.x + numbers[j15 + 0];
-                            control.y = point.y + numbers[j15 + 1];
-                            point.x += numbers[j15 + 2];
-                            point.y += numbers[j15 + 3];
-                            if (j15 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "q":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j16 = 0, jl16 = numbers.length; j16 < jl16; j16 += 4) {
-                            path.quadraticCurveTo(point.x + numbers[j16 + 0], point.y + numbers[j16 + 1], point.x + numbers[j16 + 2], point.y + numbers[j16 + 3]);
-                            control.x = point.x + numbers[j16 + 0];
-                            control.y = point.y + numbers[j16 + 1];
-                            point.x += numbers[j16 + 2];
-                            point.y += numbers[j16 + 3];
-                            if (j16 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "t":
-                        numbers = faoxomsvgparsefloats(data);
-                        for (var j17 = 0, jl17 = numbers.length; j17 < jl17; j17 += 2) {
-                            var rx2 = getReflection(point.x, control.x);
-                            var ry2 = getReflection(point.y, control.y);
-                            path.quadraticCurveTo(rx2, ry2, point.x + numbers[j17 + 0], point.y + numbers[j17 + 1]);
-                            control.x = rx2;
-                            control.y = ry2;
-                            point.x = point.x + numbers[j17 + 0];
-                            point.y = point.y + numbers[j17 + 1];
-                            if (j17 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "a":
-                        numbers = faoxomsvgparsefloats(data, [3, 4], 7);
-                        for (var j18 = 0, jl18 = numbers.length; j18 < jl18; j18 += 7) {
-                            if (numbers[j18 + 5] == 0 && numbers[j18 + 6] == 0) continue;
-                            var start2 = point.clone();
-                            point.x += numbers[j18 + 5];
-                            point.y += numbers[j18 + 6];
-                            control.x = point.x;
-                            control.y = point.y;
-                            faoxomsvgparsearccommand(path, numbers[j18], numbers[j18 + 1], numbers[j18 + 2], numbers[j18 + 3], numbers[j18 + 4], start2, point);
-                            if (j18 === 0 && doSetFirstPoint === true) firstPoint.copy(point);
-                        }
-                        break;
-                    case "Z":
-                    case "z":
-                        path.currentPath.autoClose = true;
-                        if (path.currentPath.curves.length > 0) {
-                            point.copy(firstPoint);
-                            path.currentPath.currentPoint.copy(point);
-                            isFirstPoint = true;
-                        }
-                        break;
-                    default:
-                        console.warn(command);
-                }
-                doSetFirstPoint = false;
-            }
-            return path;
-        }
-        function parseCSSStylesheet(node) {
-            if (!node.sheet || !node.sheet.cssRules || !node.sheet.cssRules.length) return;
-            for (var i = 0; i < node.sheet.cssRules.length; i++) {
-                var stylesheet = node.sheet.cssRules[i];
-                if (stylesheet.type !== 1) continue;
-                var selectorList = stylesheet.selectorText.split(/,/).filter(Boolean).map(function(s) { return s.trim(); });
-                for (var j = 0; j < selectorList.length; j++) {
-                    var definitions = {};
-                    for (var name in stylesheet.style) {
-                        if (stylesheet.style[name] !== "") definitions[name] = stylesheet.style[name];
+                        Object.assign(selectors[names[n]], captured);
                     }
-                    stylesheets[selectorList[j]] = Object.assign(stylesheets[selectorList[j]] || {}, definitions);
                 }
             }
         }
-        function parseRectNode(node) {
-            var x = faoxomsvgparsefloatwithunits(node.getAttribute("x") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y = faoxomsvgparsefloatwithunits(node.getAttribute("y") || 0, scope.defaultDPI, scope.defaultUnit);
-            var rx = faoxomsvgparsefloatwithunits(node.getAttribute("rx") || node.getAttribute("ry") || 0, scope.defaultDPI, scope.defaultUnit);
-            var ry = faoxomsvgparsefloatwithunits(node.getAttribute("ry") || node.getAttribute("rx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var w = faoxomsvgparsefloatwithunits(node.getAttribute("width"), scope.defaultDPI, scope.defaultUnit);
-            var h = faoxomsvgparsefloatwithunits(node.getAttribute("height"), scope.defaultDPI, scope.defaultUnit);
-            var bci = 1 - 0.551915024494;
+        function resolveStyle(node, inherited) {
+            var style = Object.assign({}, inherited);
+            var matched = {};
+            if (node.hasAttribute("class")) {
+                var classes = node.getAttribute("class").split(/\s+/).filter(Boolean);
+                for (var c = 0; c < classes.length; c++) Object.assign(matched, selectors["." + classes[c]] || {});
+            }
+            if (node.hasAttribute("id")) Object.assign(matched, selectors["#" + node.getAttribute("id")] || {});
+            for (var p = 0; p < STYLE_PROPERTIES.length; p++) {
+                var cssName = STYLE_PROPERTIES[p][0], jsName = STYLE_PROPERTIES[p][1], mode = STYLE_PROPERTIES[p][2];
+                if (node.hasAttribute(cssName)) style[jsName] = adjust(node.getAttribute(cssName), mode);
+                if (matched[jsName] !== undefined) style[jsName] = adjust(matched[jsName], mode);
+                var inline = node.style ? node.style.getPropertyValue(cssName) : "";
+                if (inline !== "") style[jsName] = adjust(inline, mode);
+            }
+            return style;
+        }
+        function collectGradients(root) {
+            var raw = {};
+            var families = ["linearGradient", "radialGradient"];
+            for (var f = 0; f < families.length; f++) {
+                var nodes = root.getElementsByTagName(families[f]);
+                for (var i = 0; i < nodes.length; i++) {
+                    var node = nodes[i];
+                    var id = node.getAttribute("id");
+                    if (!id) continue;
+                    var entry = { type: families[f], attrs: {}, stops: null, parentId: null };
+                    var href = (node.getAttributeNS && node.getAttributeNS("http://www.w3.org/1999/xlink", "href")) || node.getAttribute("href") || "";
+                    if (href.charAt(0) === "#") entry.parentId = href.slice(1);
+                    var names = ["x1", "y1", "x2", "y2", "cx", "cy", "r", "fx", "fy", "gradientUnits", "gradientTransform", "spreadMethod"];
+                    for (var a = 0; a < names.length; a++) if (node.hasAttribute(names[a])) entry.attrs[names[a]] = node.getAttribute(names[a]);
+                    var stopNodes = node.getElementsByTagName("stop");
+                    if (stopNodes.length) {
+                        entry.stops = [];
+                        for (var s = 0; s < stopNodes.length; s++) {
+                            var stop = stopNodes[s];
+                            var color = stop.getAttribute("stop-color");
+                            if ((color === null || color === "") && stop.style) color = stop.style["stop-color"];
+                            if (color === null || color === "") color = "#000";
+                            var opacityText = stop.getAttribute("stop-opacity");
+                            if ((opacityText === null || opacityText === "") && stop.style) opacityText = stop.style["stop-opacity"];
+                            var opacity = opacityText === null || opacityText === "" || opacityText === undefined ? 1 : Math.max(0, Math.min(1, parseFloat(opacityText)));
+                            var offsetText = stop.getAttribute("offset") || "0";
+                            var offset = offsetText.indexOf("%") !== -1 ? parseFloat(offsetText) / 100 : parseFloat(offsetText);
+                            entry.stops.push({ offset: Math.max(0, Math.min(1, offset)), color: color, opacity: opacity });
+                        }
+                    }
+                    raw[id] = entry;
+                }
+            }
+            function resolveEntry(id, seen) {
+                var entry = raw[id];
+                if (!entry || seen.indexOf(id) !== -1) return entry;
+                seen.push(id);
+                if (entry.parentId && raw[entry.parentId]) {
+                    var parent = resolveEntry(entry.parentId, seen);
+                    if (parent) {
+                        if (!entry.stops) entry.stops = parent.stops;
+                        for (var key in parent.attrs) if (!(key in entry.attrs)) entry.attrs[key] = parent.attrs[key];
+                    }
+                }
+                return entry;
+            }
+            for (var id in raw) resolveEntry(id, []);
+            function coordinate(text) {
+                if (typeof text !== "string") return 0;
+                if (text.charAt(text.length - 1) === "%") return parseFloat(text) / 100;
+                return readLength(text, scope.defaultDPI, scope.defaultUnit);
+            }
+            for (var gid in raw) {
+                var entry = raw[gid];
+                var attrs = entry.attrs;
+                var units = attrs.gradientUnits === "userSpaceOnUse" ? "userSpaceOnUse" : "objectBoundingBox";
+                var spread = attrs.spreadMethod === "reflect" || attrs.spreadMethod === "repeat" ? attrs.spreadMethod : "pad";
+                var gradient = { type: entry.type, gradientUnits: units, spreadMethod: spread, gradientTransform: null, stops: (entry.stops || []).slice().sort(function(x, y) { return x.offset - y.offset; }) };
+                if (attrs.gradientTransform) gradient.gradientTransform = parseTransformList(attrs.gradientTransform);
+                if (entry.type === "linearGradient") {
+                    gradient.x1 = attrs.x1 !== undefined ? coordinate(attrs.x1) : 0;
+                    gradient.y1 = attrs.y1 !== undefined ? coordinate(attrs.y1) : 0;
+                    gradient.x2 = attrs.x2 !== undefined ? coordinate(attrs.x2) : (units === "objectBoundingBox" ? 1 : 0);
+                    gradient.y2 = attrs.y2 !== undefined ? coordinate(attrs.y2) : 0;
+                } else {
+                    var middle = units === "objectBoundingBox" ? 0.5 : 0;
+                    gradient.cx = attrs.cx !== undefined ? coordinate(attrs.cx) : middle;
+                    gradient.cy = attrs.cy !== undefined ? coordinate(attrs.cy) : middle;
+                    gradient.r = attrs.r !== undefined ? coordinate(attrs.r) : middle;
+                    gradient.fx = attrs.fx !== undefined ? coordinate(attrs.fx) : gradient.cx;
+                    gradient.fy = attrs.fy !== undefined ? coordinate(attrs.fy) : gradient.cy;
+                }
+                gradients[gid] = gradient;
+            }
+        }
+        function nodeTransform(node) {
+            var hasXY = node.nodeName === "use" && (node.hasAttribute("x") || node.hasAttribute("y"));
+            var hasTransform = node.hasAttribute("transform");
+            if (!hasXY && !hasTransform) return null;
+            var local = new Matrix3();
+            if (hasXY) local.makeTranslation(readLength(node.getAttribute("x") || 0, scope.defaultDPI, scope.defaultUnit), readLength(node.getAttribute("y") || 0, scope.defaultDPI, scope.defaultUnit));
+            if (hasTransform) local.premultiply(parseTransformList(node.getAttribute("transform")));
+            return local;
+        }
+        function buildRect(node) {
+            var x = readLength(node.getAttribute("x") || 0, scope.defaultDPI, scope.defaultUnit);
+            var y = readLength(node.getAttribute("y") || 0, scope.defaultDPI, scope.defaultUnit);
+            var w = readLength(node.getAttribute("width"), scope.defaultDPI, scope.defaultUnit);
+            var h = readLength(node.getAttribute("height"), scope.defaultDPI, scope.defaultUnit);
+            var rx = readLength(node.getAttribute("rx") || node.getAttribute("ry") || 0, scope.defaultDPI, scope.defaultUnit);
+            var ry = readLength(node.getAttribute("ry") || node.getAttribute("rx") || 0, scope.defaultDPI, scope.defaultUnit);
+            rx = Math.min(rx, w / 2);
+            ry = Math.min(ry, h / 2);
             var path = new ShapePath();
             path.moveTo(x + rx, y);
             path.lineTo(x + w - rx, y);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + w - rx * bci, y, x + w, y + ry * bci, x + w, y + ry);
+            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + w - rx * CORNER_KAPPA, y, x + w, y + ry * CORNER_KAPPA, x + w, y + ry);
             path.lineTo(x + w, y + h - ry);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + w, y + h - ry * bci, x + w - rx * bci, y + h, x + w - rx, y + h);
+            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + w, y + h - ry * CORNER_KAPPA, x + w - rx * CORNER_KAPPA, y + h, x + w - rx, y + h);
             path.lineTo(x + rx, y + h);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + rx * bci, y + h, x, y + h - ry * bci, x, y + h - ry);
+            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + rx * CORNER_KAPPA, y + h, x, y + h - ry * CORNER_KAPPA, x, y + h - ry);
             path.lineTo(x, y + ry);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x, y + ry * bci, x + rx * bci, y, x + rx, y);
+            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x, y + ry * CORNER_KAPPA, x + rx * CORNER_KAPPA, y, x + rx, y);
             return path;
         }
-        function parsePolygonNode(node) {
-            function iterator(match, a, b) {
-                var x = faoxomsvgparsefloatwithunits(a, scope.defaultDPI, scope.defaultUnit);
-                var y = faoxomsvgparsefloatwithunits(b, scope.defaultDPI, scope.defaultUnit);
-                if (index === 0) path.moveTo(x, y);
-                else path.lineTo(x, y);
-                index++;
-            }
-            var regex = /([+-]?\d*\.?\d+(?:e[+-]?\d+)?)(?:,|\s)([+-]?\d*\.?\d+(?:e[+-]?\d+)?)/g;
+        function buildCircle(node) {
+            var cx = readLength(node.getAttribute("cx") || 0, scope.defaultDPI, scope.defaultUnit);
+            var cy = readLength(node.getAttribute("cy") || 0, scope.defaultDPI, scope.defaultUnit);
+            var r = readLength(node.getAttribute("r") || 0, scope.defaultDPI, scope.defaultUnit);
+            var ring = new Path();
+            ring.absarc(cx, cy, r, 0, TWO_PI);
             var path = new ShapePath();
-            var index = 0;
-            node.getAttribute("points").replace(regex, iterator);
-            if (path.currentPath) path.currentPath.autoClose = true;
+            path.subPaths.push(ring);
             return path;
         }
-        function parsePolylineNode(node) {
-            function iterator(match, a, b) {
-                var x = faoxomsvgparsefloatwithunits(a, scope.defaultDPI, scope.defaultUnit);
-                var y = faoxomsvgparsefloatwithunits(b, scope.defaultDPI, scope.defaultUnit);
-                if (index === 0) path.moveTo(x, y);
-                else path.lineTo(x, y);
-                index++;
-            }
-            var regex = /([+-]?\d*\.?\d+(?:e[+-]?\d+)?)(?:,|\s)([+-]?\d*\.?\d+(?:e[+-]?\d+)?)/g;
+        function buildEllipse(node) {
+            var cx = readLength(node.getAttribute("cx") || 0, scope.defaultDPI, scope.defaultUnit);
+            var cy = readLength(node.getAttribute("cy") || 0, scope.defaultDPI, scope.defaultUnit);
+            var rx = readLength(node.getAttribute("rx") || 0, scope.defaultDPI, scope.defaultUnit);
+            var ry = readLength(node.getAttribute("ry") || 0, scope.defaultDPI, scope.defaultUnit);
+            var ring = new Path();
+            ring.absellipse(cx, cy, rx, ry, 0, TWO_PI);
             var path = new ShapePath();
-            var index = 0;
-            node.getAttribute("points").replace(regex, iterator);
-            if (path.currentPath) path.currentPath.autoClose = false;
+            path.subPaths.push(ring);
             return path;
         }
-        function parseCircleNode(node) {
-            var x = faoxomsvgparsefloatwithunits(node.getAttribute("cx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y = faoxomsvgparsefloatwithunits(node.getAttribute("cy") || 0, scope.defaultDPI, scope.defaultUnit);
-            var r = faoxomsvgparsefloatwithunits(node.getAttribute("r") || 0, scope.defaultDPI, scope.defaultUnit);
-            var subpath = new Path();
-            subpath.absarc(x, y, r, 0, Math.PI * 2);
-            var path = new ShapePath();
-            path.subPaths.push(subpath);
-            return path;
-        }
-        function parseEllipseNode(node) {
-            var x = faoxomsvgparsefloatwithunits(node.getAttribute("cx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y = faoxomsvgparsefloatwithunits(node.getAttribute("cy") || 0, scope.defaultDPI, scope.defaultUnit);
-            var rx = faoxomsvgparsefloatwithunits(node.getAttribute("rx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var ry = faoxomsvgparsefloatwithunits(node.getAttribute("ry") || 0, scope.defaultDPI, scope.defaultUnit);
-            var subpath = new Path();
-            subpath.absellipse(x, y, rx, ry, 0, Math.PI * 2);
-            var path = new ShapePath();
-            path.subPaths.push(subpath);
-            return path;
-        }
-        function parseLineNode(node) {
-            var x1 = faoxomsvgparsefloatwithunits(node.getAttribute("x1") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y1 = faoxomsvgparsefloatwithunits(node.getAttribute("y1") || 0, scope.defaultDPI, scope.defaultUnit);
-            var x2 = faoxomsvgparsefloatwithunits(node.getAttribute("x2") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y2 = faoxomsvgparsefloatwithunits(node.getAttribute("y2") || 0, scope.defaultDPI, scope.defaultUnit);
+        function buildLine(node) {
+            var x1 = readLength(node.getAttribute("x1") || 0, scope.defaultDPI, scope.defaultUnit);
+            var y1 = readLength(node.getAttribute("y1") || 0, scope.defaultDPI, scope.defaultUnit);
+            var x2 = readLength(node.getAttribute("x2") || 0, scope.defaultDPI, scope.defaultUnit);
+            var y2 = readLength(node.getAttribute("y2") || 0, scope.defaultDPI, scope.defaultUnit);
             var path = new ShapePath();
             path.moveTo(x1, y1);
             path.lineTo(x2, y2);
             if (path.currentPath) path.currentPath.autoClose = false;
             return path;
         }
-        function parseGradients(xml) {
-            var HREF_NS = "http://www.w3.org/1999/xlink";
-            var gradientNodes = [];
-            var lin = xml.getElementsByTagName("linearGradient");
-            var rad = xml.getElementsByTagName("radialGradient");
-            for (var ln = 0; ln < lin.length; ln++) gradientNodes.push(lin[ln]);
-            for (var rn = 0; rn < rad.length; rn++) gradientNodes.push(rad[rn]);
-            var ATTRS = ["x1", "y1", "x2", "y2", "cx", "cy", "r", "fx", "fy", "gradientUnits", "gradientTransform", "spreadMethod"];
-            var parsed = {};
-            for (var n = 0; n < gradientNodes.length; n++) {
-                var node = gradientNodes[n];
-                var id = node.getAttribute("id");
-                if (!id) continue;
-                var entry = { type: node.nodeName === "radialGradient" ? "radialGradient" : "linearGradient", attrs: {}, stops: null, href: null };
-                var href = (node.getAttributeNS && node.getAttributeNS(HREF_NS, "href")) || node.getAttribute("href") || "";
-                if (href.indexOf("#") === 0) entry.href = href.substring(1);
-                for (var ai = 0; ai < ATTRS.length; ai++) {
-                    if (node.hasAttribute(ATTRS[ai])) entry.attrs[ATTRS[ai]] = node.getAttribute(ATTRS[ai]);
-                }
-                var stopNodes = node.getElementsByTagName("stop");
-                if (stopNodes.length > 0) {
-                    entry.stops = [];
-                    for (var s = 0; s < stopNodes.length; s++) {
-                        var stopNode = stopNodes[s];
-                        var color = stopNode.getAttribute("stop-color");
-                        if (!color && stopNode.style) color = stopNode.style["stop-color"];
-                        if (!color) color = "#000";
-                        var opacity = stopNode.getAttribute("stop-opacity");
-                        if ((opacity === null || opacity === "") && stopNode.style) opacity = stopNode.style["stop-opacity"];
-                        opacity = (opacity === null || opacity === "" || opacity === undefined) ? 1 : Math.max(0, Math.min(1, parseFloat(opacity)));
-                        var offset = Math.max(0, Math.min(1, parseFloat(stopNode.getAttribute("offset") || "0")));
-                        entry.stops.push({ offset: offset, color: color, opacity: opacity });
-                    }
-                }
-                parsed[id] = entry;
+        function buildPointSeries(node, close) {
+            var numbers = scanNumbers(node.getAttribute("points") || "");
+            var path = new ShapePath();
+            for (var i = 0; i + 1 < numbers.length; i += 2) {
+                if (i === 0) path.moveTo(numbers[i], numbers[i + 1]);
+                else path.lineTo(numbers[i], numbers[i + 1]);
             }
-            function inherit(id, visited) {
-                var entry = parsed[id];
-                if (!entry || visited.indexOf(id) !== -1) return entry;
-                visited.push(id);
-                if (entry.href && parsed[entry.href]) {
-                    var parent = inherit(entry.href, visited);
-                    if (parent) {
-                        if (!entry.stops) entry.stops = parent.stops;
-                        for (var key in parent.attrs) {
-                            if (!(key in entry.attrs)) entry.attrs[key] = parent.attrs[key];
-                        }
-                    }
-                }
-                return entry;
-            }
-            for (var pid in parsed) inherit(pid, []);
-            for (var gid in parsed) {
-                var entry2 = parsed[gid];
-                var a = entry2.attrs;
-                var units = a.gradientUnits === "userSpaceOnUse" ? "userSpaceOnUse" : "objectBoundingBox";
-                var gradient = { type: entry2.type, gradientUnits: units, spreadMethod: a.spreadMethod === "reflect" || a.spreadMethod === "repeat" ? a.spreadMethod : "pad", gradientTransform: null, stops: (entry2.stops || []).slice().sort(function(x, y) { return x.offset - y.offset; }) };
-                if (a.gradientTransform) {
-                    gradient.gradientTransform = new Matrix3();
-                    faoxomsvgparsetransformstring(a.gradientTransform, gradient.gradientTransform);
-                }
-                function coord(str) {
-                    if (typeof str !== "string") return 0;
-                    if (str.endsWith("%")) return parseFloat(str) / 100;
-                    return faoxomsvgparsefloatwithunits(str, scope.defaultDPI, scope.defaultUnit);
-                }
-                if (entry2.type === "linearGradient") {
-                    gradient.x1 = a.x1 !== undefined ? coord(a.x1) : 0;
-                    gradient.y1 = a.y1 !== undefined ? coord(a.y1) : 0;
-                    gradient.x2 = a.x2 !== undefined ? coord(a.x2) : (units === "objectBoundingBox" ? 1 : 0);
-                    gradient.y2 = a.y2 !== undefined ? coord(a.y2) : 0;
-                } else {
-                    var defCenter = units === "objectBoundingBox" ? 0.5 : 0;
-                    var defR = units === "objectBoundingBox" ? 0.5 : 0;
-                    gradient.cx = a.cx !== undefined ? coord(a.cx) : defCenter;
-                    gradient.cy = a.cy !== undefined ? coord(a.cy) : defCenter;
-                    gradient.r = a.r !== undefined ? coord(a.r) : defR;
-                    gradient.fx = a.fx !== undefined ? coord(a.fx) : gradient.cx;
-                    gradient.fy = a.fy !== undefined ? coord(a.fy) : gradient.cy;
-                }
-                gradients[gid] = gradient;
-            }
+            if (path.currentPath) path.currentPath.autoClose = close;
+            return path;
         }
-        function parseStyle(node, style) {
-            style = Object.assign({}, style);
-            var stylesheetStyles = {};
-            if (node.hasAttribute("class")) {
-                var classSelectors = node.getAttribute("class").split(/\s/).filter(Boolean).map(function(s) { return s.trim(); });
-                for (var i = 0; i < classSelectors.length; i++) stylesheetStyles = Object.assign(stylesheetStyles, stylesheets["." + classSelectors[i]]);
+        function walk(node, inheritedStyle) {
+            if (node.nodeType !== 1) return;
+            if (node.hasAttribute("filter")) console.warn("SVGLoader: Filters are not supported.");
+            var tag = node.nodeName;
+            var local = nodeTransform(node);
+            var cumulative = stack[stack.length - 1];
+            if (local) {
+                cumulative = new Matrix3().copy(stack[stack.length - 1]).multiply(local);
+                stack.push(cumulative);
             }
-            if (node.hasAttribute("id")) stylesheetStyles = Object.assign(stylesheetStyles, stylesheets["#" + node.getAttribute("id")]);
-            function addStyle(svgName, jsName, adjustFunction) {
-                if (adjustFunction === undefined) adjustFunction = function(v) { return v; };
-                if (node.hasAttribute(svgName)) style[jsName] = adjustFunction(node.getAttribute(svgName));
-                if (stylesheetStyles[jsName]) style[jsName] = adjustFunction(stylesheetStyles[jsName]);
-                if (node.style && node.style[svgName] !== "") style[jsName] = adjustFunction(node.style[svgName]);
+            var style = inheritedStyle;
+            var built = null;
+            if (tag === "svg" || tag === "g") style = resolveStyle(node, style);
+            else if (tag === "path") { style = resolveStyle(node, style); if (node.hasAttribute("d")) built = buildPathFromData(node.getAttribute("d")); }
+            else if (tag === "rect") { style = resolveStyle(node, style); built = buildRect(node); }
+            else if (tag === "circle") { style = resolveStyle(node, style); built = buildCircle(node); }
+            else if (tag === "ellipse") { style = resolveStyle(node, style); built = buildEllipse(node); }
+            else if (tag === "line") { style = resolveStyle(node, style); built = buildLine(node); }
+            else if (tag === "polygon") { style = resolveStyle(node, style); built = buildPointSeries(node, true); }
+            else if (tag === "polyline") { style = resolveStyle(node, style); built = buildPointSeries(node, false); }
+            else if (tag === "use") {
+                style = resolveStyle(node, style);
+                var href = (node.getAttributeNS && node.getAttributeNS("http://www.w3.org/1999/xlink", "href")) || node.getAttribute("href") || "";
+                var target = null;
+                if (href.charAt(0) === "#") {
+                    var scopeDoc = node.viewportElement || node.ownerDocument || document;
+                    target = scopeDoc.getElementById ? scopeDoc.getElementById(href.slice(1)) : null;
+                }
+                if (target) walk(target, style);
+                else console.warn("SVGLoader: 'use node' references non-existent node id: " + href.slice(1));
             }
-            function clamp(v) { return Math.max(0, Math.min(1, faoxomsvgparsefloatwithunits(v, scope.defaultDPI, scope.defaultUnit))); }
-            function positive(v) { return Math.max(0, faoxomsvgparsefloatwithunits(v, scope.defaultDPI, scope.defaultUnit)); }
-            addStyle("fill", "fill");
-            addStyle("fill-opacity", "fillOpacity", clamp);
-            addStyle("fill-rule", "fillRule");
-            addStyle("opacity", "opacity", clamp);
-            addStyle("stroke", "stroke");
-            addStyle("stroke-opacity", "strokeOpacity", clamp);
-            addStyle("stroke-width", "strokeWidth", positive);
-            addStyle("stroke-linejoin", "strokeLineJoin");
-            addStyle("stroke-linecap", "strokeLineCap");
-            addStyle("stroke-miterlimit", "strokeMiterLimit", positive);
-            addStyle("visibility", "visibility");
-            return style;
+            if (built) {
+                if (style.fill !== undefined && style.fill !== "none" && style.fill.indexOf("url") !== 0) built.color.setStyle(style.fill, "srgb");
+                applyMatrixToPath(built, cumulative);
+                var carried = Object.assign({}, style);
+                carried.strokeWidth = style.strokeWidth * transformScale(cumulative);
+                built.userData = { node: node, style: carried, transform: cumulative.clone(), gradients: gradients };
+                paths.push(built);
+            }
+            if (tag === "defs") {
+                var inner = node.childNodes;
+                for (var d = 0; d < inner.length; d++) {
+                    var name = inner[d].nodeName;
+                    if (name === "style" || name === "defs") walk(inner[d], style);
+                }
+            } else {
+                var children = node.childNodes;
+                for (var c = 0; c < children.length; c++) walk(children[c], style);
+            }
+            if (local) stack.pop();
         }
-        function getReflection(a, b) { return a - (b - a); }
-        function getNodeTransform(node) {
-            if (!(node.hasAttribute("transform") || (node.nodeName === "use" && (node.hasAttribute("x") || node.hasAttribute("y"))))) return null;
-            var transform = new Matrix3();
-            if (node.nodeName === "use" && (node.hasAttribute("x") || node.hasAttribute("y"))) {
-                var tx = faoxomsvgparsefloatwithunits(node.getAttribute("x") || 0, scope.defaultDPI, scope.defaultUnit);
-                var ty = faoxomsvgparsefloatwithunits(node.getAttribute("y") || 0, scope.defaultDPI, scope.defaultUnit);
-                transform.makeTranslation(tx, ty);
-            }
-            if (node.hasAttribute("transform")) faoxomsvgparsetransformstring(node.getAttribute("transform"), transform);
-            if (transformStack.length > 0) transform.premultiply(transformStack[transformStack.length - 1]);
-            currentTransform.copy(transform);
-            transformStack.push(transform);
-            return transform;
-        }
-        var paths = [];
-        var stylesheets = {};
-        var gradients = {};
-        var transformStack = [];
-        var currentTransform = new Matrix3();
-        var xml = new DOMParser().parseFromString(text, "image/svg+xml");
-        parseGradients(xml);
-        parseNode(xml.documentElement, { fill: "#000", fillOpacity: 1, strokeOpacity: 1, strokeWidth: 1, strokeLineJoin: "miter", strokeLineCap: "butt", strokeMiterLimit: 4 });
-        return { paths: paths, gradients: gradients, xml: xml.documentElement };
+        collectStylesheets(document);
+        collectGradients(document);
+        walk(document.documentElement, { fill: "#000", fillOpacity: 1, strokeOpacity: 1, strokeWidth: 1, strokeLineJoin: "miter", strokeLineCap: "butt", strokeMiterLimit: 4 });
+        return { paths: paths, gradients: gradients, xml: document.documentElement };
     }
+    static createShapes(shapePath) { return shapePath.toShapes(); }
     static createFillMaterial(shapePath) {
         var style = shapePath.userData.style;
         if (!style || style.fill === undefined || style.fill === "none") return null;
-        var color = shapePath.color;
-        var texture = null;
-        var urlMatch = faoxomsvggradienturlre.exec(style.fill);
-        if (urlMatch) {
-            var gradient = shapePath.userData.gradients && shapePath.userData.gradients[urlMatch[1]];
-            texture = faoxomsvgbuildgradienttexture(gradient, shapePath);
-        }
         var material = new BasicMaterial({ opacity: style.fillOpacity * (style.opacity || 1), transparent: true, side: DoubleSide, depthWrite: false });
-        if (texture !== null && texture !== undefined) material.diffuseMap = texture;
-        else material.color = color;
+        var reference = GRADIENT_REFERENCE.exec(style.fill);
+        if (reference) {
+            var gradient = shapePath.userData.gradients && shapePath.userData.gradients[reference[1]];
+            var texture = bakeGradientTexture(gradient, shapePath);
+            if (texture) { material.diffuseMap = texture; return material; }
+        }
+        material.color = shapePath.color;
         return material;
     }
     static createStrokeMaterial(shapePath) {
         var style = shapePath.userData.style;
         if (!style || style.stroke === undefined || style.stroke === "none") return null;
-        if (faoxomsvggradienturlre.test(style.stroke)) console.warn("SVGLoader: Gradient strokes are not supported.");
+        if (GRADIENT_REFERENCE.test(style.stroke)) console.warn("SVGLoader: Gradient strokes are not supported.");
         var material = new BasicMaterial({ opacity: style.strokeOpacity * (style.opacity || 1), transparent: true, side: DoubleSide, depthWrite: false });
         material.color = new Color().setStyle(style.stroke, "srgb");
         return material;
     }
-    static createShapes(shapePath) {
-        return shapePath.toShapes();
-    }
     static getStrokeStyle(width, color, lineJoin, lineCap, miterLimit) {
-        width = width !== undefined ? width : 1;
-        color = color !== undefined ? color : "#000";
-        lineJoin = lineJoin !== undefined ? lineJoin : "miter";
-        lineCap = lineCap !== undefined ? lineCap : "butt";
-        miterLimit = miterLimit !== undefined ? miterLimit : 4;
-        return { strokeColor: color, strokeWidth: width, strokeLineJoin: lineJoin, strokeLineCap: lineCap, strokeMiterLimit: miterLimit };
+        return {
+            strokeColor: color !== undefined ? color : "#000",
+            strokeWidth: width !== undefined ? width : 1,
+            strokeLineJoin: lineJoin !== undefined ? lineJoin : "miter",
+            strokeLineCap: lineCap !== undefined ? lineCap : "butt",
+            strokeMiterLimit: miterLimit !== undefined ? miterLimit : 4
+        };
     }
     static pointsToStroke(points, style, arcDivisions, minDistance) {
         var vertices = [], normals = [], uvs = [];
-        if (SVGLoader.pointsToStrokeWithBuffers(points, style, arcDivisions, minDistance, vertices, normals, uvs) === 0) return null;
+        if (SVGLoader.pointsToStrokeWithBuffers(points, style, arcDivisions, minDistance, vertices, normals, uvs, 0) === 0) return null;
         var geometry = new Geometry();
         geometry.setAttribute("position", new Float32Array(vertices), 3);
         geometry.setAttribute("normal", new Float32Array(normals), 3);
@@ -576,369 +797,139 @@ class SVGLoader {
         return geometry;
     }
     static pointsToStrokeWithBuffers(points, style, arcDivisions, minDistance, vertices, normals, uvs, vertexOffset) {
-        var tempV2_1 = new Vector2(), tempV2_2 = new Vector2(), tempV2_3 = new Vector2(), tempV2_4 = new Vector2(), tempV2_5 = new Vector2(), tempV2_6 = new Vector2(), tempV2_7 = new Vector2();
-        var lastPointL = new Vector2(), lastPointR = new Vector2(), point0L = new Vector2(), point0R = new Vector2();
-        var currentPointL = new Vector2(), currentPointR = new Vector2(), nextPointL = new Vector2(), nextPointR = new Vector2();
-        var innerPoint = new Vector2(), outerPoint = new Vector2();
         arcDivisions = arcDivisions !== undefined ? arcDivisions : 12;
         minDistance = minDistance !== undefined ? minDistance : 0.001;
         vertexOffset = vertexOffset !== undefined ? vertexOffset : 0;
-        function removeDuplicatedPoints(pts) {
-            var dupPoints = false;
-            for (var i = 1, n = pts.length - 1; i < n; i++) {
-                if (pts[i].distanceTo(pts[i + 1]) < minDistance) { dupPoints = true; break; }
+        if (!points || points.length < 2) return 0;
+        var kept = [points[0]];
+        for (var d = 1; d < points.length - 1; d++) {
+            if (points[d].distanceTo(kept[kept.length - 1]) >= minDistance) kept.push(points[d]);
+        }
+        kept.push(points[points.length - 1]);
+        var count = kept.length;
+        if (count < 2) return 0;
+        var closed = kept[0].equals(kept[count - 1]);
+        var half = style.strokeWidth / 2;
+        var limit = style.strokeMiterLimit;
+        var positions = [];
+        var uvData = [];
+        function emit(ax, ay, ua, va, bx, by, ub, vb, cx, cy, uc, vc) {
+            var cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+            if (cross < 0) {
+                var sx = bx, sy = by, su = ub, sv = vb;
+                bx = cx; by = cy; ub = uc; vb = vc;
+                cx = sx; cy = sy; uc = su; vc = sv;
             }
-            if (!dupPoints) return pts;
-            var newPoints = [pts[0]];
-            for (var j = 1, m = pts.length - 1; j < m; j++) {
-                if (pts[j].distanceTo(pts[j + 1]) >= minDistance) newPoints.push(pts[j]);
+            positions.push(ax, ay, 0, bx, by, 0, cx, cy, 0);
+            uvData.push(ua, va, ub, vb, uc, vc);
+        }
+        function emitSweep(centerX, centerY, fromX, fromY, span, u) {
+            var steps = Math.max(1, arcDivisions - 1);
+            var a0 = Math.atan2(fromY - centerY, fromX - centerX);
+            var previousX = fromX, previousY = fromY;
+            for (var s = 1; s <= steps; s++) {
+                var angle = a0 + span * (s / steps);
+                var nextX = centerX + Math.cos(angle) * half;
+                var nextY = centerY + Math.sin(angle) * half;
+                emit(centerX, centerY, u, 0.5, previousX, previousY, u, 0.5, nextX, nextY, u, 0.5);
+                previousX = nextX;
+                previousY = nextY;
             }
-            newPoints.push(pts[pts.length - 1]);
-            return newPoints;
         }
-        function getNormal(p1, p2, result) {
-            result.subVectors(p2, p1);
-            var x = -result.y, y = result.x;
-            return result.set(x, y).normalize();
+        function meetPoint(pA, dA, pB, dB) {
+            var cross = dA[0] * dB[1] - dA[1] * dB[0];
+            if (Math.abs(cross) < 1e-12) return null;
+            var t = ((pB.x - pA.x) * dB[1] - (pB.y - pA.y) * dB[0]) / cross;
+            return { x: pA.x + dA[0] * t, y: pA.y + dA[1] * t };
         }
-        var currentCoordinate = vertexOffset * 3, currentCoordinateUV = vertexOffset * 2, numVertices = 0;
-        function addVertex(position, u, v) {
-            if (vertices) {
-                vertices[currentCoordinate] = position.x;
-                vertices[currentCoordinate + 1] = position.y;
-                vertices[currentCoordinate + 2] = 0;
-                if (normals) { normals[currentCoordinate] = 0; normals[currentCoordinate + 1] = 0; normals[currentCoordinate + 2] = 1; }
-                currentCoordinate += 3;
-                if (uvs) { uvs[currentCoordinateUV] = u; uvs[currentCoordinateUV + 1] = v; currentCoordinateUV += 2; }
-            }
-            numVertices += 3;
+        var startL = [], startR = [], endL = [], endR = [], directions = [];
+        for (var s = 0; s < count - 1; s++) {
+            var dx = kept[s + 1].x - kept[s].x, dy = kept[s + 1].y - kept[s].y;
+            var len = Math.sqrt(dx * dx + dy * dy) || 1;
+            var nx = -dy / len, ny = dx / len;
+            directions.push([dx / len, dy / len]);
+            startL.push({ x: kept[s].x + nx * half, y: kept[s].y + ny * half });
+            startR.push({ x: kept[s].x - nx * half, y: kept[s].y - ny * half });
+            endL.push({ x: kept[s + 1].x + nx * half, y: kept[s + 1].y + ny * half });
+            endR.push({ x: kept[s + 1].x - nx * half, y: kept[s + 1].y - ny * half });
         }
-        function makeCircularSector(center, p1, p2, u, v) {
-            tempV2_1.copy(p1).sub(center).normalize();
-            tempV2_2.copy(p2).sub(center).normalize();
-            var angle = Math.PI;
-            var dot = tempV2_1.dot(tempV2_2);
-            if (Math.abs(dot) < 1) angle = Math.abs(Math.acos(dot));
-            angle /= arcDivisions;
-            tempV2_3.copy(p1);
-            for (var i = 0, il = arcDivisions - 1; i < il; i++) {
-                tempV2_4.copy(tempV2_3).rotateAround(center, angle);
-                addVertex(tempV2_3, u, v);
-                addVertex(tempV2_4, u, v);
-                addVertex(center, u, 0.5);
-                tempV2_3.copy(tempV2_4);
-            }
-            addVertex(tempV2_3, u, v);
-            addVertex(p2, u, v);
-            addVertex(center, u, 0.5);
-        }
-        function makeSegmentTriangles() {
-            addVertex(lastPointR, u0, 1);
-            addVertex(lastPointL, u0, 0);
-            addVertex(currentPointL, u1, 0);
-            addVertex(lastPointR, u0, 1);
-            addVertex(currentPointL, u1, 0);
-            addVertex(currentPointR, u1, 1);
-        }
-        function makeSegmentWithBevelJoin(joinIsOnLeftSideArg, innerSideModifiedArg, u) {
-            if (innerSideModifiedArg) {
-                if (joinIsOnLeftSideArg) {
-                    addVertex(lastPointR, u0, 1);
-                    addVertex(lastPointL, u0, 0);
-                    addVertex(currentPointL, u1, 0);
-                    addVertex(lastPointR, u0, 1);
-                    addVertex(currentPointL, u1, 0);
-                    addVertex(innerPoint, u1, 1);
-                    addVertex(currentPointL, u, 0);
-                    addVertex(nextPointL, u, 0);
-                    addVertex(innerPoint, u, 0.5);
-                } else {
-                    addVertex(lastPointR, u0, 1);
-                    addVertex(lastPointL, u0, 0);
-                    addVertex(currentPointR, u1, 1);
-                    addVertex(lastPointL, u0, 0);
-                    addVertex(innerPoint, u1, 0);
-                    addVertex(currentPointR, u1, 1);
-                    addVertex(currentPointR, u, 1);
-                    addVertex(innerPoint, u, 0);
-                    addVertex(nextPointR, u, 1);
+        for (var j = 1; j < count - 1; j++) {
+            var inDir = directions[j - 1], outDir = directions[j];
+            var turn = inDir[0] * outDir[1] - inDir[1] * outDir[0];
+            if (Math.abs(turn) < 1e-12) continue;
+            var leftInner = turn > 0;
+            var innerEnd = leftInner ? endL[j - 1] : endR[j - 1];
+            var innerStart = leftInner ? startL[j] : startR[j];
+            var outerEnd = leftInner ? endR[j - 1] : endL[j - 1];
+            var outerStart = leftInner ? startR[j] : startL[j];
+            var incoming = [-inDir[0], -inDir[1]];
+            var innerMeet = meetPoint(innerEnd, incoming, innerStart, outDir);
+            if (innerMeet) {
+                var driftIn = (innerMeet.x - kept[j].x) * -inDir[0] + (innerMeet.y - kept[j].y) * -inDir[1];
+                var driftOut = (innerMeet.x - kept[j].x) * outDir[0] + (innerMeet.y - kept[j].y) * outDir[1];
+                var prevLen = Math.sqrt(Math.pow(kept[j].x - kept[j - 1].x, 2) + Math.pow(kept[j].y - kept[j - 1].y, 2));
+                var nextLen = Math.sqrt(Math.pow(kept[j + 1].x - kept[j].x, 2) + Math.pow(kept[j + 1].y - kept[j].y, 2));
+                if (driftIn < prevLen * 2 && driftOut < nextLen * 2) {
+                    if (leftInner) { endL[j - 1] = innerMeet; startL[j] = innerMeet; }
+                    else { endR[j - 1] = innerMeet; startR[j] = innerMeet; }
                 }
+            }
+            var join = style.strokeLineJoin;
+            var u = j / (count - 1);
+            if (join === "round") {
+                var sweep = Math.atan2(turn, inDir[0] * outDir[0] + inDir[1] * outDir[1]);
+                emitSweep(kept[j].x, kept[j].y, outerEnd.x, outerEnd.y, sweep, u);
+            } else if (join === "bevel") {
+                emit(kept[j].x, kept[j].y, u, 0.5, outerEnd.x, outerEnd.y, u, 0.5, outerStart.x, outerStart.y, u, 0.5);
             } else {
-                if (joinIsOnLeftSideArg) {
-                    addVertex(currentPointL, u, 0);
-                    addVertex(nextPointL, u, 0);
-                    addVertex(currentPoint, u, 0.5);
+                var miter = meetPoint(outerEnd, incoming, outerStart, outDir);
+                var miterReach = miter ? Math.sqrt(Math.pow(miter.x - kept[j].x, 2) + Math.pow(miter.y - kept[j].y, 2)) : Infinity;
+                if (miter && miterReach <= limit * half) {
+                    if (leftInner) { endR[j - 1] = miter; startR[j] = miter; }
+                    else { endL[j - 1] = miter; startL[j] = miter; }
+                } else if (join === "miter-clip" && miter) {
+                    var clip = limit * half / miterReach;
+                    var clipped = { x: kept[j].x + (miter.x - kept[j].x) * clip, y: kept[j].y + (miter.y - kept[j].y) * clip };
+                    if (leftInner) { endR[j - 1] = clipped; startR[j] = clipped; }
+                    else { endL[j - 1] = clipped; startL[j] = clipped; }
+                    emit(outerEnd.x, outerEnd.y, u, 1, clipped.x, clipped.y, u, 0.5, outerStart.x, outerStart.y, u, 1);
                 } else {
-                    addVertex(currentPointR, u, 1);
-                    addVertex(nextPointR, u, 0);
-                    addVertex(currentPoint, u, 0.5);
+                    emit(kept[j].x, kept[j].y, u, 0.5, outerEnd.x, outerEnd.y, u, 0.5, outerStart.x, outerStart.y, u, 0.5);
                 }
             }
         }
-        function createSegmentTrianglesWithMiddleSection(joinIsOnLeftSideArg, innerSideModifiedArg) {
-            if (innerSideModifiedArg) {
-                if (joinIsOnLeftSideArg) {
-                    addVertex(lastPointR, u0, 1);
-                    addVertex(lastPointL, u0, 0);
-                    addVertex(currentPointL, u1, 0);
-                    addVertex(lastPointR, u0, 1);
-                    addVertex(currentPointL, u1, 0);
-                    addVertex(innerPoint, u1, 1);
-                    addVertex(currentPointL, u0, 0);
-                    addVertex(currentPoint, u1, 0.5);
-                    addVertex(innerPoint, u1, 1);
-                    addVertex(currentPoint, u1, 0.5);
-                    addVertex(nextPointL, u0, 0);
-                    addVertex(innerPoint, u1, 1);
-                } else {
-                    addVertex(lastPointR, u0, 1);
-                    addVertex(lastPointL, u0, 0);
-                    addVertex(currentPointR, u1, 1);
-                    addVertex(lastPointL, u0, 0);
-                    addVertex(innerPoint, u1, 0);
-                    addVertex(currentPointR, u1, 1);
-                    addVertex(currentPointR, u0, 1);
-                    addVertex(innerPoint, u1, 0);
-                    addVertex(currentPoint, u1, 0.5);
-                    addVertex(currentPoint, u1, 0.5);
-                    addVertex(innerPoint, u1, 0);
-                    addVertex(nextPointR, u0, 1);
-                }
+        for (var q = 0; q < count - 1; q++) {
+            var u0 = q / (count - 1), u1 = (q + 1) / (count - 1);
+            emit(startL[q].x, startL[q].y, u0, 1, startR[q].x, startR[q].y, u0, 0, endL[q].x, endL[q].y, u1, 1);
+            emit(startR[q].x, startR[q].y, u0, 0, endR[q].x, endR[q].y, u1, 0, endL[q].x, endL[q].y, u1, 1);
+        }
+        if (!closed) {
+            var cap = style.strokeLineCap;
+            if (cap === "round") {
+                emitSweep(kept[0].x, kept[0].y, startL[0].x, startL[0].y, Math.PI, 0);
+                emitSweep(kept[count - 1].x, kept[count - 1].y, endR[count - 2].x, endR[count - 2].y, Math.PI, 1);
+            } else if (cap === "square") {
+                var backX = -directions[0][0] * half, backY = -directions[0][1] * half;
+                emit(startL[0].x, startL[0].y, 0, 1, startR[0].x, startR[0].y, 0, 0, startL[0].x + backX, startL[0].y + backY, 0, 1);
+                emit(startR[0].x, startR[0].y, 0, 0, startR[0].x + backX, startR[0].y + backY, 0, 0, startL[0].x + backX, startL[0].y + backY, 0, 1);
+                var head = directions[count - 2];
+                var headX = head[0] * half, headY = head[1] * half;
+                var lastL = endL[count - 2], lastR = endR[count - 2];
+                emit(lastL.x, lastL.y, 1, 1, lastR.x, lastR.y, 1, 0, lastL.x + headX, lastL.y + headY, 1, 1);
+                emit(lastR.x, lastR.y, 1, 0, lastR.x + headX, lastR.y + headY, 1, 0, lastL.x + headX, lastL.y + headY, 1, 1);
             }
         }
-        function addCapGeometry(center, p1, p2, joinIsOnLeftSideArg, start, u) {
-            switch (style.strokeLineCap) {
-                case "round":
-                    if (start) makeCircularSector(center, p2, p1, u, 0.5);
-                    else makeCircularSector(center, p1, p2, u, 0.5);
-                    break;
-                case "square":
-                    if (start) {
-                        tempV2_1.subVectors(p1, center);
-                        tempV2_2.set(tempV2_1.y, -tempV2_1.x);
-                        tempV2_3.addVectors(tempV2_1, tempV2_2).add(center);
-                        tempV2_4.subVectors(tempV2_2, tempV2_1).add(center);
-                        if (joinIsOnLeftSideArg) {
-                            tempV2_3.toArray(vertices, 1 * 3);
-                            tempV2_4.toArray(vertices, 0 * 3);
-                            tempV2_4.toArray(vertices, 3 * 3);
-                        } else {
-                            tempV2_3.toArray(vertices, 1 * 3);
-                            if (uvs[3 * 2 + 1] === 1) tempV2_4.toArray(vertices, 3 * 3);
-                            else tempV2_3.toArray(vertices, 3 * 3);
-                            tempV2_4.toArray(vertices, 0 * 3);
-                        }
-                    } else {
-                        tempV2_1.subVectors(p2, center);
-                        tempV2_2.set(tempV2_1.y, -tempV2_1.x);
-                        tempV2_3.addVectors(tempV2_1, tempV2_2).add(center);
-                        tempV2_4.subVectors(tempV2_2, tempV2_1).add(center);
-                        var vl = vertices.length;
-                        if (joinIsOnLeftSideArg) {
-                            tempV2_3.toArray(vertices, vl - 1 * 3);
-                            tempV2_4.toArray(vertices, vl - 2 * 3);
-                            tempV2_4.toArray(vertices, vl - 4 * 3);
-                        } else {
-                            tempV2_4.toArray(vertices, vl - 2 * 3);
-                            tempV2_3.toArray(vertices, vl - 1 * 3);
-                            tempV2_4.toArray(vertices, vl - 4 * 3);
-                        }
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-        points = removeDuplicatedPoints(points);
-        var numPoints = points.length;
-        if (numPoints < 2) return 0;
-        var isClosed = points[0].equals(points[numPoints - 1]);
-        var currentPoint, previousPoint = points[0], nextPoint;
-        var strokeWidth2 = style.strokeWidth / 2;
-        var deltaU = 1 / (numPoints - 1);
-        var u0 = 0, u1;
-        var innerSideModified, joinIsOnLeftSide, isMiter, initialJoinIsOnLeftSide = false;
-        getNormal(points[0], points[1], tempV2_1).multiplyScalar(strokeWidth2);
-        lastPointL.copy(points[0]).sub(tempV2_1);
-        lastPointR.copy(points[0]).add(tempV2_1);
-        point0L.copy(lastPointL);
-        point0R.copy(lastPointR);
-        for (var iPoint = 1; iPoint < numPoints; iPoint++) {
-            currentPoint = points[iPoint];
-            if (iPoint === numPoints - 1) {
-                if (isClosed) nextPoint = points[1];
-                else nextPoint = undefined;
-            } else nextPoint = points[iPoint + 1];
-            var normal1 = tempV2_1;
-            getNormal(previousPoint, currentPoint, normal1);
-            tempV2_3.copy(normal1).multiplyScalar(strokeWidth2);
-            currentPointL.copy(currentPoint).sub(tempV2_3);
-            currentPointR.copy(currentPoint).add(tempV2_3);
-            u1 = u0 + deltaU;
-            innerSideModified = false;
-            if (nextPoint !== undefined) {
-                getNormal(currentPoint, nextPoint, tempV2_2);
-                tempV2_3.copy(tempV2_2).multiplyScalar(strokeWidth2);
-                nextPointL.copy(currentPoint).sub(tempV2_3);
-                nextPointR.copy(currentPoint).add(tempV2_3);
-                joinIsOnLeftSide = true;
-                tempV2_3.subVectors(nextPoint, previousPoint);
-                if (normal1.dot(tempV2_3) < 0) joinIsOnLeftSide = false;
-                if (iPoint === 1) initialJoinIsOnLeftSide = joinIsOnLeftSide;
-                tempV2_3.subVectors(nextPoint, currentPoint);
-                tempV2_3.normalize();
-                var dot = Math.abs(normal1.dot(tempV2_3));
-                if (dot > Number.EPSILON) {
-                    var miterSide = strokeWidth2 / dot;
-                    tempV2_3.multiplyScalar(-miterSide);
-                    tempV2_4.subVectors(currentPoint, previousPoint);
-                    tempV2_5.copy(tempV2_4).setLength(miterSide).add(tempV2_3);
-                    innerPoint.copy(tempV2_5).negate();
-                    var miterLength2 = tempV2_5.length();
-                    var segmentLengthPrev = tempV2_4.length();
-                    tempV2_4.divideScalar(segmentLengthPrev);
-                    tempV2_6.subVectors(nextPoint, currentPoint);
-                    var segmentLengthNext = tempV2_6.length();
-                    tempV2_6.divideScalar(segmentLengthNext);
-                    if (tempV2_4.dot(innerPoint) < segmentLengthPrev && tempV2_6.dot(innerPoint) < segmentLengthNext) innerSideModified = true;
-                    outerPoint.copy(tempV2_5).add(currentPoint);
-                    innerPoint.add(currentPoint);
-                    if (innerSideModified) {
-                        var refPt = joinIsOnLeftSide ? lastPointR : lastPointL;
-                        var foldCross = (outerPoint.x - refPt.x) * (innerPoint.y - refPt.y) - (outerPoint.y - refPt.y) * (innerPoint.x - refPt.x);
-                        if ((joinIsOnLeftSide && foldCross < 0) || (!joinIsOnLeftSide && foldCross > 0)) innerPoint.copy(refPt);
-                    }
-                    isMiter = false;
-                    if (innerSideModified) {
-                        if (joinIsOnLeftSide) { nextPointR.copy(innerPoint); currentPointR.copy(innerPoint); }
-                        else { nextPointL.copy(innerPoint); currentPointL.copy(innerPoint); }
-                    } else makeSegmentTriangles();
-                    switch (style.strokeLineJoin) {
-                        case "bevel":
-                            makeSegmentWithBevelJoin(joinIsOnLeftSide, innerSideModified, u1);
-                            break;
-                        case "round":
-                            createSegmentTrianglesWithMiddleSection(joinIsOnLeftSide, innerSideModified);
-                            if (joinIsOnLeftSide) makeCircularSector(currentPoint, currentPointL, nextPointL, u1, 0);
-                            else makeCircularSector(currentPoint, nextPointR, currentPointR, u1, 1);
-                            break;
-                        default:
-                            var miterFraction = (strokeWidth2 * style.strokeMiterLimit) / miterLength2;
-                            if (miterFraction < 1) {
-                                if (style.strokeLineJoin !== "miter-clip") {
-                                    makeSegmentWithBevelJoin(joinIsOnLeftSide, innerSideModified, u1);
-                                } else {
-                                    createSegmentTrianglesWithMiddleSection(joinIsOnLeftSide, innerSideModified);
-                                    if (joinIsOnLeftSide) {
-                                        tempV2_6.subVectors(outerPoint, currentPointL).multiplyScalar(miterFraction).add(currentPointL);
-                                        tempV2_7.subVectors(outerPoint, nextPointL).multiplyScalar(miterFraction).add(nextPointL);
-                                        addVertex(currentPointL, u1, 0);
-                                        addVertex(tempV2_6, u1, 0);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(tempV2_6, u1, 0);
-                                        addVertex(tempV2_7, u1, 0);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(tempV2_7, u1, 0);
-                                        addVertex(nextPointL, u1, 0);
-                                    } else {
-                                        tempV2_6.subVectors(outerPoint, currentPointR).multiplyScalar(miterFraction).add(currentPointR);
-                                        tempV2_7.subVectors(outerPoint, nextPointR).multiplyScalar(miterFraction).add(nextPointR);
-                                        addVertex(currentPointR, u1, 1);
-                                        addVertex(tempV2_6, u1, 1);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(tempV2_6, u1, 1);
-                                        addVertex(tempV2_7, u1, 1);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(tempV2_7, u1, 1);
-                                        addVertex(nextPointR, u1, 1);
-                                    }
-                                }
-                            } else {
-                                if (innerSideModified) {
-                                    if (joinIsOnLeftSide) {
-                                        addVertex(lastPointR, u0, 1);
-                                        addVertex(lastPointL, u0, 0);
-                                        addVertex(outerPoint, u1, 0);
-                                        addVertex(lastPointR, u0, 1);
-                                        addVertex(outerPoint, u1, 0);
-                                        addVertex(innerPoint, u1, 1);
-                                    } else {
-                                        addVertex(lastPointR, u0, 1);
-                                        addVertex(lastPointL, u0, 0);
-                                        addVertex(outerPoint, u1, 1);
-                                        addVertex(lastPointL, u0, 0);
-                                        addVertex(innerPoint, u1, 0);
-                                        addVertex(outerPoint, u1, 1);
-                                    }
-                                    if (joinIsOnLeftSide) nextPointL.copy(outerPoint);
-                                    else nextPointR.copy(outerPoint);
-                                } else {
-                                    if (joinIsOnLeftSide) {
-                                        addVertex(currentPointL, u1, 0);
-                                        addVertex(outerPoint, u1, 0);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(outerPoint, u1, 0);
-                                        addVertex(nextPointL, u1, 0);
-                                    } else {
-                                        addVertex(currentPointR, u1, 1);
-                                        addVertex(outerPoint, u1, 1);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(currentPoint, u1, 0.5);
-                                        addVertex(outerPoint, u1, 1);
-                                        addVertex(nextPointR, u1, 1);
-                                    }
-                                }
-                                isMiter = true;
-                            }
-                            break;
-                    }
-                } else makeSegmentTriangles();
-            } else makeSegmentTriangles();
-            if (!isClosed && iPoint === numPoints - 1) addCapGeometry(points[0], point0L, point0R, joinIsOnLeftSide, true, u0);
-            u0 = u1;
-            previousPoint = currentPoint;
-            lastPointL.copy(nextPointL);
-            lastPointR.copy(nextPointR);
-        }
-        if (!isClosed) {
-            addCapGeometry(currentPoint, currentPointL, currentPointR, joinIsOnLeftSide, false, u1);
-        } else if (innerSideModified && vertices) {
-            var lastOuter = outerPoint, lastInner = innerPoint;
-            if (initialJoinIsOnLeftSide !== joinIsOnLeftSide) {
-                lastOuter = innerPoint;
-                lastInner = outerPoint;
-            }
-            if (joinIsOnLeftSide) {
-                if (isMiter || initialJoinIsOnLeftSide) {
-                    lastInner.toArray(vertices, 0 * 3);
-                    lastInner.toArray(vertices, 3 * 3);
-                    if (isMiter) lastOuter.toArray(vertices, 1 * 3);
-                }
-            } else {
-                if (isMiter || !initialJoinIsOnLeftSide) {
-                    lastInner.toArray(vertices, 1 * 3);
-                    lastInner.toArray(vertices, 3 * 3);
-                    if (isMiter) lastOuter.toArray(vertices, 0 * 3);
-                }
-            }
-        }
+        var total = positions.length;
         if (vertices) {
-            var tri = [new Vector2(), new Vector2(), new Vector2()];
-            var startFloat = vertexOffset * 3;
-            for (var t = startFloat; t < currentCoordinate; t += 9) {
-                tri[0].set(vertices[t], vertices[t + 1]);
-                tri[1].set(vertices[t + 3], vertices[t + 4]);
-                tri[2].set(vertices[t + 6], vertices[t + 7]);
-                if (ShapeUtils.area(tri) < 0) {
-                    vertices[t + 3] = tri[0].x;
-                    vertices[t + 4] = tri[0].y;
-                }
+            var base = vertexOffset * 3;
+            for (var v = 0; v < total; v++) vertices[base + v] = positions[v];
+            if (normals) for (var n = 0; n < total; n++) normals[base + n] = n % 3 === 2 ? 1 : 0;
+            if (uvs) {
+                var baseUv = vertexOffset * 2;
+                for (var w = 0; w < uvData.length; w++) uvs[baseUv + w] = uvData[w];
             }
         }
-        return numVertices;
+        return total;
     }
 }
 
