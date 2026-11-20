@@ -52,16 +52,16 @@ if (modelData.extra2.y > 0.5) {
         let pomDelta = pomView.xy * modelData.extra2.z / pomLayers;
         var pomCurUv = input.uv;
         var pomCurDepth = 0.0;
-        var pomCurValue = 1.0 - textureSample(parallaxTexture, parallaxSampler, pomCurUv).r;
+        var pomCurValue = 1.0 - textureSampleLevel(parallaxTexture, parallaxSampler, pomCurUv, 0.0).r;
         for (var pomStep = 0; pomStep < 32; pomStep = pomStep + 1) {
             if (f32(pomStep) >= pomLayers || pomCurDepth >= pomCurValue) { break; }
             pomCurUv = pomCurUv - pomDelta;
-            pomCurValue = 1.0 - textureSample(parallaxTexture, parallaxSampler, pomCurUv).r;
+            pomCurValue = 1.0 - textureSampleLevel(parallaxTexture, parallaxSampler, pomCurUv, 0.0).r;
             pomCurDepth = pomCurDepth + pomLayerDepth;
         }
         let pomPrevUv = pomCurUv + pomDelta;
         let pomAfter = pomCurValue - pomCurDepth;
-        let pomBefore = 1.0 - textureSample(parallaxTexture, parallaxSampler, pomPrevUv).r - pomCurDepth + pomLayerDepth;
+        let pomBefore = 1.0 - textureSampleLevel(parallaxTexture, parallaxSampler, pomPrevUv, 0.0).r - pomCurDepth + pomLayerDepth;
         let pomWeight = clamp(pomAfter / max(pomAfter - pomBefore, 0.0001), 0.0, 1.0);
         pomUv = mix(pomCurUv, pomPrevUv, pomWeight);
     }

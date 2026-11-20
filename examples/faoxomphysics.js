@@ -19,6 +19,7 @@ function mount(context) {
         color: 3158064,
         roughness: .95
     }));
+    ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, -4, 0);
     context.scene.add(ground);
     world.addBody(new RigidBody({

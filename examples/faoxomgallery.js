@@ -39,13 +39,14 @@ const renderer = new WebGLRenderer({
     antialias: true
 });
 renderer.setSize(root.clientWidth, root.clientHeight);
-renderer.domElement.style.display = "block";
-renderer.domElement.style.width = "100%";
-renderer.domElement.style.height = "100%";
-root.appendChild(renderer.domElement);
+renderer.canvas.style.display = "block";
+renderer.canvas.style.width = "100%";
+renderer.canvas.style.height = "100%";
+root.appendChild(renderer.canvas);
 
 const camera = new PerspectiveCamera(55, root.clientWidth / root.clientHeight, .1, 4000);
 camera.position.set(0, 8, 24);
+resize();
 
 let active = null;
 let activeScene = null;
@@ -85,7 +86,7 @@ function mount(name) {
         clear: () => clearScene(scene),
         status: setStatus
     }) || {};
-    if (demos[name].controls && active.bindControls !== false) demos[name].controls(camera, renderer.domElement);
+    if (demos[name].controls && active.bindControls !== false) demos[name].controls(camera, renderer.canvas);
     setStatus(demos[name].description || labels[name]);
 }
 
@@ -121,3 +122,7 @@ window.addEventListener("resize", () => {
     resize();
     if (active && active.resize) active.resize();
 });
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => {
+    resize();
+    if (active && active.resize) active.resize();
+}).observe(root);

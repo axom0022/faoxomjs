@@ -34,7 +34,7 @@ function mount(context) {
         context.status("XR not supported in this browser");
     });
 
-    context.camera.position.set(0, 2.4, 9);
+    context.camera.position.set(0, 3.2, 14);
     context.camera.lookAt(0, 1.6, 0);
 
     return {

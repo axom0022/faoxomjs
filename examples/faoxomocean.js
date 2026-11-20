@@ -49,6 +49,7 @@ function mount(context) {
         }
     });
     const ocean = new Mesh(geometry, material);
+    ocean.rotation.x = -Math.PI / 2;
     context.scene.add(ocean);
 
     const sun = new DirectionalLight(16772091, 2.1);
