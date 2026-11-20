@@ -1,624 +1,655 @@
 import { Matrix4 } from "../math/index.js";
 
-const oceanwgsl = `
-struct CameraParams {
-    viewproj: mat4x4<f32>,
-    campos: vec4<f32>,
-};
-struct OceanInfo {
-    origin: vec4<f32>,
-    grid: vec4<f32>,
-    sun: vec4<f32>,
-    col1: vec4<f32>,
-    col2: vec4<f32>,
-    col3: vec4<f32>,
-};
-struct EvolParams {
-    time: f32,
-    n: u32,
-    pad0: u32,
-    pad1: u32,
-};
-struct BfParams {
-    n: u32,
-    span: u32,
-    horizontal: u32,
-    inverse: u32,
-};
-struct PackParams {
-    n: u32,
-    lambda: f32,
-    scale: f32,
-    pad0: u32,
-};
-@group(0) @binding(0) var<uniform> evolparams: EvolParams;
-@group(0) @binding(1) var<storage, read> spec: array<vec4<f32>>;
-@group(0) @binding(2) var<storage, read_write> fftwork: array<vec4<f32>>;
-fn cmul(ar: f32, ai: f32, br: f32, bi: f32) -> vec2<f32> {
-    return vec2<f32>(ar * br - ai * bi, ar * bi + ai * br);
-}
-@compute @workgroup_size(64)
-fn evolve(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let n = evolparams.n;
-    if (gid.x >= n * n) { return; }
-    let i = gid.x % n;
-    let j = gid.x / n;
-    let mirror = ((n - i) % n) + ((n - j) % n) * n;
-    let own = spec[2u * gid.x];
-    let mir = spec[2u * mirror];
-    let kn = spec[2u * gid.x + 1u];
-    let omega = own.z;
-    let kx = own.w;
-    let kz = kn.x;
-    let klen = kn.y;
-    let wt = omega * evolparams.time;
-    let c = cos(wt);
-    let s = sin(wt);
-    let a1 = own.x;
-    let b1 = own.y;
-    let a2 = mir.x;
-    let b2 = mir.y;
-    var hre = a1 * c + b1 * s + a2 * c + b2 * s;
-    var him = b1 * c - a1 * s + a2 * s - b2 * c;
-    var nk = 0.0;
-    if (klen > 0.00001) { nk = 1.0 / klen; }
-    var dxre = him * (kx * nk);
-    var dxim = -hre * (kx * nk);
-    var dzre = him * (kz * nk);
-    var dzim = -hre * (kz * nk);
-    fftwork[2u * gid.x] = vec4<f32>(hre, him, dxre, dxim);
-    fftwork[2u * gid.x + 1u] = vec4<f32>(dzre, dzim, 0.0, 0.0);
-}
-@group(0) @binding(0) var<uniform> bfparams: BfParams;
-@group(0) @binding(1) var<storage, read> bfsrcc: array<vec4<f32>>;
-@group(0) @binding(2) var<storage, read_write> bfdst: array<vec4<f32>>;
-fn jterm(p: BfParams, idx1: u32, idx2: u32) -> u32 {
-    let half = p.span / 2u;
-    if (p.horizontal == 1u) { return idx1 % half; }
-    return (idx1 / p.n) % half;
-}
-@compute @workgroup_size(64)
-fn butterfly(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let n = bfparams.n;
-    let pairs = n * n / 2u;
-    if (gid.x >= pairs) { return; }
-    let span = bfparams.span;
-    let half = span / 2u;
-    var idx1: u32;
-    var idx2: u32;
-    var read1: u32;
-    var read2: u32;
-    if (bfparams.horizontal == 1u) {
-        let block = gid.x / half;
-        let j = gid.x % half;
-        idx1 = block * span + j;
-        idx2 = idx1 + half;
-        read1 = idx1;
-        read2 = idx2;
-        if (span == 2u) {
-            var l2 = 0u;
-            var v = n;
-            while (v > 1u) { l2 = l2 + 1u; v = v >> 1u; }
-            let r = idx1 / n;
-            read1 = r * n + (reverseBits(idx1 % n) >> (32u - l2));
-            read2 = r * n + (reverseBits(idx2 % n) >> (32u - l2));
-        }
-    } else {
-        let col = gid.x / (n / 2u);
-        let pc = gid.x % (n / 2u);
-        let block = pc / half;
-        let j = pc % half;
-        let r1 = block * span + j;
-        idx1 = r1 * n + col;
-        idx2 = (r1 + half) * n + col;
-        read1 = idx1;
-        read2 = idx2;
-        if (span == 2u) {
-            var l2 = 0u;
-            var v = n;
-            while (v > 1u) { l2 = l2 + 1u; v = v >> 1u; }
-            read1 = (reverseBits(idx1 / n) >> (32u - l2)) * n + col;
-            read2 = (reverseBits(idx2 / n) >> (32u - l2)) * n + col;
-        }
-    }
-    let angle = 6.283185307179586 * f32(jterm(bfparams, idx1, idx2)) / f32(span);
-    var tw = vec2<f32>(cos(angle), -sin(angle));
-    if (bfparams.inverse == 1u) { tw.y = sin(angle); }
-    let a = bfsrcc[2u * read1];
-    let a2 = bfsrcc[2u * read1 + 1u];
-    let b = bfsrcc[2u * read2];
-    let b2 = bfsrcc[2u * read2 + 1u];
-    let m0 = cmul(b.x, b.y, tw.x, tw.y);
-    let m1 = cmul(b.z, b.w, tw.x, tw.y);
-    let m2 = cmul(b2.x, b2.y, tw.x, tw.y);
-    let m3 = cmul(b2.z, b2.w, tw.x, tw.y);
-    var o0a = vec4<f32>(a.x + m0.x, a.y + m0.y, a.z + m1.x, a.w + m1.y);
-    var o0b = vec4<f32>(a.x - m0.x, a.y - m0.y, a.z - m1.x, a.w - m1.y);
-    var o1a = vec4<f32>(a2.x + m2.x, a2.y + m2.y, a2.z + m3.x, a2.w + m3.y);
-    var o1b = vec4<f32>(a2.x - m2.x, a2.y - m2.y, a2.z - m3.x, a2.w - m3.y);
-    bfdst[2u * idx1] = o0a;
-    bfdst[2u * idx1 + 1u] = o1a;
-    bfdst[2u * idx2] = o0b;
-    bfdst[2u * idx2 + 1u] = o1b;
-}
-@group(0) @binding(0) var<uniform> packparams: PackParams;
-@group(0) @binding(1) var<storage, read> packsrc: array<vec4<f32>>;
-@group(0) @binding(2) var packdst: texture_storage_2d<rgba32float, write>;
-@compute @workgroup_size(8, 8)
-fn pack(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let n = packparams.n;
-    if (gid.x >= n || gid.y >= n) { return; }
-    let t = gid.x + gid.y * n;
-    let s = packparams.scale;
-    let lambda = packparams.lambda;
-    let v0 = packsrc[2u * t];
-    let v1 = packsrc[2u * t + 1u];
-    textureStore(packdst, vec2<i32>(gid.xy), vec4<f32>(lambda * v0.z * s, v0.x * s, lambda * v1.x * s, 1.0));
-}
-@group(0) @binding(0) var<uniform> oceancam: CameraParams;
-@group(1) @binding(0) var<uniform> oceaninfo: OceanInfo;
-@group(1) @binding(1) var disp: texture_2d<f32>;
-struct VSOut {
-    @builtin(position) position: vec4<f32>,
-    @location(0) world: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-};
-fn loadCell(i: u32, j: u32) -> vec4<f32> {
-    let n = u32(oceaninfo.origin.w);
-    return textureLoad(disp, vec2<i32>(vec2<u32>(i % n, j % n)), 0);
-}
-@vertex
-fn oceanvs(@builtin(vertex_index) vi: u32) -> VSOut {
-    let g = u32(oceaninfo.grid.x);
-    let cellmesh = oceaninfo.grid.y;
-    let cellspec = oceaninfo.grid.z;
-    let n = u32(oceaninfo.origin.w);
-    let worldsize = oceaninfo.origin.z;
-    let c = vi / 6u;
-    let t = vi % 6u;
-    var di = vec2<u32>(0u, 0u);
-    if (t == 1u || t == 3u || t == 4u) { di.x = 1u; }
-    if (t == 2u || t == 4u || t == 5u) { di.y = 1u; }
-    let i = c % g + di.x;
-    let j = c / g + di.y;
-    let x = oceaninfo.origin.x - worldsize * 0.5 + f32(i) * cellmesh;
-    let z = oceaninfo.origin.y - worldsize * 0.5 + f32(j) * cellmesh;
-    let ti = u32(f32(i) * cellmesh / cellspec);
-    let tj = u32(f32(j) * cellmesh / cellspec);
-    let d = loadCell(ti, tj);
-    var world = vec3<f32>(x + d.x, d.y, z + d.z);
-    let ha = loadCell((ti + 1u) % n, tj).y;
-    let hb = loadCell((ti + n - 1u) % n, tj).y;
-    let hc = loadCell(ti, (tj + 1u) % n).y;
-    let hd = loadCell(ti, (tj + n - 1u) % n).y;
-    var normal = normalize(vec3<f32>(-(ha - hb) / (2.0 * cellspec), 1.0, -(hc - hd) / (2.0 * cellspec)));
-    var out: VSOut;
-    let clip = oceancam.viewproj * vec4<f32>(world, 1.0);
-    out.position = vec4<f32>(clip.xy, clip.z * 0.5 + clip.w * 0.5, clip.w);
-    out.world = world;
-    out.normal = normal;
-    return out;
-}
-@fragment
-fn oceanfs(in: VSOut) -> @location(0) vec4<f32> {
-    let n = normalize(in.normal);
-    let v = normalize(oceancam.campos.xyz - in.world);
-    let l = normalize(oceaninfo.sun.xyz);
-    let h = normalize(v + l);
-    let spec = pow(max(dot(n, h), 0.0), 140.0) * oceaninfo.col1.rgb * 4.0;
-    let fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
-    var col = mix(oceaninfo.col2.rgb, oceaninfo.col3.rgb, fres);
-    let diffuse = max(dot(n, l), 0.0);
-    col = col * (0.35 + 0.65 * diffuse) + spec;
-    return vec4<f32>(col, 1.0);
-}
-`;
+const zasna = `\nstruct CameraParams {\n    viewproj: mat4x4<f32>,\n    campos: vec4<f32>,\n};\nstruct OceanInfo {\n    origin: vec4<f32>,\n    grid: vec4<f32>,\n    sun: vec4<f32>,\n    col1: vec4<f32>,\n    col2: vec4<f32>,\n    col3: vec4<f32>,\n};\nstruct EvolParams {\n    time: f32,\n    n: u32,\n    pad0: u32,\n    pad1: u32,\n};\nstruct BfParams {\n    n: u32,\n    span: u32,\n    horizontal: u32,\n    inverse: u32,\n};\nstruct PackParams {\n    n: u32,\n    lambda: f32,\n    scale: f32,\n    pad0: u32,\n};\n@group(0) @binding(0) var<uniform> evolparams: EvolParams;\n@group(0) @binding(1) var<storage, read> spec: array<vec4<f32>>;\n@group(0) @binding(2) var<storage, read_write> fftwork: array<vec4<f32>>;\nfn cmul(ar: f32, ai: f32, br: f32, bi: f32) -> vec2<f32> {\n    return vec2<f32>(ar * br - ai * bi, ar * bi + ai * br);\n}\n@compute @workgroup_size(64)\nfn evolve(@builtin(global_invocation_id) gid: vec3<u32>) {\n    let n = evolparams.n;\n    if (gid.x >= n * n) { return; }\n    let i = gid.x % n;\n    let j = gid.x / n;\n    let mirror = ((n - i) % n) + ((n - j) % n) * n;\n    let own = spec[2u * gid.x];\n    let mir = spec[2u * mirror];\n    let kn = spec[2u * gid.x + 1u];\n    let omega = own.z;\n    let kx = own.w;\n    let kz = kn.x;\n    let klen = kn.y;\n    let wt = omega * evolparams.time;\n    let c = cos(wt);\n    let s = sin(wt);\n    let a1 = own.x;\n    let b1 = own.y;\n    let a2 = mir.x;\n    let b2 = mir.y;\n    var hre = a1 * c + b1 * s + a2 * c + b2 * s;\n    var him = b1 * c - a1 * s + a2 * s - b2 * c;\n    var nk = 0.0;\n    if (klen > 0.00001) { nk = 1.0 / klen; }\n    var dxre = him * (kx * nk);\n    var dxim = -hre * (kx * nk);\n    var dzre = him * (kz * nk);\n    var dzim = -hre * (kz * nk);\n    fftwork[2u * gid.x] = vec4<f32>(hre, him, dxre, dxim);\n    fftwork[2u * gid.x + 1u] = vec4<f32>(dzre, dzim, 0.0, 0.0);\n}\n@group(0) @binding(0) var<uniform> bfparams: BfParams;\n@group(0) @binding(1) var<storage, read> bfsrcc: array<vec4<f32>>;\n@group(0) @binding(2) var<storage, read_write> bfdst: array<vec4<f32>>;\nfn jterm(p: BfParams, idx1: u32, idx2: u32) -> u32 {\n    let half = p.span / 2u;\n    if (p.horizontal == 1u) { return idx1 % half; }\n    return (idx1 / p.n) % half;\n}\n@compute @workgroup_size(64)\nfn butterfly(@builtin(global_invocation_id) gid: vec3<u32>) {\n    let n = bfparams.n;\n    let pairs = n * n / 2u;\n    if (gid.x >= pairs) { return; }\n    let span = bfparams.span;\n    let half = span / 2u;\n    var idx1: u32;\n    var idx2: u32;\n    var read1: u32;\n    var read2: u32;\n    if (bfparams.horizontal == 1u) {\n        let block = gid.x / half;\n        let j = gid.x % half;\n        idx1 = block * span + j;\n        idx2 = idx1 + half;\n        read1 = idx1;\n        read2 = idx2;\n        if (span == 2u) {\n            var l2 = 0u;\n            var v = n;\n            while (v > 1u) { l2 = l2 + 1u; v = v >> 1u; }\n            let r = idx1 / n;\n            read1 = r * n + (reverseBits(idx1 % n) >> (32u - l2));\n            read2 = r * n + (reverseBits(idx2 % n) >> (32u - l2));\n        }\n    } else {\n        let col = gid.x / (n / 2u);\n        let pc = gid.x % (n / 2u);\n        let block = pc / half;\n        let j = pc % half;\n        let r1 = block * span + j;\n        idx1 = r1 * n + col;\n        idx2 = (r1 + half) * n + col;\n        read1 = idx1;\n        read2 = idx2;\n        if (span == 2u) {\n            var l2 = 0u;\n            var v = n;\n            while (v > 1u) { l2 = l2 + 1u; v = v >> 1u; }\n            read1 = (reverseBits(idx1 / n) >> (32u - l2)) * n + col;\n            read2 = (reverseBits(idx2 / n) >> (32u - l2)) * n + col;\n        }\n    }\n    let angle = 6.283185307179586 * f32(jterm(bfparams, idx1, idx2)) / f32(span);\n    var tw = vec2<f32>(cos(angle), -sin(angle));\n    if (bfparams.inverse == 1u) { tw.y = sin(angle); }\n    let a = bfsrcc[2u * read1];\n    let a2 = bfsrcc[2u * read1 + 1u];\n    let b = bfsrcc[2u * read2];\n    let b2 = bfsrcc[2u * read2 + 1u];\n    let m0 = cmul(b.x, b.y, tw.x, tw.y);\n    let m1 = cmul(b.z, b.w, tw.x, tw.y);\n    let m2 = cmul(b2.x, b2.y, tw.x, tw.y);\n    let m3 = cmul(b2.z, b2.w, tw.x, tw.y);\n    var o0a = vec4<f32>(a.x + m0.x, a.y + m0.y, a.z + m1.x, a.w + m1.y);\n    var o0b = vec4<f32>(a.x - m0.x, a.y - m0.y, a.z - m1.x, a.w - m1.y);\n    var o1a = vec4<f32>(a2.x + m2.x, a2.y + m2.y, a2.z + m3.x, a2.w + m3.y);\n    var o1b = vec4<f32>(a2.x - m2.x, a2.y - m2.y, a2.z - m3.x, a2.w - m3.y);\n    bfdst[2u * idx1] = o0a;\n    bfdst[2u * idx1 + 1u] = o1a;\n    bfdst[2u * idx2] = o0b;\n    bfdst[2u * idx2 + 1u] = o1b;\n}\n@group(0) @binding(0) var<uniform> packparams: PackParams;\n@group(0) @binding(1) var<storage, read> packsrc: array<vec4<f32>>;\n@group(0) @binding(2) var packdst: texture_storage_2d<rgba32float, write>;\n@compute @workgroup_size(8, 8)\nfn pack(@builtin(global_invocation_id) gid: vec3<u32>) {\n    let n = packparams.n;\n    if (gid.x >= n || gid.y >= n) { return; }\n    let t = gid.x + gid.y * n;\n    let s = packparams.scale;\n    let lambda = packparams.lambda;\n    let v0 = packsrc[2u * t];\n    let v1 = packsrc[2u * t + 1u];\n    textureStore(packdst, vec2<i32>(gid.xy), vec4<f32>(lambda * v0.z * s, v0.x * s, lambda * v1.x * s, 1.0));\n}\n@group(0) @binding(0) var<uniform> oceancam: CameraParams;\n@group(1) @binding(0) var<uniform> oceaninfo: OceanInfo;\n@group(1) @binding(1) var disp: texture_2d<f32>;\nstruct VSOut {\n    @builtin(position) position: vec4<f32>,\n    @location(0) world: vec3<f32>,\n    @location(1) normal: vec3<f32>,\n};\nfn loadCell(i: u32, j: u32) -> vec4<f32> {\n    let n = u32(oceaninfo.origin.w);\n    return textureLoad(disp, vec2<i32>(vec2<u32>(i % n, j % n)), 0);\n}\n@vertex\nfn oceanvs(@builtin(vertex_index) vi: u32) -> VSOut {\n    let g = u32(oceaninfo.grid.x);\n    let cellmesh = oceaninfo.grid.y;\n    let cellspec = oceaninfo.grid.z;\n    let n = u32(oceaninfo.origin.w);\n    let worldsize = oceaninfo.origin.z;\n    let c = vi / 6u;\n    let t = vi % 6u;\n    var di = vec2<u32>(0u, 0u);\n    if (t == 1u || t == 3u || t == 4u) { di.x = 1u; }\n    if (t == 2u || t == 4u || t == 5u) { di.y = 1u; }\n    let i = c % g + di.x;\n    let j = c / g + di.y;\n    let x = oceaninfo.origin.x - worldsize * 0.5 + f32(i) * cellmesh;\n    let z = oceaninfo.origin.y - worldsize * 0.5 + f32(j) * cellmesh;\n    let ti = u32(f32(i) * cellmesh / cellspec);\n    let tj = u32(f32(j) * cellmesh / cellspec);\n    let d = loadCell(ti, tj);\n    var world = vec3<f32>(x + d.x, d.y, z + d.z);\n    let ha = loadCell((ti + 1u) % n, tj).y;\n    let hb = loadCell((ti + n - 1u) % n, tj).y;\n    let hc = loadCell(ti, (tj + 1u) % n).y;\n    let hd = loadCell(ti, (tj + n - 1u) % n).y;\n    var normal = normalize(vec3<f32>(-(ha - hb) / (2.0 * cellspec), 1.0, -(hc - hd) / (2.0 * cellspec)));\n    var out: VSOut;\n    let clip = oceancam.viewproj * vec4<f32>(world, 1.0);\n    out.position = vec4<f32>(clip.xy, clip.z * 0.5 + clip.w * 0.5, clip.w);\n    out.world = world;\n    out.normal = normal;\n    return out;\n}\n@fragment\nfn oceanfs(in: VSOut) -> @location(0) vec4<f32> {\n    let n = normalize(in.normal);\n    let v = normalize(oceancam.campos.xyz - in.world);\n    let l = normalize(oceaninfo.sun.xyz);\n    let h = normalize(v + l);\n    let spec = pow(max(dot(n, h), 0.0), 140.0) * oceaninfo.col1.rgb * 4.0;\n    let fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);\n    var col = mix(oceaninfo.col2.rgb, oceaninfo.col3.rgb, fres);\n    let diffuse = max(dot(n, l), 0.0);\n    col = col * (0.35 + 0.65 * diffuse) + spec;\n    return vec4<f32>(col, 1.0);\n}\n`;
 
-function fftGaussian(rand) {
-    var u = 0, v = 0;
-    for (var i = 0; i < 32; i++) {
-        u = rand();
-        v = rand();
-        if (u > 1e-12) break;
+function zasnb(zasna) {
+    var zasnb = 0, zasnc = 0;
+    for (var zasnd = 0; zasnd < 32; zasnd++) {
+        zasnb = zasna();
+        zasnc = zasna();
+        if (zasnb > 1e-12) break;
     }
-    var r = Math.sqrt(-2 * Math.log(u));
-    return [r * Math.cos(6.283185307179586 * v), r * Math.sin(6.283185307179586 * v)];
+    var zasne = Math.sqrt(-2 * Math.log(zasnb));
+    return [ zasne * Math.cos(6.283185307179586 * zasnc), zasne * Math.sin(6.283185307179586 * zasnc) ];
 }
 
-/** FFT spectral ocean (Tessendorf) with choppy displacement and CPU buoyancy queries.
- *  Standalone renderer integration: call update(t) each frame, then render(view, depthView, camera)
- *  after the scene pass - the mesh loads the scene depth and integrates via depth testing.
- *  options.amplitude is the target RMS wave height in world units; choppiness in [0, 3].
- *  heightAt/normalAt/velocityAt give CPU-side buoyancy sampling at any world position. */
 class FFTOcean {
-    constructor(renderer, options) {
-        options = options || {};
-        if (!renderer || !renderer.device) throw new Error("FFTOcean requires a WebGPURenderer");
-        this.renderer = renderer;
-        this.device = renderer.device;
+    constructor(zasna, zasnb) {
+        zasnb = zasnb || {};
+        if (!zasna || !zasna.device) throw new Error("FFTOcean requires a WebGPURenderer");
+        this.renderer = zasna;
+        this.device = zasna.device;
         this.disposed = false;
-        var n = Math.floor(options.size === undefined ? 64 : options.size);
-        if (n < 8 || n > 512 || (n & (n - 1)) !== 0) throw new Error("FFTOcean size must be a power of two in [8, 512]");
-        this.size = n;
-        this.worldSize = Math.max(1e-3, options.worldSize === undefined ? 256 : options.worldSize);
-        this.windDirection = options.windDirection === undefined ? Math.PI * 0.25 : options.windDirection;
-        this.windSpeed = Math.max(0.01, options.windSpeed === undefined ? 12 : options.windSpeed);
-        this.amplitude = Math.max(0, options.amplitude === undefined ? 0.35 : options.amplitude);
-        this.choppiness = Math.min(3, Math.max(0, options.choppiness === undefined ? 1 : options.choppiness));
-        this.seed = (options.seed === undefined ? 1 : options.seed) | 0;
-        this.smallWaveCutoff = Math.max(0.001, options.smallWaveCutoff === undefined ? 0.3 : options.smallWaveCutoff);
-        this.meshGrid = Math.floor(options.meshGrid === undefined ? n : options.meshGrid);
+        var zasnc = Math.floor(zasnb.size === undefined ? 64 : zasnb.size);
+        if (zasnc < 8 || zasnc > 512 || (zasnc & zasnc - 1) !== 0) throw new Error("FFTOcean size must be a power of two in [8, 512]");
+        this.size = zasnc;
+        this.worldSize = Math.max(.001, zasnb.worldSize === undefined ? 256 : zasnb.worldSize);
+        this.windDirection = zasnb.windDirection === undefined ? Math.PI * .25 : zasnb.windDirection;
+        this.windSpeed = Math.max(.01, zasnb.windSpeed === undefined ? 12 : zasnb.windSpeed);
+        this.amplitude = Math.max(0, zasnb.amplitude === undefined ? .35 : zasnb.amplitude);
+        this.choppiness = Math.min(3, Math.max(0, zasnb.choppiness === undefined ? 1 : zasnb.choppiness));
+        this.seed = (zasnb.seed === undefined ? 1 : zasnb.seed) | 0;
+        this.smallWaveCutoff = Math.max(.001, zasnb.smallWaveCutoff === undefined ? .3 : zasnb.smallWaveCutoff);
+        this.meshGrid = Math.floor(zasnb.meshGrid === undefined ? zasnc : zasnb.meshGrid);
         if (this.meshGrid < 2 || this.meshGrid > 1024) throw new Error("FFTOcean meshGrid must be in [2, 1024]");
-        this.depthFormat = options.depthFormat || "depth24plus";
-        this.origin = { x: options.origin && options.origin.x !== undefined ? options.origin.x : 0, z: options.origin && options.origin.z !== undefined ? options.origin.z : 0 };
-        this.sunDirection = options.sunDirection || { x: 0.5, y: 0.8, z: 0.3 };
-        this.sunColor = options.sunColor || { r: 1, g: 0.97, b: 0.9 };
-        this.waterColor = options.waterColor || { r: 0.02, g: 0.09, b: 0.16 };
-        this.skyColor = options.skyColor || { r: 0.55, g: 0.7, b: 0.85 };
+        this.depthFormat = zasnb.depthFormat || "depth24plus";
+        this.origin = {
+            x: zasnb.origin && zasnb.origin.x !== undefined ? zasnb.origin.x : 0,
+            z: zasnb.origin && zasnb.origin.z !== undefined ? zasnb.origin.z : 0
+        };
+        this.sunDirection = zasnb.sunDirection || {
+            x: .5,
+            y: .8,
+            z: .3
+        };
+        this.sunColor = zasnb.sunColor || {
+            r: 1,
+            g: .97,
+            b: .9
+        };
+        this.waterColor = zasnb.waterColor || {
+            r: .02,
+            g: .09,
+            b: .16
+        };
+        this.skyColor = zasnb.skyColor || {
+            r: .55,
+            g: .7,
+            b: .85
+        };
         this.gravity = 9.81;
         this.time = 0;
-        this.stats = { updates: 0, fftPasses: 0, queries: 0, textureBytes: n * n * 16 };
+        this.stats = {
+            updates: 0,
+            fftPasses: 0,
+            queries: 0,
+            textureBytes: zasnc * zasnc * 16
+        };
         this._buildSpectrum();
         this._buildGPU();
         this.update(0);
     }
     _buildSpectrum() {
-        var n = this.size, total = n * n;
-        var state = (this.seed ^ 0x9E3779B9) | 0;
-        function rand() {
-            state = (state + 0x6D2B79F5) | 0;
-            var t = state;
-            t = Math.imul(t ^ (t >>> 15), t | 1);
-            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        var zasna = this.size, zasnc = zasna * zasna;
+        var zasnd = this.seed ^ 2654435769 | 0;
+        function zasne() {
+            zasnd = zasnd + 1831565813 | 0;
+            var zasna = zasnd;
+            zasna = Math.imul(zasna ^ zasna >>> 15, zasna | 1);
+            zasna ^= zasna + Math.imul(zasna ^ zasna >>> 7, zasna | 61);
+            return ((zasna ^ zasna >>> 14) >>> 0) / 4294967296;
         }
-        var L = this.windSpeed * this.windSpeed / this.gravity;
-        var wx = Math.cos(this.windDirection), wz = Math.sin(this.windDirection);
-        var h0re = new Float32Array(total), h0im = new Float32Array(total);
-        var kx = new Float32Array(total), kz = new Float32Array(total), omega = new Float32Array(total), klen = new Float32Array(total), phillips = new Float32Array(total);
-        for (var j = 0; j < n; j++) {
-            for (var i = 0; i < n; i++) {
-                var idx = j * n + i;
-                var fx = i <= n / 2 ? i : i - n;
-                var fz = j <= n / 2 ? j : j - n;
-                var kxx = 2 * Math.PI * fx / this.worldSize;
-                var kzz = 2 * Math.PI * fz / this.worldSize;
-                var kl = Math.sqrt(kxx * kxx + kzz * kzz);
-                kx[idx] = kxx; kz[idx] = kzz; klen[idx] = kl;
-                omega[idx] = Math.sqrt(this.gravity * kl);
-                if (kl < 1e-9) continue;
-                var knx = kxx / kl, knz = kzz / kl;
-                var dot = knx * wx + knz * wz;
-                var p = this.amplitude * Math.exp(-1 / (kl * L * kl * L)) / (kl * kl * kl * kl) * dot * dot * Math.exp(-kl * kl * this.smallWaveCutoff * this.smallWaveCutoff);
-                phillips[idx] = p > 0 ? p : 0;
+        var zasnf = this.windSpeed * this.windSpeed / this.gravity;
+        var zasng = Math.cos(this.windDirection), zasnh = Math.sin(this.windDirection);
+        var zasni = new Float32Array(zasnc), zasnj = new Float32Array(zasnc);
+        var zasnk = new Float32Array(zasnc), zasnl = new Float32Array(zasnc), zasnm = new Float32Array(zasnc), zasnn = new Float32Array(zasnc), zasno = new Float32Array(zasnc);
+        for (var zasnp = 0; zasnp < zasna; zasnp++) {
+            for (var zasnq = 0; zasnq < zasna; zasnq++) {
+                var zasnr = zasnp * zasna + zasnq;
+                var zasns = zasnq <= zasna / 2 ? zasnq : zasnq - zasna;
+                var zasnt = zasnp <= zasna / 2 ? zasnp : zasnp - zasna;
+                var zasnu = 2 * Math.PI * zasns / this.worldSize;
+                var zasnv = 2 * Math.PI * zasnt / this.worldSize;
+                var zasnw = Math.sqrt(zasnu * zasnu + zasnv * zasnv);
+                zasnk[zasnr] = zasnu;
+                zasnl[zasnr] = zasnv;
+                zasnn[zasnr] = zasnw;
+                zasnm[zasnr] = Math.sqrt(this.gravity * zasnw);
+                if (zasnw < 1e-9) continue;
+                var zasnx = zasnu / zasnw, zasny = zasnv / zasnw;
+                var zasnz = zasnx * zasng + zasny * zasnh;
+                var zasnaa = this.amplitude * Math.exp(-1 / (zasnw * zasnf * zasnw * zasnf)) / (zasnw * zasnw * zasnw * zasnw) * zasnz * zasnz * Math.exp(-zasnw * zasnw * this.smallWaveCutoff * this.smallWaveCutoff);
+                zasno[zasnr] = zasnaa > 0 ? zasnaa : 0;
             }
         }
-        for (var j2 = 0; j2 < n; j2++) {
-            for (var i2 = 0; i2 < n; i2++) {
-                var idx2 = j2 * n + i2;
-                var midx2 = ((n - j2) % n) * n + (n - i2) % n;
-                if (klen[idx2] < 1e-9 || phillips[idx2] <= 0) continue;
-                var g = fftGaussian(rand);
-                var mag = Math.sqrt(phillips[idx2]) * 0.7071067811865476;
-                if (idx2 < midx2) {
-                    h0re[idx2] = g[0] * mag;
-                    h0im[idx2] = g[1] * mag;
-                } else if (idx2 === midx2) {
-                    h0re[idx2] = g[0] * mag;
-                    h0im[idx2] = 0;
+        for (var zasnab = 0; zasnab < zasna; zasnab++) {
+            for (var zasnac = 0; zasnac < zasna; zasnac++) {
+                var zasnad = zasnab * zasna + zasnac;
+                var zasnae = (zasna - zasnab) % zasna * zasna + (zasna - zasnac) % zasna;
+                if (zasnn[zasnad] < 1e-9 || zasno[zasnad] <= 0) continue;
+                var zasnaf = zasnb(zasne);
+                var zasnag = Math.sqrt(zasno[zasnad]) * .7071067811865476;
+                if (zasnad < zasnae) {
+                    zasni[zasnad] = zasnaf[0] * zasnag;
+                    zasnj[zasnad] = zasnaf[1] * zasnag;
+                } else if (zasnad === zasnae) {
+                    zasni[zasnad] = zasnaf[0] * zasnag;
+                    zasnj[zasnad] = 0;
                 }
             }
         }
-        for (var j3 = 0; j3 < n; j3++) {
-            for (var i3 = 0; i3 < n; i3++) {
-                var idx3 = j3 * n + i3;
-                var midx3 = ((n - j3) % n) * n + (n - i3) % n;
-                if (midx3 > idx3) {
-                    h0re[midx3] = h0re[idx3];
-                    h0im[midx3] = -h0im[idx3];
+        for (var zasnah = 0; zasnah < zasna; zasnah++) {
+            for (var zasnai = 0; zasnai < zasna; zasnai++) {
+                var zasnaj = zasnah * zasna + zasnai;
+                var zasnak = (zasna - zasnah) % zasna * zasna + (zasna - zasnai) % zasna;
+                if (zasnak > zasnaj) {
+                    zasni[zasnak] = zasni[zasnaj];
+                    zasnj[zasnak] = -zasnj[zasnaj];
                 }
             }
         }
-        var energy = 0;
-        for (var e = 0; e < total; e++) energy += h0re[e] * h0re[e] + h0im[e] * h0im[e];
-        if (energy > 1e-30) {
-            var norm = this.amplitude / Math.sqrt(2 * energy);
-            for (var e2 = 0; e2 < total; e2++) { h0re[e2] *= norm; h0im[e2] *= norm; }
+        var zasnal = 0;
+        for (var zasnam = 0; zasnam < zasnc; zasnam++) zasnal += zasni[zasnam] * zasni[zasnam] + zasnj[zasnam] * zasnj[zasnam];
+        if (zasnal > 1e-30) {
+            var zasnan = this.amplitude / Math.sqrt(2 * zasnal);
+            for (var zasnao = 0; zasnao < zasnc; zasnao++) {
+                zasni[zasnao] *= zasnan;
+                zasnj[zasnao] *= zasnan;
+            }
         }
-        var spec = new Float32Array(total * 8);
-        for (var t = 0; t < total; t++) {
-            spec[t * 8] = h0re[t];
-            spec[t * 8 + 1] = h0im[t];
-            spec[t * 8 + 2] = omega[t];
-            spec[t * 8 + 3] = kx[t];
-            spec[t * 8 + 4] = kz[t];
-            spec[t * 8 + 5] = klen[t];
+        var zasnap = new Float32Array(zasnc * 8);
+        for (var zasnaq = 0; zasnaq < zasnc; zasnaq++) {
+            zasnap[zasnaq * 8] = zasni[zasnaq];
+            zasnap[zasnaq * 8 + 1] = zasnj[zasnaq];
+            zasnap[zasnaq * 8 + 2] = zasnm[zasnaq];
+            zasnap[zasnaq * 8 + 3] = zasnk[zasnaq];
+            zasnap[zasnaq * 8 + 4] = zasnl[zasnaq];
+            zasnap[zasnaq * 8 + 5] = zasnn[zasnaq];
         }
-        this.h0re = h0re; this.h0im = h0im; this.kx = kx; this.kz = kz; this.omega = omega; this.klen = klen;
-        this.fieldOriginX = this.origin.x - this.worldSize * 0.5;
-        this.fieldOriginZ = this.origin.z - this.worldSize * 0.5;
-        this.specdata = spec;
+        this.h0re = zasni;
+        this.h0im = zasnj;
+        this.kx = zasnk;
+        this.kz = zasnl;
+        this.omega = zasnm;
+        this.klen = zasnn;
+        this.fieldOriginX = this.origin.x - this.worldSize * .5;
+        this.fieldOriginZ = this.origin.z - this.worldSize * .5;
+        this.specdata = zasnap;
     }
-
     _buildGPU() {
-        var device = this.device;
-        var n = this.size, total = n * n;
-        this.module = device.createShaderModule({ code: oceanwgsl });
-        this.evolpipeline = device.createComputePipeline({ layout: "auto", compute: { module: this.module, entryPoint: "evolve" } });
-        var stagesTotal = 2 * Math.round(Math.log2(n));
-        this.bflayout = device.createBindGroupLayout({ entries: [
-            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform", hasDynamicOffset: true } },
-            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
-            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }
-        ] });
-        this.bfpipeline = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [this.bflayout] }), compute: { module: this.module, entryPoint: "butterfly" } });
-        this.packpipeline = device.createComputePipeline({ layout: "auto", compute: { module: this.module, entryPoint: "pack" } });
-        this.renderpipeline = device.createRenderPipeline({
-            layout: "auto",
-            vertex: { module: this.module, entryPoint: "oceanvs" },
-            fragment: { module: this.module, entryPoint: "oceanfs", targets: [{ format: this.renderer.format }] },
-            primitive: { topology: "triangle-list", cullMode: "none" },
-            depthStencil: { format: this.depthFormat, depthWriteEnabled: true, depthCompare: "less" }
+        var zasnb = this.device;
+        var zasnc = this.size, zasnd = zasnc * zasnc;
+        this.module = zasnb.createShaderModule({
+            code: zasna
         });
-        this.specbuffer = device.createBuffer({ size: total * 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-        device.queue.writeBuffer(this.specbuffer, 0, this.specdata);
-        this.fftA = device.createBuffer({ size: total * 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
-        this.fftB = device.createBuffer({ size: total * 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
-        this.evoluniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        this.bfuniform = device.createBuffer({ size: 256 * stagesTotal, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        var stageParams = new Uint32Array(64 * stagesTotal);
-        var si = 0;
-        for (var dcur = 0; dcur < 2; dcur++) {
-            for (var scur = 1; scur <= Math.round(Math.log2(n)); scur++) {
-                var off = si * 64;
-                stageParams[off] = n;
-                stageParams[off + 1] = 1 << scur;
-                stageParams[off + 2] = dcur === 0 ? 1 : 0;
-                stageParams[off + 3] = 1;
-                si++;
+        this.evolpipeline = zasnb.createComputePipeline({
+            layout: "auto",
+            compute: {
+                module: this.module,
+                entryPoint: "evolve"
+            }
+        });
+        var zasne = 2 * Math.round(Math.log2(zasnc));
+        this.bflayout = zasnb.createBindGroupLayout({
+            entries: [ {
+                binding: 0,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "uniform",
+                    hasDynamicOffset: true
+                }
+            }, {
+                binding: 1,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "read-only-storage"
+                }
+            }, {
+                binding: 2,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "storage"
+                }
+            } ]
+        });
+        this.bfpipeline = zasnb.createComputePipeline({
+            layout: zasnb.createPipelineLayout({
+                bindGroupLayouts: [ this.bflayout ]
+            }),
+            compute: {
+                module: this.module,
+                entryPoint: "butterfly"
+            }
+        });
+        this.packpipeline = zasnb.createComputePipeline({
+            layout: "auto",
+            compute: {
+                module: this.module,
+                entryPoint: "pack"
+            }
+        });
+        this.renderpipeline = zasnb.createRenderPipeline({
+            layout: "auto",
+            vertex: {
+                module: this.module,
+                entryPoint: "oceanvs"
+            },
+            fragment: {
+                module: this.module,
+                entryPoint: "oceanfs",
+                targets: [ {
+                    format: this.renderer.format
+                } ]
+            },
+            primitive: {
+                topology: "triangle-list",
+                cullMode: "none"
+            },
+            depthStencil: {
+                format: this.depthFormat,
+                depthWriteEnabled: true,
+                depthCompare: "less"
+            }
+        });
+        this.specbuffer = zasnb.createBuffer({
+            size: zasnd * 32,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        zasnb.queue.writeBuffer(this.specbuffer, 0, this.specdata);
+        this.fftA = zasnb.createBuffer({
+            size: zasnd * 32,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+        });
+        this.fftB = zasnb.createBuffer({
+            size: zasnd * 32,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+        });
+        this.evoluniform = zasnb.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.bfuniform = zasnb.createBuffer({
+            size: 256 * zasne,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        var zasnf = new Uint32Array(64 * zasne);
+        var zasng = 0;
+        for (var zasnh = 0; zasnh < 2; zasnh++) {
+            for (var zasni = 1; zasni <= Math.round(Math.log2(zasnc)); zasni++) {
+                var zasnj = zasng * 64;
+                zasnf[zasnj] = zasnc;
+                zasnf[zasnj + 1] = 1 << zasni;
+                zasnf[zasnj + 2] = zasnh === 0 ? 1 : 0;
+                zasnf[zasnj + 3] = 1;
+                zasng++;
             }
         }
-        device.queue.writeBuffer(this.bfuniform, 0, stageParams);
-        this.packuniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        this.disptexture = device.createTexture({ size: [n, n, 1], format: "rgba32float", usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC });
+        zasnb.queue.writeBuffer(this.bfuniform, 0, zasnf);
+        this.packuniform = zasnb.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.disptexture = zasnb.createTexture({
+            size: [ zasnc, zasnc, 1 ],
+            format: "rgba32float",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+        });
         this.dispview = this.disptexture.createView();
-        this.camerabuffer = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        this.infolbuffer = device.createBuffer({ size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        this.evolbind = device.createBindGroup({ layout: this.evolpipeline.getBindGroupLayout(0), entries: [
-            { binding: 0, resource: { buffer: this.evoluniform } },
-            { binding: 1, resource: { buffer: this.specbuffer } },
-            { binding: 2, resource: { buffer: this.fftA } }
-        ] });
-        this.bfbindAB = device.createBindGroup({ layout: this.bflayout, entries: [
-            { binding: 0, resource: { buffer: this.bfuniform, size: 16 } },
-            { binding: 1, resource: { buffer: this.fftA } },
-            { binding: 2, resource: { buffer: this.fftB } }
-        ] });
-        this.bfbindBA = device.createBindGroup({ layout: this.bflayout, entries: [
-            { binding: 0, resource: { buffer: this.bfuniform, size: 16 } },
-            { binding: 1, resource: { buffer: this.fftB } },
-            { binding: 2, resource: { buffer: this.fftA } }
-        ] });
-        this.packbind = device.createBindGroup({ layout: this.packpipeline.getBindGroupLayout(0), entries: [
-            { binding: 0, resource: { buffer: this.packuniform } },
-            { binding: 1, resource: { buffer: this.fftA } },
-            { binding: 2, resource: this.dispview }
-        ] });
-        this.packbindB = device.createBindGroup({ layout: this.packpipeline.getBindGroupLayout(0), entries: [
-            { binding: 0, resource: { buffer: this.packuniform } },
-            { binding: 1, resource: { buffer: this.fftB } },
-            { binding: 2, resource: this.dispview }
-        ] });
-        this.renderbind = device.createBindGroup({ layout: this.renderpipeline.getBindGroupLayout(1), entries: [
-            { binding: 0, resource: { buffer: this.infolbuffer } },
-            { binding: 1, resource: this.dispview }
-        ] });
+        this.camerabuffer = zasnb.createBuffer({
+            size: 80,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.infolbuffer = zasnb.createBuffer({
+            size: 96,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.evolbind = zasnb.createBindGroup({
+            layout: this.evolpipeline.getBindGroupLayout(0),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.evoluniform
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.specbuffer
+                }
+            }, {
+                binding: 2,
+                resource: {
+                    buffer: this.fftA
+                }
+            } ]
+        });
+        this.bfbindAB = zasnb.createBindGroup({
+            layout: this.bflayout,
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.bfuniform,
+                    size: 16
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.fftA
+                }
+            }, {
+                binding: 2,
+                resource: {
+                    buffer: this.fftB
+                }
+            } ]
+        });
+        this.bfbindBA = zasnb.createBindGroup({
+            layout: this.bflayout,
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.bfuniform,
+                    size: 16
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.fftB
+                }
+            }, {
+                binding: 2,
+                resource: {
+                    buffer: this.fftA
+                }
+            } ]
+        });
+        this.packbind = zasnb.createBindGroup({
+            layout: this.packpipeline.getBindGroupLayout(0),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.packuniform
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.fftA
+                }
+            }, {
+                binding: 2,
+                resource: this.dispview
+            } ]
+        });
+        this.packbindB = zasnb.createBindGroup({
+            layout: this.packpipeline.getBindGroupLayout(0),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.packuniform
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.fftB
+                }
+            }, {
+                binding: 2,
+                resource: this.dispview
+            } ]
+        });
+        this.renderbind = zasnb.createBindGroup({
+            layout: this.renderpipeline.getBindGroupLayout(1),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.infolbuffer
+                }
+            }, {
+                binding: 1,
+                resource: this.dispview
+            } ]
+        });
     }
     _writeInfo() {
-        var info = new Float32Array(24);
-        info[0] = this.origin.x;
-        info[1] = this.origin.z;
-        info[2] = this.worldSize;
-        info[3] = this.size;
-        info[4] = this.meshGrid;
-        info[5] = this.worldSize / this.meshGrid;
-        info[6] = this.worldSize / this.size;
-        var sd = this.sunDirection;
-        var sl = Math.sqrt(sd.x * sd.x + sd.y * sd.y + sd.z * sd.z) || 1;
-        info[8] = sd.x / sl; info[9] = sd.y / sl; info[10] = sd.z / sl;
-        info[12] = this.sunColor.r; info[13] = this.sunColor.g; info[14] = this.sunColor.b;
-        info[16] = this.waterColor.r; info[17] = this.waterColor.g; info[18] = this.waterColor.b;
-        info[20] = this.skyColor.r; info[21] = this.skyColor.g; info[22] = this.skyColor.b;
-        this.device.queue.writeBuffer(this.infolbuffer, 0, info);
+        var zasna = new Float32Array(24);
+        zasna[0] = this.origin.x;
+        zasna[1] = this.origin.z;
+        zasna[2] = this.worldSize;
+        zasna[3] = this.size;
+        zasna[4] = this.meshGrid;
+        zasna[5] = this.worldSize / this.meshGrid;
+        zasna[6] = this.worldSize / this.size;
+        var zasnb = this.sunDirection;
+        var zasnc = Math.sqrt(zasnb.x * zasnb.x + zasnb.y * zasnb.y + zasnb.z * zasnb.z) || 1;
+        zasna[8] = zasnb.x / zasnc;
+        zasna[9] = zasnb.y / zasnc;
+        zasna[10] = zasnb.z / zasnc;
+        zasna[12] = this.sunColor.r;
+        zasna[13] = this.sunColor.g;
+        zasna[14] = this.sunColor.b;
+        zasna[16] = this.waterColor.r;
+        zasna[17] = this.waterColor.g;
+        zasna[18] = this.waterColor.b;
+        zasna[20] = this.skyColor.r;
+        zasna[21] = this.skyColor.g;
+        zasna[22] = this.skyColor.b;
+        this.device.queue.writeBuffer(this.infolbuffer, 0, zasna);
     }
-    update(time) {
+    update(zasna) {
         if (this.disposed) throw new Error("FFTOcean is disposed");
-        this.time = time === undefined ? this.time : time;
-        var n = this.size;
-        var device = this.device;
-        var eu = new ArrayBuffer(16);
-        new Uint32Array(eu)[1] = n;
-        var euf = new Float32Array(eu);
-        euf[0] = this.time;
-        device.queue.writeBuffer(this.evoluniform, 0, eu);
-        var pu = new ArrayBuffer(16);
-        new Uint32Array(pu)[0] = n;
-        var puf = new Float32Array(pu);
-        puf[1] = this.choppiness;
-        puf[2] = 1;
-        device.queue.writeBuffer(this.packuniform, 0, pu);
-        var encoder = device.createCommandEncoder();
-        var pass = encoder.beginComputePass();
-        pass.setPipeline(this.evolpipeline);
-        pass.setBindGroup(0, this.evolbind);
-        pass.dispatchWorkgroups(Math.ceil(n * n / 64));
-        pass.end();
-        var srcIsA = true;
-        var stageIdx = 0;
-        var stages = Math.round(Math.log2(n));
-        for (var d = 0; d < 2; d++) {
-            for (var s = 1; s <= stages; s++) {
-                var pass2 = encoder.beginComputePass();
-                pass2.setPipeline(this.bfpipeline);
-                pass2.setBindGroup(0, srcIsA ? this.bfbindAB : this.bfbindBA, [stageIdx * 256]);
-                pass2.dispatchWorkgroups(Math.ceil(n * n / 2 / 64));
-                pass2.end();
-                srcIsA = !srcIsA;
-                stageIdx++;
+        this.time = zasna === undefined ? this.time : zasna;
+        var zasnb = this.size;
+        var zasnc = this.device;
+        var zasnd = new ArrayBuffer(16);
+        new Uint32Array(zasnd)[1] = zasnb;
+        var zasne = new Float32Array(zasnd);
+        zasne[0] = this.time;
+        zasnc.queue.writeBuffer(this.evoluniform, 0, zasnd);
+        var zasnf = new ArrayBuffer(16);
+        new Uint32Array(zasnf)[0] = zasnb;
+        var zasng = new Float32Array(zasnf);
+        zasng[1] = this.choppiness;
+        zasng[2] = 1;
+        zasnc.queue.writeBuffer(this.packuniform, 0, zasnf);
+        var zasnh = zasnc.createCommandEncoder();
+        var zasni = zasnh.beginComputePass();
+        zasni.setPipeline(this.evolpipeline);
+        zasni.setBindGroup(0, this.evolbind);
+        zasni.dispatchWorkgroups(Math.ceil(zasnb * zasnb / 64));
+        zasni.end();
+        var zasnj = true;
+        var zasnk = 0;
+        var zasnl = Math.round(Math.log2(zasnb));
+        for (var zasnm = 0; zasnm < 2; zasnm++) {
+            for (var zasnn = 1; zasnn <= zasnl; zasnn++) {
+                var zasno = zasnh.beginComputePass();
+                zasno.setPipeline(this.bfpipeline);
+                zasno.setBindGroup(0, zasnj ? this.bfbindAB : this.bfbindBA, [ zasnk * 256 ]);
+                zasno.dispatchWorkgroups(Math.ceil(zasnb * zasnb / 2 / 64));
+                zasno.end();
+                zasnj = !zasnj;
+                zasnk++;
                 this.stats.fftPasses++;
             }
         }
-        var packSourceIsA = srcIsA;
-        var pass3 = encoder.beginComputePass();
-        pass3.setPipeline(this.packpipeline);
-        pass3.setBindGroup(0, packSourceIsA ? this.packbind : this.packbindB);
-        pass3.dispatchWorkgroups(Math.ceil(n / 8), Math.ceil(n / 8));
-        pass3.end();
-        device.queue.submit([encoder.finish()]);
+        var zasnp = zasnj;
+        var zasnq = zasnh.beginComputePass();
+        zasnq.setPipeline(this.packpipeline);
+        zasnq.setBindGroup(0, zasnp ? this.packbind : this.packbindB);
+        zasnq.dispatchWorkgroups(Math.ceil(zasnb / 8), Math.ceil(zasnb / 8));
+        zasnq.end();
+        zasnc.queue.submit([ zasnh.finish() ]);
         this.stats.updates++;
         this._writeInfo();
         return this;
     }
-    _evalField(x, z, t) {
-        var h = 0, dhdx = 0, dhdz = 0, dhdt = 0, dx = 0, dz = 0, dvx = 0, dvz = 0;
-        var kx = this.kx, kz = this.kz, om = this.omega, kl = this.klen, ar = this.h0re, ai = this.h0im;
-        var total = this.size * this.size;
-        var fx = x - this.fieldOriginX, fz = z - this.fieldOriginZ;
-        for (var i = 0; i < total; i++) {
-            var k = kl[i];
-            if (k < 1e-9) continue;
-            var ph = kx[i] * fx + kz[i] * fz - om[i] * t;
-            var c = Math.cos(ph), s = Math.sin(ph);
-            var zr = ar[i] * c - ai[i] * s;
-            var zi = ar[i] * s + ai[i] * c;
-            h += 2 * zr;
-            dhdx += -2 * kx[i] * zi;
-            dhdz += -2 * kz[i] * zi;
-            dhdt += 2 * om[i] * zi;
-            var nkx = kx[i] / k, nkz = kz[i] / k;
-            dx += 2 * nkx * (ai[i] * c + ar[i] * s);
-            dz += 2 * nkz * (ai[i] * c + ar[i] * s);
-            dvx += 2 * om[i] * nkx * (ai[i] * s - ar[i] * c);
-            dvz += 2 * om[i] * nkz * (ai[i] * s - ar[i] * c);
+    _evalField(zasna, zasnb, zasnc) {
+        var zasnd = 0, zasne = 0, zasnf = 0, zasng = 0, zasnh = 0, zasni = 0, zasnj = 0, zasnk = 0;
+        var zasnl = this.kx, zasnm = this.kz, zasnn = this.omega, zasno = this.klen, zasnp = this.h0re, zasnq = this.h0im;
+        var zasnr = this.size * this.size;
+        var zasns = zasna - this.fieldOriginX, zasnt = zasnb - this.fieldOriginZ;
+        for (var zasnu = 0; zasnu < zasnr; zasnu++) {
+            var zasnv = zasno[zasnu];
+            if (zasnv < 1e-9) continue;
+            var zasnw = zasnl[zasnu] * zasns + zasnm[zasnu] * zasnt - zasnn[zasnu] * zasnc;
+            var zasnx = Math.cos(zasnw), zasny = Math.sin(zasnw);
+            var zasnz = zasnp[zasnu] * zasnx - zasnq[zasnu] * zasny;
+            var zasnaa = zasnp[zasnu] * zasny + zasnq[zasnu] * zasnx;
+            zasnd += 2 * zasnz;
+            zasne += -2 * zasnl[zasnu] * zasnaa;
+            zasnf += -2 * zasnm[zasnu] * zasnaa;
+            zasng += 2 * zasnn[zasnu] * zasnaa;
+            var zasnab = zasnl[zasnu] / zasnv, zasnac = zasnm[zasnu] / zasnv;
+            zasnh += 2 * zasnab * (zasnq[zasnu] * zasnx + zasnp[zasnu] * zasny);
+            zasni += 2 * zasnac * (zasnq[zasnu] * zasnx + zasnp[zasnu] * zasny);
+            zasnj += 2 * zasnn[zasnu] * zasnab * (zasnq[zasnu] * zasny - zasnp[zasnu] * zasnx);
+            zasnk += 2 * zasnn[zasnu] * zasnac * (zasnq[zasnu] * zasny - zasnp[zasnu] * zasnx);
         }
-        return { h: h, dhdx: dhdx, dhdz: dhdz, dhdt: dhdt, dx: dx, dz: dz, dvx: dvx, dvz: dvz };
+        return {
+            h: zasnd,
+            dhdx: zasne,
+            dhdz: zasnf,
+            dhdt: zasng,
+            dx: zasnh,
+            dz: zasni,
+            dvx: zasnj,
+            dvz: zasnk
+        };
     }
-    heightAt(x, z, t) {
+    heightAt(zasna, zasnb, zasnc) {
         if (this.disposed) throw new Error("FFTOcean is disposed");
-        var time = t === undefined ? this.time : t;
+        var zasnd = zasnc === undefined ? this.time : zasnc;
         this.stats.queries++;
-        var px = x, pz = z;
-        var f = null;
-        var iterations = this.choppiness > 0 ? 2 : 1;
-        for (var it = 0; it < iterations; it++) {
-            f = this._evalField(px, pz, time);
-            px = x - this.choppiness * f.dx;
-            pz = z - this.choppiness * f.dz;
+        var zasne = zasna, zasnf = zasnb;
+        var zasng = null;
+        var zasnh = this.choppiness > 0 ? 2 : 1;
+        for (var zasni = 0; zasni < zasnh; zasni++) {
+            zasng = this._evalField(zasne, zasnf, zasnd);
+            zasne = zasna - this.choppiness * zasng.dx;
+            zasnf = zasnb - this.choppiness * zasng.dz;
         }
-        return f.h;
+        return zasng.h;
     }
-    normalAt(x, z, t) {
-        var time = t === undefined ? this.time : t;
+    normalAt(zasna, zasnb, zasnc) {
+        var zasnd = zasnc === undefined ? this.time : zasnc;
         this.stats.queries++;
-        var f = this._evalField(x, z, time);
-        var nx = -f.dhdx, ny = 1, nz = -f.dhdz;
-        var len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-        return { x: nx / len, y: ny / len, z: nz / len };
+        var zasne = this._evalField(zasna, zasnb, zasnd);
+        var zasnf = -zasne.dhdx, zasng = 1, zasnh = -zasne.dhdz;
+        var zasni = Math.sqrt(zasnf * zasnf + zasng * zasng + zasnh * zasnh) || 1;
+        return {
+            x: zasnf / zasni,
+            y: zasng / zasni,
+            z: zasnh / zasni
+        };
     }
-    velocityAt(x, z, t) {
-        var time = t === undefined ? this.time : t;
+    velocityAt(zasna, zasnb, zasnc) {
+        var zasnd = zasnc === undefined ? this.time : zasnc;
         this.stats.queries++;
-        var f = this._evalField(x, z, time);
-        return { x: this.choppiness * f.dvx, y: f.dhdt, z: this.choppiness * f.dvz };
+        var zasne = this._evalField(zasna, zasnb, zasnd);
+        return {
+            x: this.choppiness * zasne.dvx,
+            y: zasne.dhdt,
+            z: this.choppiness * zasne.dvz
+        };
     }
     async readDisplacement() {
         if (this.disposed) throw new Error("FFTOcean is disposed");
-        var n = this.size;
-        var bytesPerRow = Math.ceil(n * 16 / 256) * 256;
-        var buffer = this.device.createBuffer({ size: bytesPerRow * n, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
-        var encoder = this.device.createCommandEncoder();
-        encoder.copyTextureToBuffer({ texture: this.disptexture }, { buffer: buffer, bytesPerRow: bytesPerRow, rowsPerImage: n }, [n, n, 1]);
-        this.device.queue.submit([encoder.finish()]);
-        await buffer.mapAsync(GPUMapMode.READ);
-        var raw = new Uint8Array(buffer.getMappedRange());
-        var out = new Float32Array(n * n * 4);
-        for (var j = 0; j < n; j++) {
-            for (var i = 0; i < n; i++) {
-                var src = j * bytesPerRow + i * 16;
-                var dst = (j * n + i) * 4;
-                out[dst] = new DataView(raw.buffer).getFloat32(src, true);
-                out[dst + 1] = new DataView(raw.buffer).getFloat32(src + 4, true);
-                out[dst + 2] = new DataView(raw.buffer).getFloat32(src + 8, true);
-                out[dst + 3] = new DataView(raw.buffer).getFloat32(src + 12, true);
-            }
-        }
-        buffer.unmap();
-        buffer.destroy();
-        return out;
-    }
-    async fft2d(data) {
-        if (this.disposed) throw new Error("FFTOcean is disposed");
-        var n = this.size, total = n * n;
-        if (!(data instanceof Float32Array) || data.length !== total * 2) throw new Error("fft2d expects Float32Array of size^2 complex pairs");
-        var packed = new Float32Array(total * 8);
-        for (var i = 0; i < total; i++) {
-            packed[i * 8] = data[i * 2];
-            packed[i * 8 + 1] = data[i * 2 + 1];
-        }
-        var device = this.device;
-        device.queue.writeBuffer(this.fftA, 0, packed);
-        var encoder = device.createCommandEncoder();
-        var srcIsA = true;
-        var stageIdx = 0;
-        var stages = Math.round(Math.log2(n));
-        for (var d = 0; d < 2; d++) {
-            for (var s = 1; s <= stages; s++) {
-                var pass = encoder.beginComputePass();
-                pass.setPipeline(this.bfpipeline);
-                pass.setBindGroup(0, srcIsA ? this.bfbindAB : this.bfbindBA, [stageIdx * 256]);
-                pass.dispatchWorkgroups(Math.ceil(n * n / 2 / 64));
-                pass.end();
-                srcIsA = !srcIsA;
-                stageIdx++;
-            }
-        }
-        var readFrom = srcIsA ? this.fftA : this.fftB;
-        encoder.copyBufferToBuffer(readFrom, 0, this.fftread || (this.fftread = device.createBuffer({ size: total * 32, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ })), 0, total * 32);
-        device.queue.submit([encoder.finish()]);
-        await this.fftread.mapAsync(GPUMapMode.READ);
-        var raw = new Float32Array(this.fftread.getMappedRange().slice(0));
-        this.fftread.unmap();
-        var out = new Float32Array(total * 2);
-        for (var o = 0; o < total; o++) {
-            out[o * 2] = raw[o * 8];
-            out[o * 2 + 1] = raw[o * 8 + 1];
-        }
-        return out;
-    }
-    render(view, depthView, camera) {
-        if (this.disposed) throw new Error("FFTOcean is disposed");
-        if (!view) throw new Error("render requires a color texture or view");
-        if (view.createView) view = view.createView();
-        if (!depthView) throw new Error("render requires a depth texture or view");
-        if (depthView.createView) depthView = depthView.createView();
-        if (!camera || !camera.projectionMatrix || !camera.matrixWorldInverse) throw new Error("render requires a camera");
-        var vp = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        var cam = new Float32Array(20);
-        for (var i = 0; i < 16; i++) cam[i] = vp.elements[i];
-        cam[16] = camera.position.x; cam[17] = camera.position.y; cam[18] = camera.position.z; cam[19] = 1;
-        this.device.queue.writeBuffer(this.camerabuffer, 0, cam);
-        var encoder = this.device.createCommandEncoder();
-        var pass = encoder.beginRenderPass({
-            colorAttachments: [{ view: view, loadOp: "load", storeOp: "store" }],
-            depthStencilAttachment: { view: depthView, depthLoadOp: "load", depthStoreOp: "store" }
+        var zasna = this.size;
+        var zasnb = Math.ceil(zasna * 16 / 256) * 256;
+        var zasnc = this.device.createBuffer({
+            size: zasnb * zasna,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
         });
-        pass.setPipeline(this.renderpipeline);
-        if (!this.rendercamerabind) this.rendercamerabind = this.device.createBindGroup({ layout: this.renderpipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.camerabuffer } }] });
-        pass.setBindGroup(0, this.rendercamerabind);
-        pass.setBindGroup(1, this.renderbind);
-        pass.draw(this.meshGrid * this.meshGrid * 6, 1, 0, 0);
-        pass.end();
-        this.device.queue.submit([encoder.finish()]);
+        var zasnd = this.device.createCommandEncoder();
+        zasnd.copyTextureToBuffer({
+            texture: this.disptexture
+        }, {
+            buffer: zasnc,
+            bytesPerRow: zasnb,
+            rowsPerImage: zasna
+        }, [ zasna, zasna, 1 ]);
+        this.device.queue.submit([ zasnd.finish() ]);
+        await zasnc.mapAsync(GPUMapMode.READ);
+        var zasne = new Uint8Array(zasnc.getMappedRange());
+        var zasnf = new Float32Array(zasna * zasna * 4);
+        for (var zasng = 0; zasng < zasna; zasng++) {
+            for (var zasnh = 0; zasnh < zasna; zasnh++) {
+                var zasni = zasng * zasnb + zasnh * 16;
+                var zasnj = (zasng * zasna + zasnh) * 4;
+                zasnf[zasnj] = new DataView(zasne.buffer).getFloat32(zasni, true);
+                zasnf[zasnj + 1] = new DataView(zasne.buffer).getFloat32(zasni + 4, true);
+                zasnf[zasnj + 2] = new DataView(zasne.buffer).getFloat32(zasni + 8, true);
+                zasnf[zasnj + 3] = new DataView(zasne.buffer).getFloat32(zasni + 12, true);
+            }
+        }
+        zasnc.unmap();
+        zasnc.destroy();
+        return zasnf;
+    }
+    async fft2d(zasna) {
+        if (this.disposed) throw new Error("FFTOcean is disposed");
+        var zasnb = this.size, zasnc = zasnb * zasnb;
+        if (!(zasna instanceof Float32Array) || zasna.length !== zasnc * 2) throw new Error("fft2d expects Float32Array of size^2 complex pairs");
+        var zasnd = new Float32Array(zasnc * 8);
+        for (var zasne = 0; zasne < zasnc; zasne++) {
+            zasnd[zasne * 8] = zasna[zasne * 2];
+            zasnd[zasne * 8 + 1] = zasna[zasne * 2 + 1];
+        }
+        var zasnf = this.device;
+        zasnf.queue.writeBuffer(this.fftA, 0, zasnd);
+        var zasng = zasnf.createCommandEncoder();
+        var zasnh = true;
+        var zasni = 0;
+        var zasnj = Math.round(Math.log2(zasnb));
+        for (var zasnk = 0; zasnk < 2; zasnk++) {
+            for (var zasnl = 1; zasnl <= zasnj; zasnl++) {
+                var zasnm = zasng.beginComputePass();
+                zasnm.setPipeline(this.bfpipeline);
+                zasnm.setBindGroup(0, zasnh ? this.bfbindAB : this.bfbindBA, [ zasni * 256 ]);
+                zasnm.dispatchWorkgroups(Math.ceil(zasnb * zasnb / 2 / 64));
+                zasnm.end();
+                zasnh = !zasnh;
+                zasni++;
+            }
+        }
+        var zasnn = zasnh ? this.fftA : this.fftB;
+        zasng.copyBufferToBuffer(zasnn, 0, this.fftread || (this.fftread = zasnf.createBuffer({
+            size: zasnc * 32,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        })), 0, zasnc * 32);
+        zasnf.queue.submit([ zasng.finish() ]);
+        await this.fftread.mapAsync(GPUMapMode.READ);
+        var zasno = new Float32Array(this.fftread.getMappedRange().slice(0));
+        this.fftread.unmap();
+        var zasnp = new Float32Array(zasnc * 2);
+        for (var zasnq = 0; zasnq < zasnc; zasnq++) {
+            zasnp[zasnq * 2] = zasno[zasnq * 8];
+            zasnp[zasnq * 2 + 1] = zasno[zasnq * 8 + 1];
+        }
+        return zasnp;
+    }
+    render(zasna, zasnb, zasnc) {
+        if (this.disposed) throw new Error("FFTOcean is disposed");
+        if (!zasna) throw new Error("render requires a color texture or view");
+        if (zasna.createView) zasna = zasna.createView();
+        if (!zasnb) throw new Error("render requires a depth texture or view");
+        if (zasnb.createView) zasnb = zasnb.createView();
+        if (!zasnc || !zasnc.projectionMatrix || !zasnc.matrixWorldInverse) throw new Error("render requires a camera");
+        var zasnd = (new Matrix4).multiplyMatrices(zasnc.projectionMatrix, zasnc.matrixWorldInverse);
+        var zasne = new Float32Array(20);
+        for (var zasnf = 0; zasnf < 16; zasnf++) zasne[zasnf] = zasnd.elements[zasnf];
+        zasne[16] = zasnc.position.x;
+        zasne[17] = zasnc.position.y;
+        zasne[18] = zasnc.position.z;
+        zasne[19] = 1;
+        this.device.queue.writeBuffer(this.camerabuffer, 0, zasne);
+        var zasng = this.device.createCommandEncoder();
+        var zasnh = zasng.beginRenderPass({
+            colorAttachments: [ {
+                view: zasna,
+                loadOp: "load",
+                storeOp: "store"
+            } ],
+            depthStencilAttachment: {
+                view: zasnb,
+                depthLoadOp: "load",
+                depthStoreOp: "store"
+            }
+        });
+        zasnh.setPipeline(this.renderpipeline);
+        if (!this.rendercamerabind) this.rendercamerabind = this.device.createBindGroup({
+            layout: this.renderpipeline.getBindGroupLayout(0),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.camerabuffer
+                }
+            } ]
+        });
+        zasnh.setBindGroup(0, this.rendercamerabind);
+        zasnh.setBindGroup(1, this.renderbind);
+        zasnh.draw(this.meshGrid * this.meshGrid * 6, 1, 0, 0);
+        zasnh.end();
+        this.device.queue.submit([ zasng.finish() ]);
         return this;
     }
     dispose() {

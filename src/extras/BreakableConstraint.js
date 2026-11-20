@@ -1,8 +1,17 @@
 import { faoxomvalue } from "../math/index.js";
 
 class BreakableConstraint {
-    constructor(constraint, breakForce) { this.constraint = constraint; this.breakForce = faoxomvalue(breakForce, Infinity); this.broken = false; }
-    solve(dt) { if (this.broken) return; this.constraint.breakForce = this.breakForce; this.constraint.solve(dt); this.broken = !!this.constraint.broken; }
+    constructor(zagla, zaglb) {
+        this.constraint = zagla;
+        this.breakForce = faoxomvalue(zaglb, Infinity);
+        this.broken = false;
+    }
+    solve(zagla) {
+        if (this.broken) return;
+        this.constraint.breakForce = this.breakForce;
+        this.constraint.solve(zagla);
+        this.broken = !!this.constraint.broken;
+    }
 }
 
 export { BreakableConstraint };

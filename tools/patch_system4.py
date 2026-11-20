@@ -9,7 +9,7 @@ def replace_once(s, old, new, label):
     assert n == 1, "anchor %r found %d times" % (label, n)
     return s.replace(old, new)
 
-# ---------------------------------------------------------------- 1. shader(variant)
+
 old_head = 'shader() { return this.device.createShaderModule({ code: "'
 new_head = ('shader(variant) { variant = variant || ""; if (!this._shaderModuleCache) this._shaderModuleCache = {}; '
             'if (this._shaderModuleCache[variant]) return this._shaderModuleCache[variant]; var shadercode = "')
@@ -81,7 +81,7 @@ variant_js = (
 old_tail = 'alpha); }" }); }\n    cameraBindFor(pipeline) {'
 s = replace_once(s, old_tail, variant_js, "shader tail")
 
-# ---------------------------------------------------------------- 2. new methods before cameraBindFor
+
 new_methods = (
     '    megaVertexBuffers(variant, base) { if (variant && variant.indexOf("mega") >= 0) { base.push({ arrayStride: 4, attributes: [{ shaderLocation: 14, offset: 0, format: "float32" }] }); } return base; }\n'
     '    setMegaMaterials(records) {\n'
@@ -134,12 +134,12 @@ new_methods = (
 s = replace_once(s, '    cameraBindFor(pipeline) { if (!this._cameraBindCache)',
                  new_methods + '    cameraBindFor(pipeline) { if (!this._cameraBindCache)', "methods insert")
 
-# ---------------------------------------------------------------- 3. pipelineFor signature + key + module + buffers
+
 s = replace_once(s, 'pipelineFor(material, topology, targetFormat) { topology = topology || "triangle-list"; targetFormat = targetFormat || this._targetFormat || this.format; var key = ',
                  'pipelineFor(material, topology, targetFormat, variant) { topology = topology || "triangle-list"; targetFormat = targetFormat || this._targetFormat || this.format; variant = variant || ""; var key = ', "pipelineFor sig")
 s = replace_once(s, '+ "|" + targetFormat; if (this.pipelineCache[key]) return this.pipelineCache[key]; var module = this.shader();',
                  '+ "|" + targetFormat + "|" + variant; if (this.pipelineCache[key]) return this.pipelineCache[key]; var module = this.shader(variant);', "pipelineFor key")
-# buffers wrap: close anchor is globally unique; open anchor only within pipelineFor slice
+
 s = replace_once(s, 'offset: 48, format: "float32x4" }] }] }, fragment: { module: module, entryPoint: "fragmentMain"',
                  'offset: 48, format: "float32x4" }] }]) }, fragment: { module: module, entryPoint: "fragmentMain"', "buffers close")
 p = s.index('pipelineFor(material, topology, targetFormat, variant) {')
@@ -149,7 +149,7 @@ seg = replace_once(seg, 'buffers: [{ arrayStride: 12, attributes: [{ shaderLocat
                      'buffers: this.megaVertexBuffers(variant, [{ arrayStride: 12, attributes: [{ shaderLocation: 0,', "buffers open")
 s = s[:p] + seg + s[f:]
 
-# ---------------------------------------------------------------- 4. drawObject hooks
+
 s = replace_once(s, 'var pipeline = self.pipelineFor(object.material, topology);',
                  'var variant = (object.megaMaterial ? "mega" : "") + (object.clusteredShading ? "clustered" : "");\n            var pipeline = self.pipelineFor(object.material, topology, undefined, variant);', "drawObject pipeline")
 s = replace_once(s, 'pass.setBindGroup(2, boneBind); pass.setVertexBuffer(0, positionBuffer);',
@@ -168,7 +168,7 @@ assert s != orig
 open(path, "w", encoding="utf-8").write(s)
 print("WebGPURenderer.js patched OK,", len(s), "bytes")
 
-# ---------------------------------------------------------------- 5. ClusteredLighting zero-light guard
+
 path2 = "src/renderers/ClusteredLighting.js"
 s2 = open(path2, encoding="utf-8").read()
 old2 = 'this.device.queue.writeBuffer(this.lightbuffer, 0, lightdata.subarray(0, norm.length * 8));'
@@ -177,17 +177,17 @@ s2 = s2.replace(old2, 'if (norm.length > 0) this.device.queue.writeBuffer(this.l
 open(path2, "w", encoding="utf-8").write(s2)
 print("ClusteredLighting.js guarded OK")
 
-# ---------------------------------------------------------------- 6. MegaGeometry add() auto-material + uploadMaterials
+
 path3 = "src/extras/MegaGeometry.js"
 s3 = open(path3, encoding="utf-8").read()
 old3 = 'materialIndex: options.materialIndex !== undefined ? options.materialIndex : this.materials.length,'
 assert s3.count(old3) == 1
 new3 = 'materialIndex: options.materialIndex !== undefined ? options.materialIndex : this.addMaterial(options),'
 s3 = s3.replace(old3, new3)
-# uploadMaterials: insert after addMaterial method end - anchor on the closing of addMaterial + next method
+
 anchor3 = '        return this.m'
 i3 = s3.index(anchor3)
-# find the method that follows addMaterial: search for the next '    <name>(' at line start after addMaterial
+
 import re
 m3 = re.search(r'\n    \w+\(', s3[i3:])
 insert_at = i3 + m3.start()

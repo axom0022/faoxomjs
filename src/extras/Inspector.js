@@ -1,31 +1,23 @@
-// Inspector - zero dependency overlay panel with live engine stats:
-// fps graph, frame time, draw calls, triangles, GPU buffer and texture
-// budgets, memory pressure, worker/isolation status and scene counts.
-// Toggled with renderer.enableInspector() / disableInspector().
-
 import { WebGLRenderer } from "../renderers/index.js";
+
 import { CrossOrigin } from "./CrossOrigin.js";
+
 import { TaskPool } from "./TaskPool.js";
 
-var INSPECTOR_STYLE = [
-    "position:fixed", "top:12px", "left:12px", "z-index:2147483647",
-    "font:11px/1.5 ui-monospace,Menlo,Consolas,monospace",
-    "color:#d7dde8", "background:rgba(10,13,20,0.88)",
-    "border:1px solid #2b3446", "border-radius:8px",
-    "padding:8px 10px", "min-width:230px", "pointer-events:none",
-    "user-select:none", "-webkit-user-select:none"
-].join(";");
+var zahva = [ "position:fixed", "top:12px", "left:12px", "z-index:2147483647", "font:11px/1.5 ui-monospace,Menlo,Consolas,monospace", "color:#d7dde8", "background:rgba(10,13,20,0.88)", "border:1px solid #2b3446", "border-radius:8px", "padding:8px 10px", "min-width:230px", "pointer-events:none", "user-select:none", "-webkit-user-select:none" ].join(";");
 
-var ROW_STYLE = "display:flex;justify-content:space-between;gap:14px";
-var LABEL_STYLE = "color:#7d8aa5";
-var VALUE_STYLE = "color:#8fd3ff;font-weight:600;white-space:nowrap";
+var zahvb = "display:flex;justify-content:space-between;gap:14px";
+
+var zahvc = "color:#7d8aa5";
+
+var zahvd = "color:#8fd3ff;font-weight:600;white-space:nowrap";
 
 class Inspector {
-    constructor(renderer, options) {
-        options = options || {};
-        this.renderer = renderer;
-        this.expand = options.expand !== false;
-        this.maxGraph = options.graph || 120;
+    constructor(zahva, zahvb) {
+        zahvb = zahvb || {};
+        this.renderer = zahva;
+        this.expand = zahvb.expand !== false;
+        this.maxGraph = zahvb.graph || 120;
         this.hidden = false;
         this._frames = [];
         this._lastFrame = 0;
@@ -40,178 +32,175 @@ class Inspector {
         this._loop = this._loop.bind(this);
         this._raf = requestAnimationFrame(this._loop);
     }
-
     _build() {
         if (typeof document === "undefined") return;
-        var panel = document.createElement("div");
-        panel.setAttribute("style", INSPECTOR_STYLE);
-        var title = document.createElement("div");
-        title.setAttribute("style", "font-weight:700;color:#e8edf6;margin-bottom:4px;letter-spacing:0.4px");
-        title.textContent = "FAOXOM INSPECTOR";
-        panel.appendChild(title);
-        var graph = document.createElement("canvas");
-        graph.width = 220;
-        graph.height = 36;
-        graph.setAttribute("style", "display:block;width:220px;height:36px;margin:2px 0 6px;background:#0a0d14;border-radius:4px");
-        panel.appendChild(graph);
-        this._graph = graph;
-        this._graphContext = graph.getContext("2d");
-        var body = document.createElement("div");
-        panel.appendChild(body);
-        this._body = body;
-        var self = this;
-        var rows = ["fps", "frame", "draws", "triangles", "canvas", "textures", "programs", "memory", "objects", "lights", "workers", "isolation"];
-        for (var i = 0; i < rows.length; i++) {
-            var row = document.createElement("div");
-            row.setAttribute("style", ROW_STYLE);
-            var label = document.createElement("span");
-            label.setAttribute("style", LABEL_STYLE);
-            label.textContent = rows[i];
-            var value = document.createElement("span");
-            value.setAttribute("style", VALUE_STYLE);
-            value.textContent = "-";
-            row.appendChild(label);
-            row.appendChild(value);
-            body.appendChild(row);
-            this._rows[rows[i]] = value;
+        var zahve = document.createElement("div");
+        zahve.setAttribute("style", zahva);
+        var zahvf = document.createElement("div");
+        zahvf.setAttribute("style", "font-weight:700;color:#e8edf6;margin-bottom:4px;letter-spacing:0.4px");
+        zahvf.textContent = "FAOXOM INSPECTOR";
+        zahve.appendChild(zahvf);
+        var zahvg = document.createElement("canvas");
+        zahvg.width = 220;
+        zahvg.height = 36;
+        zahvg.setAttribute("style", "display:block;width:220px;height:36px;margin:2px 0 6px;background:#0a0d14;border-radius:4px");
+        zahve.appendChild(zahvg);
+        this._graph = zahvg;
+        this._graphContext = zahvg.getContext("2d");
+        var zahvh = document.createElement("div");
+        zahve.appendChild(zahvh);
+        this._body = zahvh;
+        var zahvi = this;
+        var zahvj = [ "fps", "frame", "draws", "triangles", "canvas", "textures", "programs", "memory", "objects", "lights", "workers", "isolation" ];
+        for (var zahvk = 0; zahvk < zahvj.length; zahvk++) {
+            var zahvl = document.createElement("div");
+            zahvl.setAttribute("style", zahvb);
+            var zahvm = document.createElement("span");
+            zahvm.setAttribute("style", zahvc);
+            zahvm.textContent = zahvj[zahvk];
+            var zahvn = document.createElement("span");
+            zahvn.setAttribute("style", zahvd);
+            zahvn.textContent = "-";
+            zahvl.appendChild(zahvm);
+            zahvl.appendChild(zahvn);
+            zahvh.appendChild(zahvl);
+            this._rows[zahvj[zahvk]] = zahvn;
         }
-        document.body.appendChild(panel);
-        this._dom = panel;
+        document.body.appendChild(zahve);
+        this._dom = zahve;
     }
-
-    set(key, text) {
-        var row = this._rows[key];
-        if (row && row.textContent !== text) row.textContent = text;
+    set(zahva, zahvb) {
+        var zahvc = this._rows[zahva];
+        if (zahvc && zahvc.textContent !== zahvb) zahvc.textContent = zahvb;
     }
-
     _collect() {
-        var renderer = this.renderer;
-        var info = renderer && renderer.info ? renderer.info.render : null;
-        if (info) {
-            this.set("draws", String(info.calls));
-            this.set("triangles", info.triangles > 1000 ? (info.triangles / 1000).toFixed(1) + "k" : String(info.triangles));
+        var zahva = this.renderer;
+        var zahvb = zahva && zahva.info ? zahva.info.render : null;
+        if (zahvb) {
+            this.set("draws", String(zahvb.calls));
+            this.set("triangles", zahvb.triangles > 1e3 ? (zahvb.triangles / 1e3).toFixed(1) + "k" : String(zahvb.triangles));
         }
-        var gl = renderer && renderer.gl;
-        if (renderer && renderer.width) this.set("canvas", renderer.width + " x " + renderer.height);
-        if (renderer && renderer.programCache) this.set("programs", String(Object.keys(renderer.programCache).length));
-        var scene = this._lastScene;
-        if (scene && scene.traverseVisible) {
-            var objects = 0, lights = 0;
-            scene.traverseVisible(function (node) {
-                objects++;
-                if (node.isLight || /Light$/.test(node.type || "")) lights++;
+        var zahvc = zahva && zahva.gl;
+        if (zahva && zahva.width) this.set("canvas", zahva.width + " x " + zahva.height);
+        if (zahva && zahva.programCache) this.set("programs", String(Object.keys(zahva.programCache).length));
+        var zahvd = this._lastScene;
+        if (zahvd && zahvd.traverseVisible) {
+            var zahve = 0, zahvf = 0;
+            zahvd.traverseVisible(function(zahva) {
+                zahve++;
+                if (zahva.isLight || /Light$/.test(zahva.type || "")) zahvf++;
             });
-            this.set("objects", String(objects));
-            this.set("lights", String(lights));
+            this.set("objects", String(zahve));
+            this.set("lights", String(zahvf));
         }
         if (typeof performance !== "undefined" && performance.memory) {
-            var used = performance.memory.usedJSHeapSize;
-            var limit = performance.memory.jsHeapSizeLimit;
-            this.set("memory", (used / 1048576).toFixed(1) + " / " + (limit / 1048576).toFixed(0) + " MB");
-        } else if (gl && gl.getExtension) {
-            var info = gl.getExtension("WEBGL_debug_renderer_info");
-            this.set("memory", info ? "gpu" : "n/a");
+            var zahvg = performance.memory.usedJSHeapSize;
+            var zahvh = performance.memory.jsHeapSizeLimit;
+            this.set("memory", (zahvg / 1048576).toFixed(1) + " / " + (zahvh / 1048576).toFixed(0) + " MB");
+        } else if (zahvc && zahvc.getExtension) {
+            var zahvb = zahvc.getExtension("WEBGL_debug_renderer_info");
+            this.set("memory", zahvb ? "gpu" : "n/a");
         } else {
             this.set("memory", "n/a");
         }
-        var status = CrossOrigin.status();
-        var pools = typeof TaskPool !== "undefined" && TaskPool.instances ? TaskPool.instances.length : 0;
-        var workers = 0;
+        var zahvi = CrossOrigin.status();
+        var zahvj = typeof TaskPool !== "undefined" && TaskPool.instances ? TaskPool.instances.length : 0;
+        var zahvk = 0;
         if (typeof TaskPool !== "undefined" && TaskPool.instances) {
-            for (var p = 0; p < TaskPool.instances.length; p++) workers += TaskPool.instances[p].stats.workers;
+            for (var zahvl = 0; zahvl < TaskPool.instances.length; zahvl++) zahvk += TaskPool.instances[zahvl].stats.workers;
         }
-        this.set("workers", workers + " / " + pools + " pools");
-        this.set("isolation", status.threads ? "shared" : "fallback");
+        this.set("workers", zahvk + " / " + zahvj + " pools");
+        this.set("isolation", zahvi.threads ? "shared" : "fallback");
     }
-
     _wrapRender() {
-        var renderer = this.renderer;
-        var self = this;
-        if (!renderer || typeof renderer.render !== "function" || renderer.__inspectorWrapped) return;
-        var original = renderer.render.bind(renderer);
-        renderer.render = function (scene, camera) {
-            self._lastScene = scene;
-            return original(scene, camera);
+        var zahva = this.renderer;
+        var zahvb = this;
+        if (!zahva || typeof zahva.render !== "function" || zahva.__inspectorWrapped) return;
+        var zahvc = zahva.render.bind(zahva);
+        zahva.render = function(zahva, zahvd) {
+            zahvb._lastScene = zahva;
+            return zahvc(zahva, zahvd);
         };
-        renderer.__inspectorWrapped = true;
+        zahva.__inspectorWrapped = true;
     }
-
     _drawGraph() {
-        var context = this._graphContext;
-        if (!context) return;
-        var width = this._graph.width, height = this._graph.height;
-        context.clearRect(0, 0, width, height);
+        var zahva = this._graphContext;
+        if (!zahva) return;
+        var zahvb = this._graph.width, zahvc = this._graph.height;
+        zahva.clearRect(0, 0, zahvb, zahvc);
         if (this._frames.length < 2) return;
-        var step = width / (this.maxGraph - 1);
-        context.beginPath();
-        for (var i = 0; i < this._frames.length; i++) {
-            var ms = this._frames[i];
-            var y = height - Math.min(ms / 33.4, 1) * (height - 2) - 1;
-            var x = i * step;
-            if (i === 0) context.moveTo(x, y);
-            else context.lineTo(x, y);
+        var zahvd = zahvb / (this.maxGraph - 1);
+        zahva.beginPath();
+        for (var zahve = 0; zahve < this._frames.length; zahve++) {
+            var zahvf = this._frames[zahve];
+            var zahvg = zahvc - Math.min(zahvf / 33.4, 1) * (zahvc - 2) - 1;
+            var zahvh = zahve * zahvd;
+            if (zahve === 0) zahva.moveTo(zahvh, zahvg); else zahva.lineTo(zahvh, zahvg);
         }
-        context.strokeStyle = "#59c2ff";
-        context.lineWidth = 1.25;
-        context.stroke();
-        context.fillStyle = "rgba(89,194,255,0.12)";
-        context.lineTo((this._frames.length - 1) * step, height);
-        context.lineTo(0, height);
-        context.closePath();
-        context.fill();
-        // 60fps line
-        context.strokeStyle = "rgba(255,255,255,0.14)";
-        context.beginPath();
-        context.moveTo(0, height - Math.min(16.7 / 33.4, 1) * (height - 2) - 1);
-        context.lineTo(width, height - Math.min(16.7 / 33.4, 1) * (height - 2) - 1);
-        context.stroke();
+        zahva.strokeStyle = "#59c2ff";
+        zahva.lineWidth = 1.25;
+        zahva.stroke();
+        zahva.fillStyle = "rgba(89,194,255,0.12)";
+        zahva.lineTo((this._frames.length - 1) * zahvd, zahvc);
+        zahva.lineTo(0, zahvc);
+        zahva.closePath();
+        zahva.fill();
+        zahva.strokeStyle = "rgba(255,255,255,0.14)";
+        zahva.beginPath();
+        zahva.moveTo(0, zahvc - Math.min(16.7 / 33.4, 1) * (zahvc - 2) - 1);
+        zahva.lineTo(zahvb, zahvc - Math.min(16.7 / 33.4, 1) * (zahvc - 2) - 1);
+        zahva.stroke();
     }
-
-    _loop(now) {
+    _loop(zahva) {
         if (!this._running) return;
         this._raf = requestAnimationFrame(this._loop);
         if (this._lastFrame) {
-            var delta = now - this._lastFrame;
-            this._frames.push(delta);
+            var zahvb = zahva - this._lastFrame;
+            this._frames.push(zahvb);
             if (this._frames.length > this.maxGraph) this._frames.shift();
         }
-        this._lastFrame = now;
+        this._lastFrame = zahva;
         if (this._frames.length >= 8) {
-            var sorted = this._frames.slice().sort(function (a, b) { return a - b; });
-            var median = sorted[Math.floor(sorted.length / 2)];
-            this.set("fps", String(Math.min(9999, Math.round(1000 / Math.max(median, 0.01)))));
-            this.set("frame", median.toFixed(2) + " ms");
+            var zahvc = this._frames.slice().sort(function(zahva, zahvb) {
+                return zahva - zahvb;
+            });
+            var zahvd = zahvc[Math.floor(zahvc.length / 2)];
+            this.set("fps", String(Math.min(9999, Math.round(1e3 / Math.max(zahvd, .01)))));
+            this.set("frame", zahvd.toFixed(2) + " ms");
             this._drawGraph();
         }
         this._collect();
     }
-
-    toggle() { this.hidden = !this.hidden; if (this._dom) this._dom.style.display = this.hidden ? "none" : "block"; return this; }
-
+    toggle() {
+        this.hidden = !this.hidden;
+        if (this._dom) this._dom.style.display = this.hidden ? "none" : "block";
+        return this;
+    }
     dispose() {
         this._running = false;
         cancelAnimationFrame(this._raf);
         if (this._dom && this._dom.parentNode) this._dom.parentNode.removeChild(this._dom);
         this._dom = null;
-        var renderer = this.renderer;
-        if (renderer && renderer.__inspectorWrapped) {
-            delete renderer.__inspectorWrapped;
-            renderer.render = WebGLRenderer.prototype.render;
+        var zahva = this.renderer;
+        if (zahva && zahva.__inspectorWrapped) {
+            delete zahva.__inspectorWrapped;
+            zahva.render = WebGLRenderer.prototype.render;
         }
-        if (renderer && renderer._inspector === this) renderer._inspector = null;
+        if (zahva && zahva._inspector === this) zahva._inspector = null;
         return this;
     }
 }
 
-// Wired into WebGLRenderer via prototype registration so core never imports
-// extras (no module cycle, works in the single file build too).
 if (typeof WebGLRenderer !== "undefined" && WebGLRenderer && WebGLRenderer.prototype) {
-    WebGLRenderer.prototype.enableInspector = function (options) {
-        if (!this._inspector) this._inspector = new Inspector(this, options);
+    WebGLRenderer.prototype.enableInspector = function(zahva) {
+        if (!this._inspector) this._inspector = new Inspector(this, zahva);
         return this._inspector;
     };
-    WebGLRenderer.prototype.disableInspector = function () {
-        if (this._inspector) { this._inspector.dispose(); this._inspector = null; }
+    WebGLRenderer.prototype.disableInspector = function() {
+        if (this._inspector) {
+            this._inspector.dispose();
+            this._inspector = null;
+        }
         return this;
     };
 }

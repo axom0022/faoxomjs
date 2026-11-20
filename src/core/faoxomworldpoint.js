@@ -1,5 +1,7 @@
 import { Quaternion } from "../math/index.js";
 
-function faoxomworldpoint(position, rotation, local) { return local.clone().applyQuaternion(rotation || new Quaternion()).add(position); }
+function faoxomworldpoint(zagba, zagbb, zagbc) {
+    return zagbc.clone().applyQuaternion(zagbb || new Quaternion).add(zagba);
+}
 
 export { faoxomworldpoint };

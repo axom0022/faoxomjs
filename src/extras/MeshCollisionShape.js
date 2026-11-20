@@ -1,5 +1,12 @@
 import { CollisionShape } from "./CollisionShape.js";
 
-class MeshCollisionShape extends CollisionShape { constructor(vertices, indices, options) { options = options || {}; options.vertices = vertices || options.vertices || []; options.indices = indices || options.indices || null; super("mesh", options); } }
+class MeshCollisionShape extends CollisionShape {
+    constructor(zahza, zahzb, zahzc) {
+        zahzc = zahzc || {};
+        zahzc.vertices = zahza || zahzc.vertices || [];
+        zahzc.indices = zahzb || zahzc.indices || null;
+        super("mesh", zahzc);
+    }
+}
 
 export { MeshCollisionShape };

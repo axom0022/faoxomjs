@@ -1,21 +1,122 @@
 import { Vector3, faoxomvalue } from "../math/index.js";
 
 class Fluid {
-    constructor(options) { options = options || {}; this.world = options.world || null; this.particles = []; this.restDensity = faoxomvalue(options.restDensity, 1000); this.pressure = faoxomvalue(options.pressure, 4); this.nearPressure = faoxomvalue(options.nearPressure, 4); this.viscosity = faoxomvalue(options.viscosity, 0.15); this.radius = faoxomvalue(options.radius, 0.18); this.mass = faoxomvalue(options.mass, 1); this.gravity = options.gravity ? options.gravity.clone() : new Vector3(0, -9.81, 0); this.bounds = options.bounds || null; this.surfaceTension = faoxomvalue(options.surfaceTension, 0.02); this.hash = {}; }
-    addParticle(position, velocity) { var particle = { position: position.clone(), velocity: velocity ? velocity.clone() : new Vector3(), force: new Vector3(), density: this.restDensity, nearDensity: 0 }; this.particles.push(particle); return particle; }
-    cellKey(position, cellSize) { return Math.floor(position.x / cellSize) + ":" + Math.floor(position.y / cellSize) + ":" + Math.floor(position.z / cellSize); }
-    step(dt) {
-        var h = this.radius * 4; this.hash = {};
-        for (var i = 0; i < this.particles.length; i++) { var key = this.cellKey(this.particles[i].position, h); if (!this.hash[key]) this.hash[key] = []; this.hash[key].push(i); this.particles[i].density = 0; this.particles[i].nearDensity = 0; this.particles[i].force.copy(this.gravity).multiplyScalar(this.mass); }
-        var pairs = [];
-        for (var a = 0; a < this.particles.length; a++) {
-            var pa = this.particles[a]; var cx = Math.floor(pa.position.x / h), cy = Math.floor(pa.position.y / h), cz = Math.floor(pa.position.z / h);
-            for (var oz = -1; oz <= 1; oz++) for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) { var list = this.hash[(cx + ox) + ":" + (cy + oy) + ":" + (cz + oz)] || []; for (var li = 0; li < list.length; li++) { var b = list[li]; if (b <= a) continue; var pb = this.particles[b]; var delta = new Vector3().subVectors(pb.position, pa.position); var distance = delta.length(); if (distance <= 1e-6 || distance >= h) continue; var q = 1 - distance / h; var q2 = q * q; var q3 = q2 * q; pa.density += q2; pb.density += q2; pa.nearDensity += q3; pb.nearDensity += q3; pairs.push({ a: a, b: b, delta: delta, distance: distance, q: q }); } }
+    constructor(zahla) {
+        zahla = zahla || {};
+        this.world = zahla.world || null;
+        this.particles = [];
+        this.restDensity = faoxomvalue(zahla.restDensity, 1e3);
+        this.pressure = faoxomvalue(zahla.pressure, 4);
+        this.nearPressure = faoxomvalue(zahla.nearPressure, 4);
+        this.viscosity = faoxomvalue(zahla.viscosity, .15);
+        this.radius = faoxomvalue(zahla.radius, .18);
+        this.mass = faoxomvalue(zahla.mass, 1);
+        this.gravity = zahla.gravity ? zahla.gravity.clone() : new Vector3(0, -9.81, 0);
+        this.bounds = zahla.bounds || null;
+        this.surfaceTension = faoxomvalue(zahla.surfaceTension, .02);
+        this.hash = {};
+    }
+    addParticle(zahla, zahlb) {
+        var zahlc = {
+            position: zahla.clone(),
+            velocity: zahlb ? zahlb.clone() : new Vector3,
+            force: new Vector3,
+            density: this.restDensity,
+            nearDensity: 0
+        };
+        this.particles.push(zahlc);
+        return zahlc;
+    }
+    cellKey(zahla, zahlb) {
+        return Math.floor(zahla.x / zahlb) + ":" + Math.floor(zahla.y / zahlb) + ":" + Math.floor(zahla.z / zahlb);
+    }
+    step(zahla) {
+        var zahlb = this.radius * 4;
+        this.hash = {};
+        for (var zahlc = 0; zahlc < this.particles.length; zahlc++) {
+            var zahld = this.cellKey(this.particles[zahlc].position, zahlb);
+            if (!this.hash[zahld]) this.hash[zahld] = [];
+            this.hash[zahld].push(zahlc);
+            this.particles[zahlc].density = 0;
+            this.particles[zahlc].nearDensity = 0;
+            this.particles[zahlc].force.copy(this.gravity).multiplyScalar(this.mass);
         }
-        for (var k = 0; k < this.particles.length; k++) this.particles[k].density = Math.max(this.restDensity * 0.5, this.particles[k].density * this.restDensity * 0.5);
-        for (var pi = 0; pi < pairs.length; pi++) {
-            var pair = pairs[pi], first = this.particles[pair.a], second = this.particles[pair.b]; var normal = pair.delta.clone().multiplyScalar(1 / pair.distance); var pressureA = this.pressure * Math.max(-1, first.density / this.restDensity - 1); var pressureB = this.pressure * Math.max(-1, second.density / this.restDensity - 1); var pressureForce = normal.clone().multiplyScalar((pressureA + pressureB) * pair.q * this.mass); first.force.addScaledVector(pressureForce, -1); second.force.add(pressureForce); var relative = new Vector3().subVectors(second.velocity, first.velocity); var viscous = relative.multiplyScalar(this.viscosity * pair.q); first.force.add(viscous); second.force.sub(viscous); }
-        for (var j = 0; j < this.particles.length; j++) { var item = this.particles[j]; item.velocity.addScaledVector(item.force, dt / Math.max(item.density, 1)); item.velocity.multiplyScalar(Math.max(0, 1 - dt * 0.08)); item.position.addScaledVector(item.velocity, dt); if (this.bounds) { if (this.bounds.min && item.position.x < this.bounds.min.x) { item.position.x = this.bounds.min.x; item.velocity.x = Math.abs(item.velocity.x) * 0.35; } if (this.bounds.max && item.position.x > this.bounds.max.x) { item.position.x = this.bounds.max.x; item.velocity.x = -Math.abs(item.velocity.x) * 0.35; } if (this.bounds.min && item.position.y < this.bounds.min.y) { item.position.y = this.bounds.min.y; item.velocity.y = Math.abs(item.velocity.y) * 0.35; } if (this.bounds.max && item.position.y > this.bounds.max.y) { item.position.y = this.bounds.max.y; item.velocity.y = -Math.abs(item.velocity.y) * 0.35; } if (this.bounds.min && item.position.z < this.bounds.min.z) { item.position.z = this.bounds.min.z; item.velocity.z = Math.abs(item.velocity.z) * 0.35; } if (this.bounds.max && item.position.z > this.bounds.max.z) { item.position.z = this.bounds.max.z; item.velocity.z = -Math.abs(item.velocity.z) * 0.35; } } }
+        var zahle = [];
+        for (var zahlf = 0; zahlf < this.particles.length; zahlf++) {
+            var zahlg = this.particles[zahlf];
+            var zahlh = Math.floor(zahlg.position.x / zahlb), zahli = Math.floor(zahlg.position.y / zahlb), zahlj = Math.floor(zahlg.position.z / zahlb);
+            for (var zahlk = -1; zahlk <= 1; zahlk++) for (var zahll = -1; zahll <= 1; zahll++) for (var zahlm = -1; zahlm <= 1; zahlm++) {
+                var zahln = this.hash[zahlh + zahlm + ":" + (zahli + zahll) + ":" + (zahlj + zahlk)] || [];
+                for (var zahlo = 0; zahlo < zahln.length; zahlo++) {
+                    var zahlp = zahln[zahlo];
+                    if (zahlp <= zahlf) continue;
+                    var zahlq = this.particles[zahlp];
+                    var zahlr = (new Vector3).subVectors(zahlq.position, zahlg.position);
+                    var zahls = zahlr.length();
+                    if (zahls <= 1e-6 || zahls >= zahlb) continue;
+                    var zahlt = 1 - zahls / zahlb;
+                    var zahlu = zahlt * zahlt;
+                    var zahlv = zahlu * zahlt;
+                    zahlg.density += zahlu;
+                    zahlq.density += zahlu;
+                    zahlg.nearDensity += zahlv;
+                    zahlq.nearDensity += zahlv;
+                    zahle.push({
+                        a: zahlf,
+                        b: zahlp,
+                        delta: zahlr,
+                        distance: zahls,
+                        q: zahlt
+                    });
+                }
+            }
+        }
+        for (var zahlw = 0; zahlw < this.particles.length; zahlw++) this.particles[zahlw].density = Math.max(this.restDensity * .5, this.particles[zahlw].density * this.restDensity * .5);
+        for (var zahlx = 0; zahlx < zahle.length; zahlx++) {
+            var zahly = zahle[zahlx], zahlz = this.particles[zahly.a], zahlaa = this.particles[zahly.b];
+            var zahlab = zahly.delta.clone().multiplyScalar(1 / zahly.distance);
+            var zahlac = this.pressure * Math.max(-1, zahlz.density / this.restDensity - 1);
+            var zahlad = this.pressure * Math.max(-1, zahlaa.density / this.restDensity - 1);
+            var zahlae = zahlab.clone().multiplyScalar((zahlac + zahlad) * zahly.q * this.mass);
+            zahlz.force.addScaledVector(zahlae, -1);
+            zahlaa.force.add(zahlae);
+            var zahlaf = (new Vector3).subVectors(zahlaa.velocity, zahlz.velocity);
+            var zahlag = zahlaf.multiplyScalar(this.viscosity * zahly.q);
+            zahlz.force.add(zahlag);
+            zahlaa.force.sub(zahlag);
+        }
+        for (var zahlah = 0; zahlah < this.particles.length; zahlah++) {
+            var zahlai = this.particles[zahlah];
+            zahlai.velocity.addScaledVector(zahlai.force, zahla / Math.max(zahlai.density, 1));
+            zahlai.velocity.multiplyScalar(Math.max(0, 1 - zahla * .08));
+            zahlai.position.addScaledVector(zahlai.velocity, zahla);
+            if (this.bounds) {
+                if (this.bounds.min && zahlai.position.x < this.bounds.min.x) {
+                    zahlai.position.x = this.bounds.min.x;
+                    zahlai.velocity.x = Math.abs(zahlai.velocity.x) * .35;
+                }
+                if (this.bounds.max && zahlai.position.x > this.bounds.max.x) {
+                    zahlai.position.x = this.bounds.max.x;
+                    zahlai.velocity.x = -Math.abs(zahlai.velocity.x) * .35;
+                }
+                if (this.bounds.min && zahlai.position.y < this.bounds.min.y) {
+                    zahlai.position.y = this.bounds.min.y;
+                    zahlai.velocity.y = Math.abs(zahlai.velocity.y) * .35;
+                }
+                if (this.bounds.max && zahlai.position.y > this.bounds.max.y) {
+                    zahlai.position.y = this.bounds.max.y;
+                    zahlai.velocity.y = -Math.abs(zahlai.velocity.y) * .35;
+                }
+                if (this.bounds.min && zahlai.position.z < this.bounds.min.z) {
+                    zahlai.position.z = this.bounds.min.z;
+                    zahlai.velocity.z = Math.abs(zahlai.velocity.z) * .35;
+                }
+                if (this.bounds.max && zahlai.position.z > this.bounds.max.z) {
+                    zahlai.position.z = this.bounds.max.z;
+                    zahlai.velocity.z = -Math.abs(zahlai.velocity.z) * .35;
+                }
+            }
+        }
     }
 }
 

@@ -1,68 +1,84 @@
 import { faoxomaabbcontact, faoxomgjkcontact, faoxomheightfieldcontact, faoxomobbcontact, faoxomshapevertices, faoxomworldpoint } from "../core/index.js";
+
 import { Vector3 } from "../math/index.js";
+
 import { faoxommeshcontact } from "./faoxommeshcontact.js";
 
-function faoxomplanecontact(plane, other) {
-    var normal = (plane.shape.normal ? plane.shape.normal.clone() : new Vector3(0, 1, 0)).normalize();
-    normal.applyQuaternion(plane.rotation);
-    var anchor = plane.position.clone().addScaledVector(normal, plane.shape.constant || 0);
-    var deepest = null;
-    var depth = 0;
-    if (other.shape.type === "sphere") {
-        deepest = other.position.clone().addScaledVector(normal, -other.shape.radius);
-        depth = other.shape.radius - other.position.clone().sub(anchor).dot(normal);
+function zajua(zajua, zajub) {
+    var zajuc = (zajua.shape.normal ? zajua.shape.normal.clone() : new Vector3(0, 1, 0)).normalize();
+    zajuc.applyQuaternion(zajua.rotation);
+    var zajud = zajua.position.clone().addScaledVector(zajuc, zajua.shape.constant || 0);
+    var zajue = null;
+    var zajuf = 0;
+    if (zajub.shape.type === "sphere") {
+        zajue = zajub.position.clone().addScaledVector(zajuc, -zajub.shape.radius);
+        zajuf = zajub.shape.radius - zajub.position.clone().sub(zajud).dot(zajuc);
     } else {
-        var verts = other.shape.vertices && other.shape.vertices.length ? other.shape.vertices : faoxomshapevertices(other.shape);
-        var best = Infinity;
-        for (var i = 0; i < verts.length; i++) {
-            var world = faoxomworldpoint(other.position, other.rotation, verts[i]);
-            var projection = world.clone().sub(anchor).dot(normal);
-            if (projection < best) { best = projection; deepest = world; }
+        var zajug = zajub.shape.vertices && zajub.shape.vertices.length ? zajub.shape.vertices : faoxomshapevertices(zajub.shape);
+        var zajuh = Infinity;
+        for (var zajui = 0; zajui < zajug.length; zajui++) {
+            var zajuj = faoxomworldpoint(zajub.position, zajub.rotation, zajug[zajui]);
+            var zajuk = zajuj.clone().sub(zajud).dot(zajuc);
+            if (zajuk < zajuh) {
+                zajuh = zajuk;
+                zajue = zajuj;
+            }
         }
-        depth = -best;
+        zajuf = -zajuh;
     }
-    if (!isFinite(depth) || depth <= 0) return null;
-    return { normal: normal, penetration: depth, point: deepest };
+    if (!isFinite(zajuf) || zajuf <= 0) return null;
+    return {
+        normal: zajuc,
+        penetration: zajuf,
+        point: zajue
+    };
 }
 
-function faoxomcollisioncontact(a, b) {
-    var planeA = a.shape.type === "plane";
-    var planeB = b.shape.type === "plane";
-    if (planeA || planeB) {
-        if (planeA && planeB) return null;
-        if (planeA) return faoxomplanecontact(a, b);
-        var flipped = faoxomplanecontact(b, a);
-        if (flipped) { flipped.normal.negate(); return flipped; }
+function faoxomcollisioncontact(zajub, zajuc) {
+    var zajud = zajub.shape.type === "plane";
+    var zajue = zajuc.shape.type === "plane";
+    if (zajud || zajue) {
+        if (zajud && zajue) return null;
+        if (zajud) return zajua(zajub, zajuc);
+        var zajuf = zajua(zajuc, zajub);
+        if (zajuf) {
+            zajuf.normal.negate();
+            return zajuf;
+        }
         return null;
     }
-    var heightContact = faoxomheightfieldcontact(a, b);
-    if (heightContact) return heightContact;
-    if (a.shape.type === "mesh") {
-        var meshContactA = faoxommeshcontact(a, b, true);
-        if (meshContactA) return meshContactA;
-        if (b.shape.type === "mesh") return null;
+    var zajug = faoxomheightfieldcontact(zajub, zajuc);
+    if (zajug) return zajug;
+    if (zajub.shape.type === "mesh") {
+        var zajuh = faoxommeshcontact(zajub, zajuc, true);
+        if (zajuh) return zajuh;
+        if (zajuc.shape.type === "mesh") return null;
     }
-    if (b.shape.type === "mesh") {
-        var meshContactB = faoxommeshcontact(b, a, false);
-        if (meshContactB) return meshContactB;
+    if (zajuc.shape.type === "mesh") {
+        var zajui = faoxommeshcontact(zajuc, zajub, false);
+        if (zajui) return zajui;
     }
-    if ((a.shape.type === "box" || a.shape.type === "obb") && (b.shape.type === "box" || b.shape.type === "obb")) return faoxomobbcontact(a, b);
-    var convexA = a.shape.type === "convex" || a.shape.type === "compound";
-    var convexB = b.shape.type === "convex" || b.shape.type === "compound";
-    if (convexA || convexB) {
-        var precise = faoxomgjkcontact(a, b);
-        if (precise) return precise;
+    if ((zajub.shape.type === "box" || zajub.shape.type === "obb") && (zajuc.shape.type === "box" || zajuc.shape.type === "obb")) return faoxomobbcontact(zajub, zajuc);
+    var zajuj = zajub.shape.type === "convex" || zajub.shape.type === "compound";
+    var zajuk = zajuc.shape.type === "convex" || zajuc.shape.type === "compound";
+    if (zajuj || zajuk) {
+        var zajul = faoxomgjkcontact(zajub, zajuc);
+        if (zajul) return zajul;
         return null;
     }
-    if (a.shape.type === "sphere" && b.shape.type === "sphere") {
-        var delta = new Vector3().subVectors(b.position, a.position);
-        var distance = delta.length();
-        var sum = a.shape.radius + b.shape.radius;
-        if (distance >= sum) return null;
-        var sphereNormal = distance > 1e-8 ? delta.multiplyScalar(1 / distance) : new Vector3(1, 0, 0);
-        return { normal: sphereNormal, penetration: sum - distance, point: a.position.clone().addScaledVector(sphereNormal, a.shape.radius - (sum - distance) * 0.5) };
+    if (zajub.shape.type === "sphere" && zajuc.shape.type === "sphere") {
+        var zajum = (new Vector3).subVectors(zajuc.position, zajub.position);
+        var zajun = zajum.length();
+        var zajuo = zajub.shape.radius + zajuc.shape.radius;
+        if (zajun >= zajuo) return null;
+        var zajup = zajun > 1e-8 ? zajum.multiplyScalar(1 / zajun) : new Vector3(1, 0, 0);
+        return {
+            normal: zajup,
+            penetration: zajuo - zajun,
+            point: zajub.position.clone().addScaledVector(zajup, zajub.shape.radius - (zajuo - zajun) * .5)
+        };
     }
-    return faoxomaabbcontact(a, b);
+    return faoxomaabbcontact(zajub, zajuc);
 }
 
 export { faoxomcollisioncontact };

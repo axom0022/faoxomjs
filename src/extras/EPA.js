@@ -1,24 +1,41 @@
 import { Vector3 } from "../math/index.js";
 
 class EPA {
-    static computePenetration(shapeA, shapeB, simplex) {
-        var faces = [
-            { a: simplex[0], b: simplex[1], c: simplex[2] },
-            { a: simplex[0], b: simplex[2], c: simplex[3] },
-            { a: simplex[0], b: simplex[3], c: simplex[1] },
-            { a: simplex[1], b: simplex[3], c: simplex[2] }
-        ];
-        var minDistance = Infinity;
-        var minNormal = new Vector3();
-        for (var f = 0; f < faces.length; f++) {
-            var face = faces[f];
-            var ab = face.b.clone().sub(face.a);
-            var ac = face.c.clone().sub(face.a);
-            var norm = ab.cross(ac).normalize();
-            var dist = Math.abs(norm.dot(face.a));
-            if (dist < minDistance) { minDistance = dist; minNormal.copy(norm); }
+    static computePenetration(zahda, zahdb, zahdc) {
+        var zahdd = [ {
+            a: zahdc[0],
+            b: zahdc[1],
+            c: zahdc[2]
+        }, {
+            a: zahdc[0],
+            b: zahdc[2],
+            c: zahdc[3]
+        }, {
+            a: zahdc[0],
+            b: zahdc[3],
+            c: zahdc[1]
+        }, {
+            a: zahdc[1],
+            b: zahdc[3],
+            c: zahdc[2]
+        } ];
+        var zahde = Infinity;
+        var zahdf = new Vector3;
+        for (var zahdg = 0; zahdg < zahdd.length; zahdg++) {
+            var zahdh = zahdd[zahdg];
+            var zahdi = zahdh.b.clone().sub(zahdh.a);
+            var zahdj = zahdh.c.clone().sub(zahdh.a);
+            var zahdk = zahdi.cross(zahdj).normalize();
+            var zahdl = Math.abs(zahdk.dot(zahdh.a));
+            if (zahdl < zahde) {
+                zahde = zahdl;
+                zahdf.copy(zahdk);
+            }
         }
-        return { depth: minDistance, normal: minNormal };
+        return {
+            depth: zahde,
+            normal: zahdf
+        };
     }
 }
 

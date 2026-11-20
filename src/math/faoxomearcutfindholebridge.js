@@ -1,41 +1,43 @@
 import { faoxomearcutequals } from "./faoxomearcutequals.js";
+
 import { faoxomearcutlocallyinside } from "./faoxomearcutlocallyinside.js";
+
 import { faoxomearcutpointintriangle } from "./faoxomearcutpointintriangle.js";
+
 import { faoxomearcutsectorcontainssector } from "./faoxomearcutsectorcontainssector.js";
 
-function faoxomearcutfindholebridge(hole, outerNode) {
-    var p = outerNode;
-    var hx = hole.x, hy = hole.y;
-    var qx = -Infinity, m;
-    if (faoxomearcutequals(hole, p)) return p;
+function faoxomearcutfindholebridge(zapka, zapkb) {
+    var zapkc = zapkb;
+    var zapkd = zapka.x, zapke = zapka.y;
+    var zapkf = -Infinity, zapkg;
+    if (faoxomearcutequals(zapka, zapkc)) return zapkc;
     do {
-        if (faoxomearcutequals(hole, p.next)) return p.next;
-        else if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
-            var x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
-            if (x <= hx && x > qx) {
-                qx = x;
-                m = p.x < p.next.x ? p : p.next;
-                if (x === hx) return m;
+        if (faoxomearcutequals(zapka, zapkc.next)) return zapkc.next; else if (zapke <= zapkc.y && zapke >= zapkc.next.y && zapkc.next.y !== zapkc.y) {
+            var zapkh = zapkc.x + (zapke - zapkc.y) * (zapkc.next.x - zapkc.x) / (zapkc.next.y - zapkc.y);
+            if (zapkh <= zapkd && zapkh > zapkf) {
+                zapkf = zapkh;
+                zapkg = zapkc.x < zapkc.next.x ? zapkc : zapkc.next;
+                if (zapkh === zapkd) return zapkg;
             }
         }
-        p = p.next;
-    } while (p !== outerNode);
-    if (!m) return null;
-    var stop = m;
-    var mx = m.x, my = m.y;
-    var tanMin = Infinity;
-    p = m;
+        zapkc = zapkc.next;
+    } while (zapkc !== zapkb);
+    if (!zapkg) return null;
+    var zapki = zapkg;
+    var zapkj = zapkg.x, zapkk = zapkg.y;
+    var zapkl = Infinity;
+    zapkc = zapkg;
     do {
-        if (hx >= p.x && p.x >= mx && hx !== p.x && faoxomearcutpointintriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
-            var tan = Math.abs(hy - p.y) / (hx - p.x);
-            if (faoxomearcutlocallyinside(p, hole) && (tan < tanMin || (tan === tanMin && (p.x > m.x || (p.x === m.x && faoxomearcutsectorcontainssector(m, p)))))) {
-                m = p;
-                tanMin = tan;
+        if (zapkd >= zapkc.x && zapkc.x >= zapkj && zapkd !== zapkc.x && faoxomearcutpointintriangle(zapke < zapkk ? zapkd : zapkf, zapke, zapkj, zapkk, zapke < zapkk ? zapkf : zapkd, zapke, zapkc.x, zapkc.y)) {
+            var zapkm = Math.abs(zapke - zapkc.y) / (zapkd - zapkc.x);
+            if (faoxomearcutlocallyinside(zapkc, zapka) && (zapkm < zapkl || zapkm === zapkl && (zapkc.x > zapkg.x || zapkc.x === zapkg.x && faoxomearcutsectorcontainssector(zapkg, zapkc)))) {
+                zapkg = zapkc;
+                zapkl = zapkm;
             }
         }
-        p = p.next;
-    } while (p !== stop);
-    return m;
+        zapkc = zapkc.next;
+    } while (zapkc !== zapki);
+    return zapkg;
 }
 
 export { faoxomearcutfindholebridge };

@@ -1,34 +1,35 @@
 import { Object3D } from "../core/index.js";
+
 import { Vector3 } from "../math/index.js";
 
 class AudioListener extends Object3D {
-    constructor(audioContext) {
+    constructor(zabka) {
         super();
         this.type = "AudioListener";
-        this.context = audioContext || (typeof AudioContext !== "undefined" ? new AudioContext() : null);
+        this.context = zabka || (typeof AudioContext !== "undefined" ? new AudioContext : null);
         this.gain = this.context && this.context.createGain ? this.context.createGain() : null;
         if (this.gain && this.context) this.gain.connect(this.context.destination);
     }
-    updateMatrixWorld(force) {
-        super.updateMatrixWorld(force);
+    updateMatrixWorld(zabka) {
+        super.updateMatrixWorld(zabka);
         if (!this.context || !this.context.listener) return;
-        var listener = this.context.listener;
-        var pos = this.getWorldPosition(new Vector3());
-        var dir = this.getWorldDirection(new Vector3());
-        var up = this.up.clone().applyQuaternion(this.quaternion);
-        if (listener.positionX) {
-            listener.positionX.value = pos.x;
-            listener.positionY.value = pos.y;
-            listener.positionZ.value = pos.z;
-            listener.forwardX.value = dir.x;
-            listener.forwardY.value = dir.y;
-            listener.forwardZ.value = dir.z;
-            listener.upX.value = up.x;
-            listener.upY.value = up.y;
-            listener.upZ.value = up.z;
-        } else if (listener.setPosition) {
-            listener.setPosition(pos.x, pos.y, pos.z);
-            listener.setOrientation(dir.x, dir.y, dir.z, up.x, up.y, up.z);
+        var zabkb = this.context.listener;
+        var zabkc = this.getWorldPosition(new Vector3);
+        var zabkd = this.getWorldDirection(new Vector3);
+        var zabke = this.up.clone().applyQuaternion(this.quaternion);
+        if (zabkb.positionX) {
+            zabkb.positionX.value = zabkc.x;
+            zabkb.positionY.value = zabkc.y;
+            zabkb.positionZ.value = zabkc.z;
+            zabkb.forwardX.value = zabkd.x;
+            zabkb.forwardY.value = zabkd.y;
+            zabkb.forwardZ.value = zabkd.z;
+            zabkb.upX.value = zabke.x;
+            zabkb.upY.value = zabke.y;
+            zabkb.upZ.value = zabke.z;
+        } else if (zabkb.setPosition) {
+            zabkb.setPosition(zabkc.x, zabkc.y, zabkc.z);
+            zabkb.setOrientation(zabkd.x, zabkd.y, zabkd.z, zabke.x, zabke.y, zabke.z);
         }
     }
 }

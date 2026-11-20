@@ -1,8 +1,8 @@
 import { OrbitControls } from "./OrbitControls.js";
 
 class ArcballControls extends OrbitControls {
-    constructor(camera, domElement) {
-        super(camera, domElement);
+    constructor(zaboa, zabob) {
+        super(zaboa, zabob);
         this.type = "ArcballControls";
     }
 }

@@ -1,64 +1,76 @@
 import { Vector3 } from "../math/index.js";
 
 class FloatingOrigin {
-    constructor(options) {
-        options = options || {};
-        this.threshold = options.threshold === undefined ? 100000 : options.threshold;
-        this.origin = { x: 0, y: 0, z: 0 };
+    constructor(zahka) {
+        zahka = zahka || {};
+        this.threshold = zahka.threshold === undefined ? 1e5 : zahka.threshold;
+        this.origin = {
+            x: 0,
+            y: 0,
+            z: 0
+        };
         this.rebaseCount = 0;
-        this.onRebase = options.onRebase || null;
+        this.onRebase = zahka.onRebase || null;
     }
-    shiftNode(node, shift) {
-        if (!node) return this;
-        node.position.x -= shift.x;
-        node.position.y -= shift.y;
-        node.position.z -= shift.z;
+    shiftNode(zahka, zahkb) {
+        if (!zahka) return this;
+        zahka.position.x -= zahkb.x;
+        zahka.position.y -= zahkb.y;
+        zahka.position.z -= zahkb.z;
         return this;
     }
-    rebase(scene, camera, shift, physicsWorld) {
-        var dx = shift.x || 0, dy = shift.y || 0, dz = shift.z || 0;
-        var delta = { x: dx, y: dy, z: dz };
-        if (scene) {
-            var children = scene.children.slice();
-            for (var i = 0; i < children.length; i++) this.shiftNode(children[i], delta);
+    rebase(zahka, zahkb, zahkc, zahkd) {
+        var zahke = zahkc.x || 0, zahkf = zahkc.y || 0, zahkg = zahkc.z || 0;
+        var zahkh = {
+            x: zahke,
+            y: zahkf,
+            z: zahkg
+        };
+        if (zahka) {
+            var zahki = zahka.children.slice();
+            for (var zahkj = 0; zahkj < zahki.length; zahkj++) this.shiftNode(zahki[zahkj], zahkh);
         }
-        if (camera) this.shiftNode(camera, delta);
-        if (physicsWorld && physicsWorld.bodies) {
-            for (var b = 0; b < physicsWorld.bodies.length; b++) {
-                var body = physicsWorld.bodies[b];
-                if (body && body.position) {
-                    body.position.x -= dx;
-                    body.position.y -= dy;
-                    body.position.z -= dz;
+        if (zahkb) this.shiftNode(zahkb, zahkh);
+        if (zahkd && zahkd.bodies) {
+            for (var zahkk = 0; zahkk < zahkd.bodies.length; zahkk++) {
+                var zahkl = zahkd.bodies[zahkk];
+                if (zahkl && zahkl.position) {
+                    zahkl.position.x -= zahke;
+                    zahkl.position.y -= zahkf;
+                    zahkl.position.z -= zahkg;
                 }
             }
         }
-        this.origin.x += dx;
-        this.origin.y += dy;
-        this.origin.z += dz;
+        this.origin.x += zahke;
+        this.origin.y += zahkf;
+        this.origin.z += zahkg;
         this.rebaseCount++;
-        if (typeof this.onRebase === "function") this.onRebase(delta, this);
+        if (typeof this.onRebase === "function") this.onRebase(zahkh, this);
         return this;
     }
-    cameraWorldPosition(camera, target) {
-        camera.updateMatrixWorld(true);
-        var elements = camera.matrixWorld.elements;
-        return (target || new Vector3()).set(elements[12], elements[13], elements[14]);
+    cameraWorldPosition(zahka, zahkb) {
+        zahka.updateMatrixWorld(true);
+        var zahkc = zahka.matrixWorld.elements;
+        return (zahkb || new Vector3).set(zahkc[12], zahkc[13], zahkc[14]);
     }
-    update(scene, camera, physicsWorld) {
-        if (!camera) return false;
-        camera.updateMatrixWorld(true);
-        var elements = camera.matrixWorld.elements;
-        var wx = elements[12], wy = elements[13], wz = elements[14];
-        if (Math.abs(wx) <= this.threshold && Math.abs(wy) <= this.threshold && Math.abs(wz) <= this.threshold) return false;
-        this.rebase(scene, camera, { x: wx, y: wy, z: wz }, physicsWorld);
+    update(zahka, zahkb, zahkc) {
+        if (!zahkb) return false;
+        zahkb.updateMatrixWorld(true);
+        var zahkd = zahkb.matrixWorld.elements;
+        var zahke = zahkd[12], zahkf = zahkd[13], zahkg = zahkd[14];
+        if (Math.abs(zahke) <= this.threshold && Math.abs(zahkf) <= this.threshold && Math.abs(zahkg) <= this.threshold) return false;
+        this.rebase(zahka, zahkb, {
+            x: zahke,
+            y: zahkf,
+            z: zahkg
+        }, zahkc);
         return true;
     }
-    worldPosition(object, target) {
-        if (!object) return (target || new Vector3()).set(0, 0, 0);
-        object.updateMatrixWorld(true);
-        var elements = object.matrixWorld.elements;
-        return (target || new Vector3()).set(this.origin.x + elements[12], this.origin.y + elements[13], this.origin.z + elements[14]);
+    worldPosition(zahka, zahkb) {
+        if (!zahka) return (zahkb || new Vector3).set(0, 0, 0);
+        zahka.updateMatrixWorld(true);
+        var zahkc = zahka.matrixWorld.elements;
+        return (zahkb || new Vector3).set(this.origin.x + zahkc[12], this.origin.y + zahkc[13], this.origin.z + zahkc[14]);
     }
 }
 

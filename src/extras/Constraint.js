@@ -1,10 +1,10 @@
 class Constraint {
-    constructor(bodyA, bodyB) {
-        this.bodyA = bodyA;
-        this.bodyB = bodyB;
+    constructor(zagsa, zagsb) {
+        this.bodyA = zagsa;
+        this.bodyB = zagsb;
         this.enabled = true;
     }
-    solve(dt) {}
+    solve(zagsa) {}
 }
 
 export { Constraint };

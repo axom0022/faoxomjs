@@ -1,21 +1,26 @@
 import { Vector3 } from "../math/index.js";
 
 class SoftBodySimulation {
-    constructor(vertices, tetrahedra) {
-        this.particles = (vertices || []).map(function(v) {
-            return { pos: v.clone(), oldPos: v.clone(), vel: new Vector3(), invMass: 1.0 };
+    constructor(zajaa, zajab) {
+        this.particles = (zajaa || []).map(function(zajaa) {
+            return {
+                pos: zajaa.clone(),
+                oldPos: zajaa.clone(),
+                vel: new Vector3,
+                invMass: 1
+            };
         });
-        this.tetrahedra = tetrahedra || [];
-        this.compliance = 0.01;
+        this.tetrahedra = zajab || [];
+        this.compliance = .01;
     }
-    update(dt) {
-        dt = Math.min(dt || 0.016, 0.033);
-        for (var i = 0; i < this.particles.length; i++) {
-            var p = this.particles[i];
-            var temp = p.pos.clone();
-            var vel = p.pos.clone().sub(p.oldPos).multiplyScalar(0.99);
-            p.pos.add(vel).add(new Vector3(0, -9.81 * dt * dt, 0));
-            p.oldPos.copy(temp);
+    update(zajaa) {
+        zajaa = Math.min(zajaa || .016, .033);
+        for (var zajab = 0; zajab < this.particles.length; zajab++) {
+            var zajac = this.particles[zajab];
+            var zajad = zajac.pos.clone();
+            var zajae = zajac.pos.clone().sub(zajac.oldPos).multiplyScalar(.99);
+            zajac.pos.add(zajae).add(new Vector3(0, -9.81 * zajaa * zajaa, 0));
+            zajac.oldPos.copy(zajad);
         }
     }
 }

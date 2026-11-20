@@ -1,382 +1,290 @@
 #!/usr/bin/env node
-// generate_api_docs.mjs - deterministic API reference generator (roadmap item 40).
-//
-//   node tools/generate_api_docs.mjs            # write docs/api/v6.md + examples
-//   node tools/generate_api_docs.mjs --check    # exit 1 if docs drifted from src
-//   node tools/generate_api_docs.mjs --types    # cross-check docs vs esm/*.d.ts exports
-//
-// No timestamps, no absolute paths: identical source produces identical docs.
-
 import { readdirSync, readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "node:fs";
+
 import { join, relative, basename, dirname } from "node:path";
 
-const ROOT = join(dirname(new URL(import.meta.url).pathname), "..");
-const SRC = join(ROOT, "src");
-const ESM = join(ROOT, "esm");
-const DOCS = join(ROOT, "docs", "api");
-const check = process.argv.includes("--check");
-const types = process.argv.includes("--types");
+const zavsa = join(dirname(new URL(import.meta.url).pathname), "..");
 
-// ---------- scan source files for declarations ----------
-function walk(dir, out) {
-    for (const entry of readdirSync(dir)) {
-        const full = join(dir, entry);
-        if (statSync(full).isDirectory()) walk(full, out);
-        else if (entry.endsWith(".js") || entry.endsWith(".d.ts")) out.push(full);
+const zavsb = join(zavsa, "src");
+
+const zavsc = join(zavsa, "esm");
+
+const zavsd = join(zavsa, "docs", "api");
+
+const zavse = process.argv.includes("--check");
+
+const zavsf = process.argv.includes("--types");
+
+function zavsg(zavsa, zavsb) {
+    for (const zavsc of readdirSync(zavsa)) {
+        const zavsd = join(zavsa, zavsc);
+        if (statSync(zavsd).isDirectory()) zavsg(zavsd, zavsb); else if (zavsc.endsWith(".js") || zavsc.endsWith(".d.ts")) zavsb.push(zavsd);
     }
-    return out;
+    return zavsb;
 }
 
-const srcFiles = walk(SRC, []);
-const declaredIn = {}; // name -> { file, dir, kind }
-for (const file of srcFiles) {
-    const text = readFileSync(file, "utf8");
-    const re = /^[ \t]*(?:export\s+)?(?:class|function)\s+([A-Za-z_$][\w$]*)/gm;
-    let match;
-    while ((match = re.exec(text))) {
-        const name = match[1];
-        if (!declaredIn[name]) {
-            const rel = relative(SRC, file).replace(/\\/g, "/");
-            const dir = rel.includes("/") ? rel.slice(0, rel.indexOf("/")) : "core";
-            declaredIn[name] = { file: rel, dir, kind: text.slice(Math.max(0, match.index - 20), match.index).includes("class") ? "class" : "function" };
+const zavsh = zavsg(zavsb, []);
+
+const zavsi = {};
+
+for (const zavsa of zavsh) {
+    const zavsc = readFileSync(zavsa, "utf8");
+    const zavsd = /^[ \t]*(?:export\s+)?(?:class|function)\s+([A-Za-z_$][\w$]*)/gm;
+    let zavse;
+    while (zavse = zavsd.exec(zavsc)) {
+        const zavsd = zavse[1];
+        if (!zavsi[zavsd]) {
+            const zavsf = relative(zavsb, zavsa).replace(/\\/g, "/");
+            const zavsg = zavsf.includes("/") ? zavsf.slice(0, zavsf.indexOf("/")) : "core";
+            zavsi[zavsd] = {
+                file: zavsf,
+                dir: zavsg,
+                kind: zavsc.slice(Math.max(0, zavse.index - 20), zavse.index).includes("class") ? "class" : "function"
+            };
         }
     }
 }
 
-// ---------- introspect the namespace ----------
-await import(join(SRC, "core/namespace.js").replace(/\\/g, "/"));
-const { FaoxomJs } = await import(join(SRC, "core/facade.js").replace(/\\/g, "/"));
+await (import(join(zavsb, "core/namespace.js").replace(/\\/g, "/")));
 
-function methodsOf(ctor) {
-    const names = [];
-    let level = ctor.prototype, depth = 0;
-    const seen = new Set();
-    while (level && level !== Object.prototype && depth < 12) {
-        for (const name of Object.getOwnPropertyNames(level)) {
-            if (name === "constructor" || seen.has(name)) continue;
-            const descriptor = Object.getOwnPropertyDescriptor(level, name);
-            if (descriptor && typeof descriptor.value === "function") { names.push(name); seen.add(name); }
+const {FaoxomJs: zavsj} = await (import(join(zavsb, "core/facade.js").replace(/\\/g, "/")));
+
+function zavsk(zavsa) {
+    const zavsb = [];
+    let zavsc = zavsa.prototype, zavsd = 0;
+    const zavse = new Set;
+    while (zavsc && zavsc !== Object.prototype && zavsd < 12) {
+        for (const zavsa of Object.getOwnPropertyNames(zavsc)) {
+            if (zavsa === "constructor" || zavse.has(zavsa)) continue;
+            const zavsd = Object.getOwnPropertyDescriptor(zavsc, zavsa);
+            if (zavsd && typeof zavsd.value === "function") {
+                zavsb.push(zavsa);
+                zavse.add(zavsa);
+            }
         }
-        level = Object.getPrototypeOf(level);
-        depth++;
+        zavsc = Object.getPrototypeOf(zavsc);
+        zavsd++;
     }
-    return names.sort();
+    return zavsb.sort();
 }
 
-function staticsOf(ctor) {
-    return Object.getOwnPropertyNames(ctor)
-        .filter((name) => ["length", "name", "prototype"].indexOf(name) === -1)
-        .filter((name) => { const d = Object.getOwnPropertyDescriptor(ctor, name); return d && (typeof d.value === "function" || d.get); })
-        .sort();
+function zavsl(zavsa) {
+    return Object.getOwnPropertyNames(zavsa).filter(zavsa => [ "length", "name", "prototype" ].indexOf(zavsa) === -1).filter(zavsb => {
+        const zavsc = Object.getOwnPropertyDescriptor(zavsa, zavsb);
+        return zavsc && (typeof zavsc.value === "function" || zavsc.get);
+    }).sort();
 }
 
-const SECTION_ORDER = ["core", "scenes", "camera", "geometry", "materials", "textures", "lights", "renderers", "shaders", "physics", "animation", "audio", "input", "xr", "loaders", "extras", "math", "utils", "nodes"];
-const SECTION_TITLES = {
-    core: "Core (Facade & App)", scenes: "Scene Graph", camera: "Cameras & Controls", geometry: "Geometry",
-    materials: "Materials", textures: "Textures", lights: "Lights", renderers: "Renderers & Post-Processing",
-    shaders: "Shaders & TSL", physics: "Physics", animation: "Animation", audio: "Audio", input: "Input",
-    xr: "XR (VR/AR)", loaders: "Loaders", extras: "Extras (BVH, Workers, XR-AR, Elements)", math: "Math",
-    utils: "Utilities", nodes: "Node System (TSL)"
+const zavsm = [ "core", "scenes", "camera", "geometry", "materials", "textures", "lights", "renderers", "shaders", "physics", "animation", "audio", "input", "xr", "loaders", "extras", "math", "utils", "nodes" ];
+
+const zavsn = {
+    core: "Core (Facade & App)",
+    scenes: "Scene Graph",
+    camera: "Cameras & Controls",
+    geometry: "Geometry",
+    materials: "Materials",
+    textures: "Textures",
+    lights: "Lights",
+    renderers: "Renderers & Post-Processing",
+    shaders: "Shaders & TSL",
+    physics: "Physics",
+    animation: "Animation",
+    audio: "Audio",
+    input: "Input",
+    xr: "XR (VR/AR)",
+    loaders: "Loaders",
+    extras: "Extras (BVH, Workers, XR-AR, Elements)",
+    math: "Math",
+    utils: "Utilities",
+    nodes: "Node System (TSL)"
 };
 
-const members = [];
-for (const name of Object.keys(FaoxomJs).sort()) {
-    const value = FaoxomJs[name];
-    const location = declaredIn[name] || { file: "(namespace)", dir: "core", kind: "static" };
-    if (typeof value === "function" && value.prototype) {
-        members.push({ name, kind: "class", dir: location.dir, file: location.file, methods: methodsOf(value), statics: staticsOf(value) });
+const zavso = [];
+
+for (const zavsa of Object.keys(zavsj).sort()) {
+    const zavsb = zavsj[zavsa];
+    const zavsc = zavsi[zavsa] || {
+        file: "(namespace)",
+        dir: "core",
+        kind: "static"
+    };
+    if (typeof zavsb === "function" && zavsb.prototype) {
+        zavso.push({
+            name: zavsa,
+            kind: "class",
+            dir: zavsc.dir,
+            file: zavsc.file,
+            methods: zavsk(zavsb),
+            statics: zavsl(zavsb)
+        });
     } else {
-        members.push({ name, kind: location.kind === "function" ? "function" : "value", dir: location.dir, file: location.file, methods: [], statics: [] });
+        zavso.push({
+            name: zavsa,
+            kind: zavsc.kind === "function" ? "function" : "value",
+            dir: zavsc.dir,
+            file: zavsc.file,
+            methods: [],
+            statics: []
+        });
     }
 }
 
-// facade instance methods (the app API)
-const appMethods = methodsOf(FaoxomJs).filter((name) => name.charAt(0) !== "_");
+const zavsp = zavsk(zavsj).filter(zavsa => zavsa.charAt(0) !== "_");
 
-// ---------- render markdown ----------
-function classRow(entry) {
-    const methodCount = entry.methods.length ? ` (${entry.methods.length} methods)` : "";
-    const staticCount = entry.statics.length ? `, ${entry.statics.length} statics` : "";
-    return `- **${entry.name}** \`${entry.kind}\` - \`${entry.file}\`${methodCount}${staticCount}`;
+function zavsq(zavsa) {
+    const zavsb = zavsa.methods.length ? ` (${zavsa.methods.length} methods)` : "";
+    const zavsc = zavsa.statics.length ? `, ${zavsa.statics.length} statics` : "";
+    return `- **${zavsa.name}** \`${zavsa.kind}\` - \`${zavsa.file}\`${zavsb}${zavsc}`;
 }
 
-let markdown = `# FaoxomJS API Reference - v6
+let zavsr = `# FaoxomJS API Reference - v6\n\n> Generated by \`node tools/generate_api_docs.mjs\` from the source tree.\n> Regenerate after any public-surface change; \`--check\` gates drift,\n> \`--types\` cross-checks against the \`esm/\` TypeScript mirrors.\n\n**Namespace size:** ${zavso.length} exports. **App facade methods:** ${zavsp.length}.\n\n## Table of Contents\n\n`;
 
-> Generated by \`node tools/generate_api_docs.mjs\` from the source tree.
-> Regenerate after any public-surface change; \`--check\` gates drift,
-> \`--types\` cross-checks against the \`esm/\` TypeScript mirrors.
+const zavss = {};
 
-**Namespace size:** ${members.length} exports. **App facade methods:** ${appMethods.length}.
-
-## Table of Contents
-
-`;
-
-const bySection = {};
-for (const entry of members) {
-    const section = SECTION_ORDER.indexOf(entry.dir) !== -1 ? entry.dir : "extras";
-    (bySection[section] = bySection[section] || []).push(entry);
-}
-const sectionsUsed = SECTION_ORDER.filter((section) => bySection[section] && bySection[section].length);
-for (const section of sectionsUsed) {
-    markdown += `- [${SECTION_TITLES[section] || section}](#${(SECTION_TITLES[section] || section).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}) (${bySection[section].length})\n`;
+for (const zavsa of zavso) {
+    const zavsb = zavsm.indexOf(zavsa.dir) !== -1 ? zavsa.dir : "extras";
+    (zavss[zavsb] = zavss[zavsb] || []).push(zavsa);
 }
 
-markdown += `
-## The App Facade
+const zavst = zavsm.filter(zavsa => zavss[zavsa] && zavss[zavsa].length);
 
-\`new FaoxomJs(options)\` → \`app\`. Core lifecycle and factory surface:
+for (const zavsa of zavst) {
+    zavsr += `- [${zavsn[zavsa] || zavsa}](#${(zavsn[zavsa] || zavsa).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}) (${zavss[zavsa].length})\n`;
+}
 
-${appMethods.map((name) => `- \`app.${name}()\``).join("\n")}
+zavsr += `\n## The App Facade\n\n\`new FaoxomJs(options)\` → \`app\`. Core lifecycle and factory surface:\n\n${zavsp.map(zavsa => `- \`app.${zavsa}()\``).join("\n")}\n\n## Classes by Module\n\n`;
 
-## Classes by Module
-
-`;
-
-for (const section of sectionsUsed) {
-    markdown += `### ${SECTION_TITLES[section] || section}\n\n`;
-    for (const entry of bySection[section]) {
-        markdown += classRow(entry) + "\n";
+for (const zavsa of zavst) {
+    zavsr += `### ${zavsn[zavsa] || zavsa}\n\n`;
+    for (const zavsb of zavss[zavsa]) {
+        zavsr += zavsq(zavsb) + "\n";
     }
-    markdown += "\n";
+    zavsr += "\n";
 }
 
-markdown += `## Method Details (flagship classes)
+zavsr += `## Method Details (flagship classes)\n\n`;
 
-`;
-const flagship = ["WebGLRenderer", "WebGPURenderer", "Geometry", "MeshStandardMaterial", "OrbitControls", "AnimationMixer", "PhysicsWorld", "RigidBody", "SpatialAudioSystem", "GameInput", "BVH", "TaskPool", "OffscreenEngine", "WebXRAR", "FaoxomSceneElement"];
-for (const name of flagship) {
-    const entry = members.find((m) => m.name === name);
-    if (!entry) continue;
-    markdown += `### ${name}\n\nSource: \`${entry.file}\`\n\n`;
-    if (entry.statics.length) markdown += `Statics: ${entry.statics.map((s) => `\`${name}.${s}()\``).join(", ")}\n\n`;
-    if (entry.methods.length) {
-        markdown += `| Method | |\n| --- | --- |\n`;
-        for (const method of entry.methods) markdown += `| \`${method}\` | |\n`;
+const zavsu = [ "WebGLRenderer", "WebGPURenderer", "Geometry", "MeshStandardMaterial", "OrbitControls", "AnimationMixer", "PhysicsWorld", "RigidBody", "SpatialAudioSystem", "GameInput", "BVH", "TaskPool", "OffscreenEngine", "WebXRAR", "FaoxomSceneElement" ];
+
+for (const zavsa of zavsu) {
+    const zavsb = zavso.find(zavsb => zavsb.name === zavsa);
+    if (!zavsb) continue;
+    zavsr += `### ${zavsa}\n\nSource: \`${zavsb.file}\`\n\n`;
+    if (zavsb.statics.length) zavsr += `Statics: ${zavsb.statics.map(zavsb => `\`${zavsa}.${zavsb}()\``).join(", ")}\n\n`;
+    if (zavsb.methods.length) {
+        zavsr += `| Method | |\n| --- | --- |\n`;
+        for (const zavsa of zavsb.methods) zavsr += `| \`${zavsa}\` | |\n`;
     }
-    markdown += `\n`;
+    zavsr += `\n`;
 }
 
-markdown += `## Runnable Examples
+zavsr += `## Runnable Examples\n\nSee [examples/](examples/) - plain HTML pages loading \`../../dist/faoxom.js\`:\n\n`;
 
-See [examples/](examples/) - plain HTML pages loading \`../../dist/faoxom.js\`:
+const zavsv = zavsu.filter(zavsa => zavso.find(zavsb => zavsb.name === zavsa));
 
-`;
+for (const zavsa of zavsv) zavsr += `- [${zavsa}](examples/${zavsa}.html)\n`;
 
-const exampleClasses = flagship.filter((name) => members.find((m) => m.name === name));
-for (const name of exampleClasses) markdown += `- [${name}](examples/${name}.html)\n`;
+zavsr += `\n---\nDeterministic output: no timestamps, no paths outside the repo.\n`;
 
-markdown += `
----
-Deterministic output: no timestamps, no paths outside the repo.
-`;
-
-// ---------- examples ----------
-const EXAMPLES = {
-    WebGLRenderer: `var canvas = document.getElementById("c");
-var renderer = new FaoxomJs.WebGLRenderer({ canvas: canvas });
-renderer.setSize(320, 240);
-var scene = new FaoxomJs.Scene();
-var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);
-camera.position.set(0, 1, 4); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);
-scene.add(new FaoxomJs.Mesh(new FaoxomJs.BoxGeometry(1, 1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0x4488ff })));
-renderer.render(scene, camera);
-renderer.dispose();`,
-    WebGPURenderer: `var canvas = document.getElementById("c");
-new FaoxomJs.WebGPURenderer({ canvas: canvas }).init().then(function (renderer) {
-    renderer.setSize(320, 240);
-    var scene = new FaoxomJs.Scene();
-    var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);
-    camera.position.set(0, 1, 4); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);
-    scene.add(new FaoxomJs.Mesh(new FaoxomJs.BoxGeometry(1, 1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0xff8844 })));
-    renderer.render(scene, camera);
-    setStatus("WebGPU frame rendered: " + renderer.info.render.triangles + " triangles");
-}).catch(function (error) { setStatus("WebGPU unavailable: " + error.message); });`,
-    Geometry: `var geometry = new FaoxomJs.TorusKnotGeometry(0.8, 0.28, 96, 16);
-var material = new FaoxomJs.MeshStandardMaterial({ color: 0x33cc88 });
-var mesh = new FaoxomJs.Mesh(geometry, material);
-var scene = new FaoxomJs.Scene(); scene.add(mesh);
-var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);
-camera.position.set(0, 0, 4); camera.updateMatrixWorld(true);
-var renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });
-renderer.setSize(320, 240); renderer.render(scene, camera);
-setStatus("vertices: " + geometry.attributes.position.count);`,
-    MeshStandardMaterial: `var scene = new FaoxomJs.Scene();
-var material = new FaoxomJs.MeshStandardMaterial({ color: 0xcc4444, metalness: 0.7, roughness: 0.25 });
-scene.add(new FaoxomJs.Mesh(new FaoxomJs.SphereGeometry(1, 32, 24), material));
-var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);
-camera.position.set(0, 0.5, 3.5); camera.updateMatrixWorld(true);
-var renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });
-renderer.setSize(320, 240); renderer.render(scene, camera);
-setStatus("metalness " + material.metalness + ", roughness " + material.roughness);`,
-    OrbitControls: `var renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });
-renderer.setSize(320, 240);
-var scene = new FaoxomJs.Scene();
-scene.add(new FaoxomJs.Mesh(new FaoxomJs.IcosahedronGeometry(1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0x8844cc })));
-var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);
-camera.position.set(0, 1.2, 4); camera.updateMatrixWorld(true);
-var controls = new FaoxomJs.OrbitControls(camera, renderer.canvas);
-var rendererRef = renderer;
-(function loop(dt) { controls.update(dt || 0.016); rendererRef.render(scene, camera); requestAnimationFrame(loop); })();`,
-    AnimationMixer: `var renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });
-renderer.setSize(320, 240);
-var scene = new FaoxomJs.Scene();
-var mesh = new FaoxomJs.Mesh(new FaoxomJs.BoxGeometry(1, 1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0x44aaff }));
-scene.add(mesh);
-var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);
-camera.position.set(0, 0.8, 4); camera.updateMatrixWorld(true);
-var mixer = new FaoxomJs.AnimationMixer(mesh);
-var clip = new FaoxomJs.AnimationClip("spin", 2, []);
-var action = mixer.clipAction(clip); action.play();
-(function loop() { mixer.update(0.016); mesh.rotation.y += 0.01; renderer.render(scene, camera); requestAnimationFrame(loop); })();`,
-    PhysicsWorld: `var world = new FaoxomJs.PhysicsWorld({ gravity: [0, -9.81, 0] });
-var body = new FaoxomJs.RigidBody({ mass: 1 });
-body.addShape(new FaoxomJs.BoxCollisionShape ? new FaoxomJs.BoxCollisionShape(0.5, 0.5, 0.5) : null);
-world.addBody(body);
-for (var i = 0; i < 90; i++) { world.step(1 / 60); }
-setStatus("after 90 steps, y = " + body.position.y.toFixed(3));`,
-    GameInput: `var input = new FaoxomJs.GameInput({ domElement: document.getElementById("c") });
-setStatus("GameInput ready - press keys / move mouse, axis list updates");
-(function loop() { setStatus("keys: " + JSON.stringify(input.getAllActions ? input.getAllActions() : input.actions) + " | pointer: " + JSON.stringify(input.getPointer ? input.getPointer() : input.pointerPosition)); requestAnimationFrame(loop); })();`,
-    BVH: `var positions = new Float32Array(9 * 40);
-for (var i = 0; i < positions.length; i += 9) {
-    positions[i] = Math.random() * 2 - 1; positions[i + 1] = Math.random() * 2 - 1; positions[i + 2] = Math.random() * 2 - 1;
-    positions[i + 3] = positions[i] + 0.2; positions[i + 4] = positions[i + 1]; positions[i + 2];
-    positions[i + 6] = positions[i]; positions[i + 7] = positions[i + 4] + 0.2; positions[i + 8] = positions[i + 2];
-}
-var indices = new Uint32Array(40);
-for (var j = 0; j < indices.length; j++) indices[j] = j;
-var bvh = new FaoxomJs.BVH({ attributes: { position: { array: positions, itemSize: 3 } }, index: indices }, {});
-setStatus("BVH nodes: " + bvh.statsNodes + ", leaves: " + bvh.statsLeaves + ", buildMs: " + bvh.buildMs.toFixed(2));`,
-    TaskPool: `var pool = new FaoxomJs.TaskPool({ workers: 2 });
-Promise.all([
-    pool.run("ping", {}),
-    pool.run("process-floats", { data: new Float32Array([1, 2, 3, 4]) }),
-    pool.run("hash-buffer", { bytes: new Uint8Array([104, 101, 108, 108, 111]) })
-]).then(function (results) {
-    setStatus("pong: " + results[0].pong + " | floats: " + Array.from(results[1].data).join(",") + " | hash: " + results[2].hash);
-    pool.terminate();
-}).catch(function (error) { setStatus("task failed: " + error.message); pool.terminate(); });`,
-    OffscreenEngine: `var engine = new FaoxomJs.OffscreenEngine({ canvas: document.getElementById("c"), width: 256, height: 256, workerUrl: "../../src/extras/faoxom-worker.js" });
-engine.init().then(function () { return engine.ping(); })
-    .then(function (frames) { setStatus("worker engine alive (frames=" + frames + "). Load a .faox URL to render offscreen."); })
-    .catch(function (error) { setStatus("worker failed: " + error.message); });`,
-    WebXRAR: `var manager = new FaoxomJs.WebXRManager ? new FaoxomJs.WebXRManager() : null;
-var ar = new FaoxomJs.WebXRAR({ hitTest: true, anchors: true });
-setStatus("WebXRAR created - requires an immersive-ar capable device; check capabilities via navigator.xr");`,
-    FaoxomSceneElement: `// The element is already registered by the UMD bundle.
-var element = document.createElement("faoxom-scene");
-element.setAttribute("width", "320"); element.setAttribute("height", "240");
-element.setAttribute("background", "#223344");
-element.setAttribute("ambient", "0.7"); element.setAttribute("sun", "1.1");
-element.setAttribute("orbit", "");
-element.addEventListener("ready", function () { setStatus("faoxom-scene ready - backend: webgl"); });
-element.addEventListener("error", function (event) { setStatus("error: " + event.detail); });
-document.getElementById("host").appendChild(element);`,
-    SpatialAudioSystem: `var audio = new FaoxomJs.SpatialAudioSystem({ listener: new FaoxomJs.AudioListener ? new FaoxomJs.AudioListener() : null });
-var listener = new FaoxomJs.AudioListener();
-audio.setListener ? audio.setListener(listener) : null;
-setStatus("SpatialAudioSystem ready - call .play(bufferUrl, position) from a user gesture");`,
-    RigidBody: `var world = new FaoxomJs.PhysicsWorld({ gravity: [0, -9.81, 0] });
-var body = new FaoxomJs.RigidBody({ mass: 2 });
-world.addBody(body);
-body.setVelocity ? body.setVelocity(1, 2, 0.5) : null;
-for (var i = 0; i < 60; i++) world.step(1 / 60);
-setStatus("body after 60 steps: y=" + body.position.y.toFixed(3));`
+const zavsw = {
+    WebGLRenderer: `var canvas = document.getElementById("c");\nvar renderer = new FaoxomJs.WebGLRenderer({ canvas: canvas });\nrenderer.setSize(320, 240);\nvar scene = new FaoxomJs.Scene();\nvar camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);\ncamera.position.set(0, 1, 4); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);\nscene.add(new FaoxomJs.Mesh(new FaoxomJs.BoxGeometry(1, 1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0x4488ff })));\nrenderer.render(scene, camera);\nrenderer.dispose();`,
+    WebGPURenderer: `var canvas = document.getElementById("c");\nnew FaoxomJs.WebGPURenderer({ canvas: canvas }).init().then(function (renderer) {\n    renderer.setSize(320, 240);\n    var scene = new FaoxomJs.Scene();\n    var camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);\n    camera.position.set(0, 1, 4); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);\n    scene.add(new FaoxomJs.Mesh(new FaoxomJs.BoxGeometry(1, 1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0xff8844 })));\n    renderer.render(scene, camera);\n    setStatus("WebGPU frame rendered: " + renderer.info.render.triangles + " triangles");\n}).catch(function (error) { setStatus("WebGPU unavailable: " + error.message); });`,
+    Geometry: `var geometry = new FaoxomJs.TorusKnotGeometry(0.8, 0.28, 96, 16);\nvar material = new FaoxomJs.MeshStandardMaterial({ color: 0x33cc88 });\nvar mesh = new FaoxomJs.Mesh(geometry, material);\nvar scene = new FaoxomJs.Scene(); scene.add(mesh);\nvar camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);\ncamera.position.set(0, 0, 4); camera.updateMatrixWorld(true);\nvar renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });\nrenderer.setSize(320, 240); renderer.render(scene, camera);\nsetStatus("vertices: " + geometry.attributes.position.count);`,
+    MeshStandardMaterial: `var scene = new FaoxomJs.Scene();\nvar material = new FaoxomJs.MeshStandardMaterial({ color: 0xcc4444, metalness: 0.7, roughness: 0.25 });\nscene.add(new FaoxomJs.Mesh(new FaoxomJs.SphereGeometry(1, 32, 24), material));\nvar camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);\ncamera.position.set(0, 0.5, 3.5); camera.updateMatrixWorld(true);\nvar renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });\nrenderer.setSize(320, 240); renderer.render(scene, camera);\nsetStatus("metalness " + material.metalness + ", roughness " + material.roughness);`,
+    OrbitControls: `var renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });\nrenderer.setSize(320, 240);\nvar scene = new FaoxomJs.Scene();\nscene.add(new FaoxomJs.Mesh(new FaoxomJs.IcosahedronGeometry(1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0x8844cc })));\nvar camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);\ncamera.position.set(0, 1.2, 4); camera.updateMatrixWorld(true);\nvar controls = new FaoxomJs.OrbitControls(camera, renderer.canvas);\nvar rendererRef = renderer;\n(function loop(dt) { controls.update(dt || 0.016); rendererRef.render(scene, camera); requestAnimationFrame(loop); })();`,
+    AnimationMixer: `var renderer = new FaoxomJs.WebGLRenderer({ canvas: document.getElementById("c") });\nrenderer.setSize(320, 240);\nvar scene = new FaoxomJs.Scene();\nvar mesh = new FaoxomJs.Mesh(new FaoxomJs.BoxGeometry(1, 1, 1), new FaoxomJs.MeshStandardMaterial({ color: 0x44aaff }));\nscene.add(mesh);\nvar camera = new FaoxomJs.PerspectiveCamera(60, 320 / 240, 0.1, 100);\ncamera.position.set(0, 0.8, 4); camera.updateMatrixWorld(true);\nvar mixer = new FaoxomJs.AnimationMixer(mesh);\nvar clip = new FaoxomJs.AnimationClip("spin", 2, []);\nvar action = mixer.clipAction(clip); action.play();\n(function loop() { mixer.update(0.016); mesh.rotation.y += 0.01; renderer.render(scene, camera); requestAnimationFrame(loop); })();`,
+    PhysicsWorld: `var world = new FaoxomJs.PhysicsWorld({ gravity: [0, -9.81, 0] });\nvar body = new FaoxomJs.RigidBody({ mass: 1 });\nbody.addShape(new FaoxomJs.BoxCollisionShape ? new FaoxomJs.BoxCollisionShape(0.5, 0.5, 0.5) : null);\nworld.addBody(body);\nfor (var i = 0; i < 90; i++) { world.step(1 / 60); }\nsetStatus("after 90 steps, y = " + body.position.y.toFixed(3));`,
+    GameInput: `var input = new FaoxomJs.GameInput({ domElement: document.getElementById("c") });\nsetStatus("GameInput ready - press keys / move mouse, axis list updates");\n(function loop() { setStatus("keys: " + JSON.stringify(input.getAllActions ? input.getAllActions() : input.actions) + " | pointer: " + JSON.stringify(input.getPointer ? input.getPointer() : input.pointerPosition)); requestAnimationFrame(loop); })();`,
+    BVH: `var positions = new Float32Array(9 * 40);\nfor (var i = 0; i < positions.length; i += 9) {\n    positions[i] = Math.random() * 2 - 1; positions[i + 1] = Math.random() * 2 - 1; positions[i + 2] = Math.random() * 2 - 1;\n    positions[i + 3] = positions[i] + 0.2; positions[i + 4] = positions[i + 1]; positions[i + 2];\n    positions[i + 6] = positions[i]; positions[i + 7] = positions[i + 4] + 0.2; positions[i + 8] = positions[i + 2];\n}\nvar indices = new Uint32Array(40);\nfor (var j = 0; j < indices.length; j++) indices[j] = j;\nvar bvh = new FaoxomJs.BVH({ attributes: { position: { array: positions, itemSize: 3 } }, index: indices }, {});\nsetStatus("BVH nodes: " + bvh.statsNodes + ", leaves: " + bvh.statsLeaves + ", buildMs: " + bvh.buildMs.toFixed(2));`,
+    TaskPool: `var pool = new FaoxomJs.TaskPool({ workers: 2 });\nPromise.all([\n    pool.run("ping", {}),\n    pool.run("process-floats", { data: new Float32Array([1, 2, 3, 4]) }),\n    pool.run("hash-buffer", { bytes: new Uint8Array([104, 101, 108, 108, 111]) })\n]).then(function (results) {\n    setStatus("pong: " + results[0].pong + " | floats: " + Array.from(results[1].data).join(",") + " | hash: " + results[2].hash);\n    pool.terminate();\n}).catch(function (error) { setStatus("task failed: " + error.message); pool.terminate(); });`,
+    OffscreenEngine: `var engine = new FaoxomJs.OffscreenEngine({ canvas: document.getElementById("c"), width: 256, height: 256, workerUrl: "../../src/extras/faoxom-worker.js" });\nengine.init().then(function () { return engine.ping(); })\n    .then(function (frames) { setStatus("worker engine alive (frames=" + frames + "). Load a .faox URL to render offscreen."); })\n    .catch(function (error) { setStatus("worker failed: " + error.message); });`,
+    WebXRAR: `var manager = new FaoxomJs.WebXRManager ? new FaoxomJs.WebXRManager() : null;\nvar ar = new FaoxomJs.WebXRAR({ hitTest: true, anchors: true });\nsetStatus("WebXRAR created - requires an immersive-ar capable device; check capabilities via navigator.xr");`,
+    FaoxomSceneElement: `var element = document.createElement("faoxom-scene");\nelement.setAttribute("width", "320"); element.setAttribute("height", "240");\nelement.setAttribute("background", "#223344");\nelement.setAttribute("ambient", "0.7"); element.setAttribute("sun", "1.1");\nelement.setAttribute("orbit", "");\nelement.addEventListener("ready", function () { setStatus("faoxom-scene ready - backend: webgl"); });\nelement.addEventListener("error", function (event) { setStatus("error: " + event.detail); });\ndocument.getElementById("host").appendChild(element);`,
+    SpatialAudioSystem: `var audio = new FaoxomJs.SpatialAudioSystem({ listener: new FaoxomJs.AudioListener ? new FaoxomJs.AudioListener() : null });\nvar listener = new FaoxomJs.AudioListener();\naudio.setListener ? audio.setListener(listener) : null;\nsetStatus("SpatialAudioSystem ready - call .play(bufferUrl, position) from a user gesture");`,
+    RigidBody: `var world = new FaoxomJs.PhysicsWorld({ gravity: [0, -9.81, 0] });\nvar body = new FaoxomJs.RigidBody({ mass: 2 });\nworld.addBody(body);\nbody.setVelocity ? body.setVelocity(1, 2, 0.5) : null;\nfor (var i = 0; i < 60; i++) world.step(1 / 60);\nsetStatus("body after 60 steps: y=" + body.position.y.toFixed(3));`
 };
 
-function examplePage(name, code) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>FaoxomJS - ${name} example</title>
-<style>body{font-family:system-ui,sans-serif;margin:24px;background:#111;color:#ddd}canvas{background:#000;display:block}#status{margin-top:10px;font-family:monospace}</style>
-</head>
-<body>
-<h2>${name}</h2>
-<canvas id="c" width="320" height="240"></canvas>
-<div id="host"></div>
-<div id="status">running…</div>
-<script src="../../dist/faoxom.js"></script>
-<script>
-function setStatus(text) { document.getElementById("status").textContent = text; }
-try {
-${code.split("\n").map((line) => "    " + line).join("\n")}
-} catch (error) { setStatus("error: " + (error && error.message || error)); }
-</script>
-</body>
-</html>
-`;
+function zavsx(zavsa, zavsb) {
+    return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>FaoxomJS - ${zavsa} example</title>\n<style>body{font-family:system-ui,sans-serif;margin:24px;background:#111;color:#ddd}canvas{background:#000;display:block}#status{margin-top:10px;font-family:monospace}</style>\n</head>\n<body>\n<h2>${zavsa}</h2>\n<canvas id="c" width="320" height="240"></canvas>\n<div id="host"></div>\n<div id="status">running…</div>\n<script src="../../dist/faoxom.js"><\/script>\n<script>\nfunction setStatus(text) { document.getElementById("status").textContent = text; }\ntry {\n${zavsb.split("\n").map(zavsa => "    " + zavsa).join("\n")}\n} catch (error) { setStatus("error: " + (error && error.message || error)); }\n<\/script>\n</body>\n</html>\n`;
 }
 
-// ---------- write / check ----------
-function ensureDir(path) {
-    mkdirSync(path, { recursive: true });
+function zavsy(zavsa) {
+    mkdirSync(zavsa, {
+        recursive: true
+    });
 }
 
-const docsFile = join(DOCS, "v6.md");
-const examplesDir = join(DOCS, "examples");
+const zavsz = join(zavsd, "v6.md");
 
-if (check) {
-    const current = readFileSync(docsFile, "utf8");
-    if (current !== markdown) {
+const zavsaa = join(zavsd, "examples");
+
+if (zavse) {
+    const zavsa = readFileSync(zavsz, "utf8");
+    if (zavsa !== zavsr) {
         console.error("docs/api/v6.md is out of date - run: node tools/generate_api_docs.mjs");
         process.exit(1);
     }
-    let drift = 0;
-    for (const name of Object.keys(EXAMPLES)) {
-        const file = join(examplesDir, name + ".html");
-        if (!existsSync(file) || readFileSync(file, "utf8") !== examplePage(name, EXAMPLES[name])) drift++;
+    let zavsb = 0;
+    for (const zavsa of Object.keys(zavsw)) {
+        const zavsc = join(zavsaa, zavsa + ".html");
+        if (!existsSync(zavsc) || readFileSync(zavsc, "utf8") !== zavsx(zavsa, zavsw[zavsa])) zavsb++;
     }
-    if (drift) { console.error(drift + " example pages drifted"); process.exit(1); }
-    console.log("docs up to date (" + members.length + " exports, " + Object.keys(EXAMPLES).length + " examples)");
+    if (zavsb) {
+        console.error(zavsb + " example pages drifted");
+        process.exit(1);
+    }
+    console.log("docs up to date (" + zavso.length + " exports, " + Object.keys(zavsw).length + " examples)");
     process.exit(0);
 }
 
-ensureDir(DOCS);
-ensureDir(examplesDir);
-writeFileSync(docsFile, markdown);
-let written = 1;
-for (const name of Object.keys(EXAMPLES)) {
-    if (!members.find((m) => m.name === name)) { console.log("skip example (class not in namespace): " + name); continue; }
-    writeFileSync(join(examplesDir, name + ".html"), examplePage(name, EXAMPLES[name]));
-    written++;
-}
-console.log("wrote docs/api/v6.md (" + members.length + " exports, " + sectionsUsed.length + " sections) + " + (written - 1) + " example pages");
+zavsy(zavsd);
 
-// ---------- optional: type mirror cross-check ----------
-if (types) {
-    const dtsFiles = walk(ESM, []).filter((f) => f.endsWith(".d.ts")).map((f) => relative(ROOT, f));
-    const dtsText = dtsFiles.map((f) => readFileSync(join(ROOT, f), "utf8")).join("\n");
-    // Reverse gate: every name exported by an esm/*.d.ts mirror must exist in
-    // the runtime namespace (no dead mirror exports).
-    const exportRe = /export\s+(?:declare\s+)?(class|interface|function|const|enum|type)\s+([A-Za-z_$][\w$]*)/g;
-    const mirrorNames = new Set();
-    const typeOnly = new Set();
-    let match;
-    while ((match = exportRe.exec(dtsText))) {
-        mirrorNames.add(match[2]);
-        if (match[1] === "interface" || match[1] === "type") typeOnly.add(match[2]);
+zavsy(zavsaa);
+
+writeFileSync(zavsz, zavsr);
+
+let zavsab = 1;
+
+for (const zavsa of Object.keys(zavsw)) {
+    if (!zavso.find(zavsb => zavsb.name === zavsa)) {
+        console.log("skip example (class not in namespace): " + zavsa);
+        continue;
     }
-    // Pre-existing mirror declarations that never shipped as runtime classes.
-    // Reported but not fatal; do not add new entries to this list.
-    const LEGACY_MIRROR_ONLY = new Set(["BoxHelper", "CSM", "FaoxomRoot", "Frustum", "OBJLoader", "ToonMaterial"]);
-    let dead = 0;
-    let legacy = 0;
-    for (const name of [...mirrorNames].sort()) {
-        if (name in FaoxomJs || typeOnly.has(name)) continue;
-        if (LEGACY_MIRROR_ONLY.has(name)) { legacy++; continue; }
-        console.log("  [types] esm mirror export not in namespace: " + name);
-        dead++;
+    writeFileSync(join(zavsaa, zavsa + ".html"), zavsx(zavsa, zavsw[zavsa]));
+    zavsab++;
+}
+
+console.log("wrote docs/api/v6.md (" + zavso.length + " exports, " + zavst.length + " sections) + " + (zavsab - 1) + " example pages");
+
+if (zavsf) {
+    const zavsb = zavsg(zavsc, []).filter(zavsa => zavsa.endsWith(".d.ts")).map(zavsb => relative(zavsa, zavsb));
+    const zavsd = zavsb.map(zavsb => readFileSync(join(zavsa, zavsb), "utf8")).join("\n");
+    const zavse = /export\s+(?:declare\s+)?(class|interface|function|const|enum|type)\s+([A-Za-z_$][\w$]*)/g;
+    const zavsf = new Set;
+    const zavsh = new Set;
+    let zavsi;
+    while (zavsi = zavse.exec(zavsd)) {
+        zavsf.add(zavsi[2]);
+        if (zavsi[1] === "interface" || zavsi[1] === "type") zavsh.add(zavsi[2]);
     }
-    if (legacy) console.log("  [types] " + legacy + " legacy mirror-only declarations (pre-existing, see LEGACY_MIRROR_ONLY): " + [...LEGACY_MIRROR_ONLY].filter((n) => mirrorNames.has(n) && !(n in FaoxomJs) && !typeOnly.has(n)).sort().join(", "));
-    // Forward coverage (informational): namespace exports mirrored in esm.
-    let mirrored = 0;
-    for (const entry of members) {
-        const re = new RegExp("\\b" + entry.name.replace(/\$/g, "\\$") + "\\b");
-        if (re.test(dtsText)) mirrored++;
+    const zavsk = new Set([ "BoxHelper", "CSM", "FaoxomRoot", "Frustum", "OBJLoader", "ToonMaterial" ]);
+    let zavsl = 0;
+    let zavsm = 0;
+    for (const zavsa of [ ...zavsf ].sort()) {
+        if (zavsa in zavsj || zavsh.has(zavsa)) continue;
+        if (zavsk.has(zavsa)) {
+            zavsm++;
+            continue;
+        }
+        console.log("  [types] esm mirror export not in namespace: " + zavsa);
+        zavsl++;
     }
-    console.log("type check: " + mirrorNames.size + " mirror exports, " + dead + " dead, " + legacy + " legacy; namespace coverage " + mirrored + "/" + members.length + " (" + Math.round(100 * mirrored / members.length) + "%)");
-    if (dead) process.exit(1);
+    if (zavsm) console.log("  [types] " + zavsm + " legacy mirror-only declarations (pre-existing, see LEGACY_MIRROR_ONLY): " + [ ...zavsk ].filter(zavsa => zavsf.has(zavsa) && !(zavsa in zavsj) && !zavsh.has(zavsa)).sort().join(", "));
+    let zavsn = 0;
+    for (const zavsa of zavso) {
+        const zavsb = new RegExp("\\b" + zavsa.name.replace(/\$/g, "\\$") + "\\b");
+        if (zavsb.test(zavsd)) zavsn++;
+    }
+    console.log("type check: " + zavsf.size + " mirror exports, " + zavsl + " dead, " + zavsm + " legacy; namespace coverage " + zavsn + "/" + zavso.length + " (" + Math.round(100 * zavsn / zavso.length) + "%)");
+    if (zavsl) process.exit(1);
 }

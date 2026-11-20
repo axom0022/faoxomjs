@@ -1,10 +1,14 @@
 import { PerspectiveCamera } from "../camera/index.js";
 
-function faoxomfrustumvisible(object, camera) {
-    if (!object.geometry || !object.geometry.boundingSphere) return true;
-    var sphere = object.geometry.boundingSphere, e = object.matrixWorld.elements, c = sphere.center, worldX = e[0] * c.x + e[4] * c.y + e[8] * c.z + e[12], worldY = e[1] * c.x + e[5] * c.y + e[9] * c.z + e[13], worldZ = e[2] * c.x + e[6] * c.y + e[10] * c.z + e[14], scaleX = Math.sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]), scaleY = Math.sqrt(e[4] * e[4] + e[5] * e[5] + e[6] * e[6]), scaleZ = Math.sqrt(e[8] * e[8] + e[9] * e[9] + e[10] * e[10]), radius = sphere.radius * Math.max(scaleX, scaleY, scaleZ), v = camera.matrixWorldInverse.elements, viewX = v[0] * worldX + v[4] * worldY + v[8] * worldZ + v[12], viewY = v[1] * worldX + v[5] * worldY + v[9] * worldZ + v[13], viewZ = v[2] * worldX + v[6] * worldY + v[10] * worldZ + v[14], depth = -viewZ;
-    if (camera instanceof PerspectiveCamera) { if (depth + radius < camera.near || depth - radius > camera.far) return false; var halfHeight = Math.tan(camera.fov * Math.PI / 360) * Math.max(depth, camera.near), halfWidth = halfHeight * camera.aspect; return Math.abs(viewX) <= halfWidth + radius && Math.abs(viewY) <= halfHeight + radius; }
-    return !(viewX + radius < camera.left || viewX - radius > camera.right || viewY + radius < camera.bottom || viewY - radius > camera.top || depth + radius < camera.near || depth - radius > camera.far);
+function faoxomfrustumvisible(zalfa, zalfb) {
+    if (!zalfa.geometry || !zalfa.geometry.boundingSphere) return true;
+    var zalfc = zalfa.geometry.boundingSphere, zalfd = zalfa.matrixWorld.elements, zalfe = zalfc.center, zalff = zalfd[0] * zalfe.x + zalfd[4] * zalfe.y + zalfd[8] * zalfe.z + zalfd[12], zalfg = zalfd[1] * zalfe.x + zalfd[5] * zalfe.y + zalfd[9] * zalfe.z + zalfd[13], zalfh = zalfd[2] * zalfe.x + zalfd[6] * zalfe.y + zalfd[10] * zalfe.z + zalfd[14], zalfi = Math.sqrt(zalfd[0] * zalfd[0] + zalfd[1] * zalfd[1] + zalfd[2] * zalfd[2]), zalfj = Math.sqrt(zalfd[4] * zalfd[4] + zalfd[5] * zalfd[5] + zalfd[6] * zalfd[6]), zalfk = Math.sqrt(zalfd[8] * zalfd[8] + zalfd[9] * zalfd[9] + zalfd[10] * zalfd[10]), zalfl = zalfc.radius * Math.max(zalfi, zalfj, zalfk), zalfm = zalfb.matrixWorldInverse.elements, zalfn = zalfm[0] * zalff + zalfm[4] * zalfg + zalfm[8] * zalfh + zalfm[12], zalfo = zalfm[1] * zalff + zalfm[5] * zalfg + zalfm[9] * zalfh + zalfm[13], zalfp = zalfm[2] * zalff + zalfm[6] * zalfg + zalfm[10] * zalfh + zalfm[14], zalfq = -zalfp;
+    if (zalfb instanceof PerspectiveCamera) {
+        if (zalfq + zalfl < zalfb.near || zalfq - zalfl > zalfb.far) return false;
+        var zalfr = Math.tan(zalfb.fov * Math.PI / 360) * Math.max(zalfq, zalfb.near), zalfs = zalfr * zalfb.aspect;
+        return Math.abs(zalfn) <= zalfs + zalfl && Math.abs(zalfo) <= zalfr + zalfl;
+    }
+    return !(zalfn + zalfl < zalfb.left || zalfn - zalfl > zalfb.right || zalfo + zalfl < zalfb.bottom || zalfo - zalfl > zalfb.top || zalfq + zalfl < zalfb.near || zalfq - zalfl > zalfb.far);
 }
 
 export { faoxomfrustumvisible };

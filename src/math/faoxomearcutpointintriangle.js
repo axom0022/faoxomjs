@@ -1,5 +1,5 @@
-function faoxomearcutpointintriangle(ax, ay, bx, by, cx, cy, px, py) {
-    return (cx - px) * (ay - py) >= (ax - px) * (cy - py) && (ax - px) * (by - py) >= (bx - px) * (ay - py) && (bx - px) * (cy - py) >= (cx - px) * (by - py);
+function faoxomearcutpointintriangle(zapya, zapyb, zapyc, zapyd, zapye, zapyf, zapyg, zapyh) {
+    return (zapye - zapyg) * (zapyb - zapyh) >= (zapya - zapyg) * (zapyf - zapyh) && (zapya - zapyg) * (zapyd - zapyh) >= (zapyc - zapyg) * (zapyb - zapyh) && (zapyc - zapyg) * (zapyf - zapyh) >= (zapye - zapyg) * (zapyd - zapyh);
 }
 
 export { faoxomearcutpointintriangle };

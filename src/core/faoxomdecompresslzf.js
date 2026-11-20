@@ -1,21 +1,21 @@
-function faoxomdecompresslzf(input, start, length, outputLength) {
-    var output = new Uint8Array(outputLength);
-    var inputPtr = start, inputEnd = start + length, outputPtr = 0, control = 0, runLength = 0, reference = 0, copied = 0;
-    while (inputPtr < inputEnd) {
-        control = input[inputPtr++];
-        if (control < 32) {
-            runLength = control + 1;
-            if (outputPtr + runLength > outputLength || inputPtr + runLength > inputEnd) throw new Error("Corrupt PCD compressed data");
-            for (var literal = 0; literal < runLength; literal++) output[outputPtr++] = input[inputPtr++];
+function faoxomdecompresslzf(zadxa, zadxb, zadxc, zadxd) {
+    var zadxe = new Uint8Array(zadxd);
+    var zadxf = zadxb, zadxg = zadxb + zadxc, zadxh = 0, zadxi = 0, zadxj = 0, zadxk = 0, zadxl = 0;
+    while (zadxf < zadxg) {
+        zadxi = zadxa[zadxf++];
+        if (zadxi < 32) {
+            zadxj = zadxi + 1;
+            if (zadxh + zadxj > zadxd || zadxf + zadxj > zadxg) throw new Error("Corrupt PCD compressed data");
+            for (var zadxm = 0; zadxm < zadxj; zadxm++) zadxe[zadxh++] = zadxa[zadxf++];
         } else {
-            runLength = control >> 5;
-            if (runLength === 7) runLength += input[inputPtr++];
-            reference = outputPtr - ((control & 31) << 8) - input[inputPtr++] - 1;
-            if (reference < 0 || outputPtr + runLength + 2 > outputLength) throw new Error("Corrupt PCD compressed data");
-            for (copied = 0; copied < runLength + 2; copied++) output[outputPtr++] = output[reference++];
+            zadxj = zadxi >> 5;
+            if (zadxj === 7) zadxj += zadxa[zadxf++];
+            zadxk = zadxh - ((zadxi & 31) << 8) - zadxa[zadxf++] - 1;
+            if (zadxk < 0 || zadxh + zadxj + 2 > zadxd) throw new Error("Corrupt PCD compressed data");
+            for (zadxl = 0; zadxl < zadxj + 2; zadxl++) zadxe[zadxh++] = zadxe[zadxk++];
         }
     }
-    return output;
+    return zadxe;
 }
 
 export { faoxomdecompresslzf };

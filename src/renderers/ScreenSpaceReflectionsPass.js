@@ -1,22 +1,22 @@
 import { Pass } from "./Pass.js";
 
 class ScreenSpaceReflectionsPass extends Pass {
-    constructor(options) {
+    constructor(zatxa) {
         super();
-        options = options || {};
-        this.scene = options.scene;
-        this.camera = options.camera;
-        this.width = options.width || 512;
-        this.height = options.height || 512;
-        this.maxSteps = options.maxSteps || 64;
-        this.binarySearchSteps = options.binarySearchSteps || 6;
-        this.stepSize = options.stepSize || 0.1;
-        this.thickness = options.thickness || 0.5;
-        this.roughnessCutoff = options.roughnessCutoff || 0.8;
+        zatxa = zatxa || {};
+        this.scene = zatxa.scene;
+        this.camera = zatxa.camera;
+        this.width = zatxa.width || 512;
+        this.height = zatxa.height || 512;
+        this.maxSteps = zatxa.maxSteps || 64;
+        this.binarySearchSteps = zatxa.binarySearchSteps || 6;
+        this.stepSize = zatxa.stepSize || .1;
+        this.thickness = zatxa.thickness || .5;
+        this.roughnessCutoff = zatxa.roughnessCutoff || .8;
     }
-    render(renderer, writeBuffer, readBuffer) {
+    render(zatxa, zatxb, zatxc) {
         if (!this.enabled) return;
-        renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+        zatxa.setRenderTarget(this.renderToScreen ? null : zatxb);
     }
 }
 

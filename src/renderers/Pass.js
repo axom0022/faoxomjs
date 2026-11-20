@@ -5,8 +5,8 @@ class Pass {
         this.clear = false;
         this.renderToScreen = false;
     }
-    setSize(width, height) {}
-    render(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {}
+    setSize(zatma, zatmb) {}
+    render(zatma, zatmb, zatmc, zatmd, zatme) {}
     dispose() {}
 }
 

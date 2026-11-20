@@ -1,46 +1,40 @@
-// FaoxomJS Svelte binding (roadmap item 41).
-// Framework-agnostic imperative mount helper - usable from Svelte actions,
-// SvelteKit loaders, plain JS or any framework without an official binding:
-//
-//   import { mountFaoxomScene } from "faoxomjs/bindings/svelte";
-//   // in a Svelte component:
-//   // <div use:faoxom={{ src: "/scenes/office.faox", orbit: true }}></div>
-//   const faoxom = (node, options) => {
-//       const engine = mountFaoxomScene(node, options);
-//       return { destroy: () => engine.destroy() };
-//   };
-//
-// Also see FaoxomScene.svelte (same folder) for a ready-made component.
-
-export function mountFaoxomScene(target, options) {
-    options = options || {};
-    if (!target || !target.appendChild) throw new Error("mountFaoxomScene requires a DOM node");
-    var element = document.createElement("faoxom-scene");
-    var keys = ["src", "background", "camera-fov", "camera-position", "camera-target", "ambient", "sun", "post", "backend"];
-    for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        if (options[key] !== undefined && options[key] !== null) element.setAttribute(key, String(options[key]));
+export function mountFaoxomScene(zaaca, zaacb) {
+    zaacb = zaacb || {};
+    if (!zaaca || !zaaca.appendChild) throw new Error("mountFaoxomScene requires a DOM node");
+    var zaacc = document.createElement("faoxom-scene");
+    var zaacd = [ "src", "background", "camera-fov", "camera-position", "camera-target", "ambient", "sun", "post", "backend" ];
+    for (var zaace = 0; zaace < zaacd.length; zaace++) {
+        var zaacf = zaacd[zaace];
+        if (zaacb[zaacf] !== undefined && zaacb[zaacf] !== null) zaacc.setAttribute(zaacf, String(zaacb[zaacf]));
     }
-    if (options.width) element.setAttribute("width", String(options.width));
-    if (options.height) element.setAttribute("height", String(options.height));
-    if (options.orbit) element.setAttribute("orbit", "");
-    if (typeof options.onReady === "function") element.addEventListener("ready", options.onReady);
-    if (typeof options.onLoad === "function") element.addEventListener("load", options.onLoad);
-    if (typeof options.onError === "function") element.addEventListener("error", options.onError);
-    if (options.className) element.className = options.className;
-    if (options.style) element.style.cssText = options.style;
-    target.appendChild(element);
-    var handle = {
-        element: element,
-        getApp: function () { return element.getApp ? element.getApp() : null; },
-        getScene: function () { return element.getScene ? element.getScene() : null; },
-        getCamera: function () { return element.getCamera ? element.getCamera() : null; },
-        getControls: function () { return element.getControls ? element.getControls() : null; },
-        destroy: function () {
-            if (element.parentNode) element.parentNode.removeChild(element);
+    if (zaacb.width) zaacc.setAttribute("width", String(zaacb.width));
+    if (zaacb.height) zaacc.setAttribute("height", String(zaacb.height));
+    if (zaacb.orbit) zaacc.setAttribute("orbit", "");
+    if (typeof zaacb.onReady === "function") zaacc.addEventListener("ready", zaacb.onReady);
+    if (typeof zaacb.onLoad === "function") zaacc.addEventListener("load", zaacb.onLoad);
+    if (typeof zaacb.onError === "function") zaacc.addEventListener("error", zaacb.onError);
+    if (zaacb.className) zaacc.className = zaacb.className;
+    if (zaacb.style) zaacc.style.cssText = zaacb.style;
+    zaaca.appendChild(zaacc);
+    var zaacg = {
+        element: zaacc,
+        getApp: function() {
+            return zaacc.getApp ? zaacc.getApp() : null;
+        },
+        getScene: function() {
+            return zaacc.getScene ? zaacc.getScene() : null;
+        },
+        getCamera: function() {
+            return zaacc.getCamera ? zaacc.getCamera() : null;
+        },
+        getControls: function() {
+            return zaacc.getControls ? zaacc.getControls() : null;
+        },
+        destroy: function() {
+            if (zaacc.parentNode) zaacc.parentNode.removeChild(zaacc);
         }
     };
-    return handle;
+    return zaacg;
 }
 
 export default mountFaoxomScene;

@@ -1,711 +1,1104 @@
 import { Vector2, Vector3, faoxomvalue } from "../math/index.js";
 
-function bvhBuildCore(positions, indices, options) {
-    var maxLeafTris = options.maxLeafTris, maxDepth = options.maxDepth, spatial = options.spatialSplits, bins = 16;
-    var triangleCount = indices ? indices.length / 3 : positions.length / 9;
-    var nb = [], nl = [], nr = [], nst = [], nct = [], triRefs = [];
-    var spatialSplits = 0, maxDepthSeen = 0, leaves = 0, splitFallbacks = 0;
-    function sa(b0, b1, b2, b3, b4, b5) { var x = b3 - b0, y = b4 - b1, z = b5 - b2; return 2 * (x * y + y * z + z * x); }
-    function allocate(b0, b1, b2, b3, b4, b5) { nb.push(b0, b1, b2, b3, b4, b5); nl.push(-1); nr.push(-1); nst.push(-1); nct.push(0); return nl.length - 1; }
-    function appendLeaf(tri, count) { leaves++; var start = triRefs.length; for (var i = 0; i < count; i++) triRefs.push(tri[i]); return start; }
-    function buildNode(refTri, refB, depth) {
-        var count = refTri.length;
-        var u = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
-        for (var i = 0; i < count; i++) { var o = i * 6; if (u[0] > refB[o]) u[0] = refB[o]; if (u[1] > refB[o + 1]) u[1] = refB[o + 1]; if (u[2] > refB[o + 2]) u[2] = refB[o + 2]; if (u[3] < refB[o + 3]) u[3] = refB[o + 3]; if (u[4] < refB[o + 4]) u[4] = refB[o + 4]; if (u[5] < refB[o + 5]) u[5] = refB[o + 5]; }
-        var id = allocate(u[0], u[1], u[2], u[3], u[4], u[5]);
-        if (depth > maxDepthSeen) maxDepthSeen = depth;
-        if (count <= maxLeafTris || depth >= maxDepth) { nst[id] = appendLeaf(refTri, count); nct[id] = count; return id; }
-        var bestCost = Infinity, bestAxis = -1, bestBin = -1;
-        var nodeSA = sa(u[0], u[1], u[2], u[3], u[4], u[5]);
-        for (var axis = 0; axis < 3; axis++) {
-            var co = axis, cenMin = Infinity, cenMax = -Infinity;
-            for (var c = 0; c < count; c++) { var cen = (refB[c * 6 + co] + refB[c * 6 + co + 3]) * 0.5; if (cen < cenMin) cenMin = cen; if (cen > cenMax) cenMax = cen; }
-            var extent = cenMax - cenMin;
-            if (!(extent > 0)) continue;
-            var scale = bins / extent;
-            var binN = [], binB = [];
-            for (var z = 0; z < bins; z++) { binN.push(0); binB.push(Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity); }
-            for (var r = 0; r < count; r++) {
-                var cc = (refB[r * 6 + co] + refB[r * 6 + co + 3]) * 0.5;
-                var bi = Math.floor((cc - cenMin) * scale); if (bi < 0) bi = 0; if (bi > bins - 1) bi = bins - 1;
-                binN[bi]++;
-                for (var k = 0; k < 6; k++) { var val = refB[r * 6 + k]; if (k < 3) { if (val < binB[bi * 6 + k]) binB[bi * 6 + k] = val; } else { if (val > binB[bi * 6 + k]) binB[bi * 6 + k] = val; } }
-            }
-            var lN = 0, l0 = Infinity, l1 = Infinity, l2 = Infinity, l3 = -Infinity, l4 = -Infinity, l5 = -Infinity;
-            for (var s = 1; s < bins; s++) {
-                var po = (s - 1) * 6;
-                lN += binN[s - 1];
-                if (binB[po] < l0) l0 = binB[po]; if (binB[po + 1] < l1) l1 = binB[po + 1]; if (binB[po + 2] < l2) l2 = binB[po + 2];
-                if (binB[po + 3] > l3) l3 = binB[po + 3]; if (binB[po + 4] > l4) l4 = binB[po + 4]; if (binB[po + 5] > l5) l5 = binB[po + 5];
-                if (lN === 0) continue;
-                var rN = 0, r0 = Infinity, r1 = Infinity, r2 = Infinity, r3 = -Infinity, r4 = -Infinity, r5 = -Infinity;
-                for (var w = s; w < bins; w++) { var ro = w * 6; rN += binN[w]; if (binB[ro] < r0) r0 = binB[ro]; if (binB[ro + 1] < r1) r1 = binB[ro + 1]; if (binB[ro + 2] < r2) r2 = binB[ro + 2]; if (binB[ro + 3] > r3) r3 = binB[ro + 3]; if (binB[ro + 4] > r4) r4 = binB[ro + 4]; if (binB[ro + 5] > r5) r5 = binB[ro + 5]; }
-                if (rN === 0) continue;
-                var cost = sa(l0, l1, l2, l3, l4, l5) * lN + sa(r0, r1, r2, r3, r4, r5) * rN + 1;
-                if (cost < bestCost) { bestCost = cost; bestAxis = axis; bestBin = s; }
-            }
-        }
-        var leafCost = nodeSA * count;
-        if (bestAxis < 0 || bestCost >= leafCost) { nst[id] = appendLeaf(refTri, count); nct[id] = count; return id; }
-        var co2 = bestAxis, cenMin2 = Infinity, cenMax2 = -Infinity;
-        for (var c2 = 0; c2 < count; c2++) { var cen2 = (refB[c2 * 6 + co2] + refB[c2 * 6 + co2 + 3]) * 0.5; if (cen2 < cenMin2) cenMin2 = cen2; if (cen2 > cenMax2) cenMax2 = cen2; }
-        var splitPos = cenMin2 + (cenMax2 - cenMin2) * bestBin / bins;
-        var leftTri = [], leftB = [], rightTri = [], rightB = [];
-        for (var p = 0; p < count; p++) {
-            var pc = (refB[p * 6 + co2] + refB[p * 6 + co2 + 3]) * 0.5;
-            if (pc < splitPos) { leftTri.push(refTri[p]); for (var pk = 0; pk < 6; pk++) leftB.push(refB[p * 6 + pk]); }
-            else { rightTri.push(refTri[p]); for (var pk2 = 0; pk2 < 6; pk2++) rightB.push(refB[p * 6 + pk2]); }
-        }
-        var lb = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity], rb = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
-        for (var li = 0; li < leftB.length; li += 6) { if (lb[0] > leftB[li]) lb[0] = leftB[li]; if (lb[1] > leftB[li + 1]) lb[1] = leftB[li + 1]; if (lb[2] > leftB[li + 2]) lb[2] = leftB[li + 2]; if (lb[3] < leftB[li + 3]) lb[3] = leftB[li + 3]; if (lb[4] < leftB[li + 4]) lb[4] = leftB[li + 4]; if (lb[5] < leftB[li + 5]) lb[5] = leftB[li + 5]; }
-        for (var ri = 0; ri < rightB.length; ri += 6) { if (rb[0] > rightB[ri]) rb[0] = rightB[ri]; if (rb[1] > rightB[ri + 1]) rb[1] = rightB[ri + 1]; if (rb[2] > rightB[ri + 2]) rb[2] = rightB[ri + 2]; if (rb[3] < rightB[ri + 3]) rb[3] = rightB[ri + 3]; if (rb[4] < rightB[ri + 4]) rb[4] = rightB[ri + 4]; if (rb[5] < rightB[ri + 5]) rb[5] = rightB[ri + 5]; }
-        var doSpatial = false;
-        if (spatial && depth + 1 < maxDepth && leftTri.length > 0 && rightTri.length > 0) {
-            var ox0 = lb[0] > rb[0] ? lb[0] : rb[0], oy0 = lb[1] > rb[1] ? lb[1] : rb[1], oz0 = lb[2] > rb[2] ? lb[2] : rb[2];
-            var ox1 = lb[3] < rb[3] ? lb[3] : rb[3], oy1 = lb[4] < rb[4] ? lb[4] : rb[4], oz1 = lb[5] < rb[5] ? lb[5] : rb[5];
-            if (ox0 < ox1 && oy0 < oy1 && oz0 < oz1 && sa(ox0, oy0, oz0, ox1, oy1, oz1) > 0.1 * nodeSA && triRefs.length + count * 2 <= triangleCount * 2 + 16) doSpatial = true;
-        }
-        if (doSpatial) {
-            leftTri = []; leftB = []; rightTri = []; rightB = [];
-            for (var g = 0; g < count; g++) {
-                var tri = refTri[g], gw = g * 6;
-                var goesLeft = refB[gw + co2] < splitPos, goesRight = refB[gw + co2 + 3] > splitPos;
-                if (goesLeft) { leftTri.push(tri); for (var lk = 0; lk < 6; lk++) { var lv = refB[gw + lk]; if (lk === co2 + 3 && lv > splitPos) lv = splitPos; leftB.push(lv); } }
-                if (goesRight) { rightTri.push(tri); for (var rk = 0; rk < 6; rk++) { var rv = refB[gw + rk]; if (rk === co2 && rv < splitPos) rv = splitPos; rightB.push(rv); } }
-                if (goesLeft && goesRight) spatialSplits++;
-            }
-        }
-        if (leftTri.length === 0 || rightTri.length === 0) {
-            leftTri = []; leftB = []; rightTri = []; rightB = [];
-            var half = Math.floor(count / 2);
-            for (var h = 0; h < count; h++) { if (h < half) { leftTri.push(refTri[h]); for (var hk = 0; hk < 6; hk++) leftB.push(refB[h * 6 + hk]); } else { rightTri.push(refTri[h]); for (var hk2 = 0; hk2 < 6; hk2++) rightB.push(refB[h * 6 + hk2]); } }
-            splitFallbacks++;
-        }
-        nl[id] = buildNode(leftTri, leftB, depth + 1);
-        nr[id] = buildNode(rightTri, rightB, depth + 1);
-        return id;
+function zagia(zagia, zagib, zagic) {
+    var zagid = zagic.maxLeafTris, zagie = zagic.maxDepth, zagif = zagic.spatialSplits, zagig = 16;
+    var zagih = zagib ? zagib.length / 3 : zagia.length / 9;
+    var zagii = [], zagij = [], zagik = [], zagil = [], zagim = [], zagin = [];
+    var zagio = 0, zagip = 0, zagiq = 0, zagir = 0;
+    function zagis(zagia, zagib, zagic, zagid, zagie, zagif) {
+        var zagig = zagid - zagia, zagih = zagie - zagib, zagii = zagif - zagic;
+        return 2 * (zagig * zagih + zagih * zagii + zagii * zagig);
     }
-    var rootTri = [], rootB = [];
-    for (var t = 0; t < triangleCount; t++) {
-        var ia = indices ? indices[t * 3] : t * 3, ib = indices ? indices[t * 3 + 1] : t * 3 + 1, ic = indices ? indices[t * 3 + 2] : t * 3 + 2;
-        var ax = positions[ia * 3], ay = positions[ia * 3 + 1], az = positions[ia * 3 + 2];
-        var bx = positions[ib * 3], by = positions[ib * 3 + 1], bz = positions[ib * 3 + 2];
-        var cx = positions[ic * 3], cy = positions[ic * 3 + 1], cz = positions[ic * 3 + 2];
-        var mnx = ax < bx ? (ax < cx ? ax : cx) : (bx < cx ? bx : cx), mny = ay < by ? (ay < cy ? ay : cy) : (by < cy ? by : cy), mnz = az < bz ? (az < cz ? az : cz) : (bz < cz ? bz : cz);
-        var mxx = ax > bx ? (ax > cx ? ax : cx) : (bx > cx ? bx : cx), mxy = ay > by ? (ay > cy ? ay : cy) : (by > cy ? by : cy), mxz = az > bz ? (az > cz ? az : cz) : (bz > cz ? bz : cz);
-        rootTri.push(t); rootB.push(mnx, mny, mnz, mxx, mxy, mxz);
+    function zagit(zagia, zagib, zagic, zagid, zagie, zagif) {
+        zagii.push(zagia, zagib, zagic, zagid, zagie, zagif);
+        zagij.push(-1);
+        zagik.push(-1);
+        zagil.push(-1);
+        zagim.push(0);
+        return zagij.length - 1;
     }
-    buildNode(rootTri, rootB, 0);
-    var nodeCount = nl.length;
-    var nodeBounds = new Float32Array(nodeCount * 6), nodeLeft = new Int32Array(nodeCount), nodeRight = new Int32Array(nodeCount), nodeStart = new Int32Array(nodeCount), nodeCountArr = new Int32Array(nodeCount), triRefsArr = new Uint32Array(triRefs.length);
-    for (var n = 0; n < nodeCount * 6; n++) nodeBounds[n] = nb[n];
-    for (var n2 = 0; n2 < nodeCount; n2++) { nodeLeft[n2] = nl[n2]; nodeRight[n2] = nr[n2]; nodeStart[n2] = nst[n2]; nodeCountArr[n2] = nct[n2]; }
-    for (var r3 = 0; r3 < triRefs.length; r3++) triRefsArr[r3] = triRefs[r3];
-    return { nodeBounds: nodeBounds, nodeLeft: nodeLeft, nodeRight: nodeRight, nodeStart: nodeStart, nodeCount: nodeCountArr, triRefs: triRefsArr, triangles: triangleCount, spatialSplits: spatialSplits, maxDepth: maxDepthSeen, leaves: leaves, nodes: nodeCount, splitFallbacks: splitFallbacks };
+    function zagiu(zagia, zagib) {
+        zagiq++;
+        var zagic = zagin.length;
+        for (var zagid = 0; zagid < zagib; zagid++) zagin.push(zagia[zagid]);
+        return zagic;
+    }
+    function zagiv(zagia, zagib, zagic) {
+        var zagii = zagia.length;
+        var zagiq = [ Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity ];
+        for (var zagiw = 0; zagiw < zagii; zagiw++) {
+            var zagix = zagiw * 6;
+            if (zagiq[0] > zagib[zagix]) zagiq[0] = zagib[zagix];
+            if (zagiq[1] > zagib[zagix + 1]) zagiq[1] = zagib[zagix + 1];
+            if (zagiq[2] > zagib[zagix + 2]) zagiq[2] = zagib[zagix + 2];
+            if (zagiq[3] < zagib[zagix + 3]) zagiq[3] = zagib[zagix + 3];
+            if (zagiq[4] < zagib[zagix + 4]) zagiq[4] = zagib[zagix + 4];
+            if (zagiq[5] < zagib[zagix + 5]) zagiq[5] = zagib[zagix + 5];
+        }
+        var zagiy = zagit(zagiq[0], zagiq[1], zagiq[2], zagiq[3], zagiq[4], zagiq[5]);
+        if (zagic > zagip) zagip = zagic;
+        if (zagii <= zagid || zagic >= zagie) {
+            zagil[zagiy] = zagiu(zagia, zagii);
+            zagim[zagiy] = zagii;
+            return zagiy;
+        }
+        var zagiz = Infinity, zagiaa = -1, zagiab = -1;
+        var zagiac = zagis(zagiq[0], zagiq[1], zagiq[2], zagiq[3], zagiq[4], zagiq[5]);
+        for (var zagiad = 0; zagiad < 3; zagiad++) {
+            var zagiae = zagiad, zagiaf = Infinity, zagiag = -Infinity;
+            for (var zagiah = 0; zagiah < zagii; zagiah++) {
+                var zagiai = (zagib[zagiah * 6 + zagiae] + zagib[zagiah * 6 + zagiae + 3]) * .5;
+                if (zagiai < zagiaf) zagiaf = zagiai;
+                if (zagiai > zagiag) zagiag = zagiai;
+            }
+            var zagiaj = zagiag - zagiaf;
+            if (!(zagiaj > 0)) continue;
+            var zagiak = zagig / zagiaj;
+            var zagial = [], zagiam = [];
+            for (var zagian = 0; zagian < zagig; zagian++) {
+                zagial.push(0);
+                zagiam.push(Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity);
+            }
+            for (var zagiao = 0; zagiao < zagii; zagiao++) {
+                var zagiap = (zagib[zagiao * 6 + zagiae] + zagib[zagiao * 6 + zagiae + 3]) * .5;
+                var zagiaq = Math.floor((zagiap - zagiaf) * zagiak);
+                if (zagiaq < 0) zagiaq = 0;
+                if (zagiaq > zagig - 1) zagiaq = zagig - 1;
+                zagial[zagiaq]++;
+                for (var zagiar = 0; zagiar < 6; zagiar++) {
+                    var zagias = zagib[zagiao * 6 + zagiar];
+                    if (zagiar < 3) {
+                        if (zagias < zagiam[zagiaq * 6 + zagiar]) zagiam[zagiaq * 6 + zagiar] = zagias;
+                    } else {
+                        if (zagias > zagiam[zagiaq * 6 + zagiar]) zagiam[zagiaq * 6 + zagiar] = zagias;
+                    }
+                }
+            }
+            var zagiat = 0, zagiau = Infinity, zagiav = Infinity, zagiaw = Infinity, zagiax = -Infinity, zagiay = -Infinity, zagiaz = -Infinity;
+            for (var zagiba = 1; zagiba < zagig; zagiba++) {
+                var zagibb = (zagiba - 1) * 6;
+                zagiat += zagial[zagiba - 1];
+                if (zagiam[zagibb] < zagiau) zagiau = zagiam[zagibb];
+                if (zagiam[zagibb + 1] < zagiav) zagiav = zagiam[zagibb + 1];
+                if (zagiam[zagibb + 2] < zagiaw) zagiaw = zagiam[zagibb + 2];
+                if (zagiam[zagibb + 3] > zagiax) zagiax = zagiam[zagibb + 3];
+                if (zagiam[zagibb + 4] > zagiay) zagiay = zagiam[zagibb + 4];
+                if (zagiam[zagibb + 5] > zagiaz) zagiaz = zagiam[zagibb + 5];
+                if (zagiat === 0) continue;
+                var zagibc = 0, zagibd = Infinity, zagibe = Infinity, zagibf = Infinity, zagibg = -Infinity, zagibh = -Infinity, zagibi = -Infinity;
+                for (var zagibj = zagiba; zagibj < zagig; zagibj++) {
+                    var zagibk = zagibj * 6;
+                    zagibc += zagial[zagibj];
+                    if (zagiam[zagibk] < zagibd) zagibd = zagiam[zagibk];
+                    if (zagiam[zagibk + 1] < zagibe) zagibe = zagiam[zagibk + 1];
+                    if (zagiam[zagibk + 2] < zagibf) zagibf = zagiam[zagibk + 2];
+                    if (zagiam[zagibk + 3] > zagibg) zagibg = zagiam[zagibk + 3];
+                    if (zagiam[zagibk + 4] > zagibh) zagibh = zagiam[zagibk + 4];
+                    if (zagiam[zagibk + 5] > zagibi) zagibi = zagiam[zagibk + 5];
+                }
+                if (zagibc === 0) continue;
+                var zagibl = zagis(zagiau, zagiav, zagiaw, zagiax, zagiay, zagiaz) * zagiat + zagis(zagibd, zagibe, zagibf, zagibg, zagibh, zagibi) * zagibc + 1;
+                if (zagibl < zagiz) {
+                    zagiz = zagibl;
+                    zagiaa = zagiad;
+                    zagiab = zagiba;
+                }
+            }
+        }
+        var zagibm = zagiac * zagii;
+        if (zagiaa < 0 || zagiz >= zagibm) {
+            zagil[zagiy] = zagiu(zagia, zagii);
+            zagim[zagiy] = zagii;
+            return zagiy;
+        }
+        var zagibn = zagiaa, zagibo = Infinity, zagibp = -Infinity;
+        for (var zagibq = 0; zagibq < zagii; zagibq++) {
+            var zagibr = (zagib[zagibq * 6 + zagibn] + zagib[zagibq * 6 + zagibn + 3]) * .5;
+            if (zagibr < zagibo) zagibo = zagibr;
+            if (zagibr > zagibp) zagibp = zagibr;
+        }
+        var zagibs = zagibo + (zagibp - zagibo) * zagiab / zagig;
+        var zagibt = [], zagibu = [], zagibv = [], zagibw = [];
+        for (var zagibx = 0; zagibx < zagii; zagibx++) {
+            var zagiby = (zagib[zagibx * 6 + zagibn] + zagib[zagibx * 6 + zagibn + 3]) * .5;
+            if (zagiby < zagibs) {
+                zagibt.push(zagia[zagibx]);
+                for (var zagibz = 0; zagibz < 6; zagibz++) zagibu.push(zagib[zagibx * 6 + zagibz]);
+            } else {
+                zagibv.push(zagia[zagibx]);
+                for (var zagica = 0; zagica < 6; zagica++) zagibw.push(zagib[zagibx * 6 + zagica]);
+            }
+        }
+        var zagicb = [ Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity ], zagicc = [ Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity ];
+        for (var zagicd = 0; zagicd < zagibu.length; zagicd += 6) {
+            if (zagicb[0] > zagibu[zagicd]) zagicb[0] = zagibu[zagicd];
+            if (zagicb[1] > zagibu[zagicd + 1]) zagicb[1] = zagibu[zagicd + 1];
+            if (zagicb[2] > zagibu[zagicd + 2]) zagicb[2] = zagibu[zagicd + 2];
+            if (zagicb[3] < zagibu[zagicd + 3]) zagicb[3] = zagibu[zagicd + 3];
+            if (zagicb[4] < zagibu[zagicd + 4]) zagicb[4] = zagibu[zagicd + 4];
+            if (zagicb[5] < zagibu[zagicd + 5]) zagicb[5] = zagibu[zagicd + 5];
+        }
+        for (var zagice = 0; zagice < zagibw.length; zagice += 6) {
+            if (zagicc[0] > zagibw[zagice]) zagicc[0] = zagibw[zagice];
+            if (zagicc[1] > zagibw[zagice + 1]) zagicc[1] = zagibw[zagice + 1];
+            if (zagicc[2] > zagibw[zagice + 2]) zagicc[2] = zagibw[zagice + 2];
+            if (zagicc[3] < zagibw[zagice + 3]) zagicc[3] = zagibw[zagice + 3];
+            if (zagicc[4] < zagibw[zagice + 4]) zagicc[4] = zagibw[zagice + 4];
+            if (zagicc[5] < zagibw[zagice + 5]) zagicc[5] = zagibw[zagice + 5];
+        }
+        var zagicf = false;
+        if (zagif && zagic + 1 < zagie && zagibt.length > 0 && zagibv.length > 0) {
+            var zagicg = zagicb[0] > zagicc[0] ? zagicb[0] : zagicc[0], zagich = zagicb[1] > zagicc[1] ? zagicb[1] : zagicc[1], zagici = zagicb[2] > zagicc[2] ? zagicb[2] : zagicc[2];
+            var zagicj = zagicb[3] < zagicc[3] ? zagicb[3] : zagicc[3], zagick = zagicb[4] < zagicc[4] ? zagicb[4] : zagicc[4], zagicl = zagicb[5] < zagicc[5] ? zagicb[5] : zagicc[5];
+            if (zagicg < zagicj && zagich < zagick && zagici < zagicl && zagis(zagicg, zagich, zagici, zagicj, zagick, zagicl) > .1 * zagiac && zagin.length + zagii * 2 <= zagih * 2 + 16) zagicf = true;
+        }
+        if (zagicf) {
+            zagibt = [];
+            zagibu = [];
+            zagibv = [];
+            zagibw = [];
+            for (var zagicm = 0; zagicm < zagii; zagicm++) {
+                var zagicn = zagia[zagicm], zagico = zagicm * 6;
+                var zagicp = zagib[zagico + zagibn] < zagibs, zagicq = zagib[zagico + zagibn + 3] > zagibs;
+                if (zagicp) {
+                    zagibt.push(zagicn);
+                    for (var zagicr = 0; zagicr < 6; zagicr++) {
+                        var zagics = zagib[zagico + zagicr];
+                        if (zagicr === zagibn + 3 && zagics > zagibs) zagics = zagibs;
+                        zagibu.push(zagics);
+                    }
+                }
+                if (zagicq) {
+                    zagibv.push(zagicn);
+                    for (var zagict = 0; zagict < 6; zagict++) {
+                        var zagicu = zagib[zagico + zagict];
+                        if (zagict === zagibn && zagicu < zagibs) zagicu = zagibs;
+                        zagibw.push(zagicu);
+                    }
+                }
+                if (zagicp && zagicq) zagio++;
+            }
+        }
+        if (zagibt.length === 0 || zagibv.length === 0) {
+            zagibt = [];
+            zagibu = [];
+            zagibv = [];
+            zagibw = [];
+            var zagicv = Math.floor(zagii / 2);
+            for (var zagicw = 0; zagicw < zagii; zagicw++) {
+                if (zagicw < zagicv) {
+                    zagibt.push(zagia[zagicw]);
+                    for (var zagicx = 0; zagicx < 6; zagicx++) zagibu.push(zagib[zagicw * 6 + zagicx]);
+                } else {
+                    zagibv.push(zagia[zagicw]);
+                    for (var zagicy = 0; zagicy < 6; zagicy++) zagibw.push(zagib[zagicw * 6 + zagicy]);
+                }
+            }
+            zagir++;
+        }
+        zagij[zagiy] = zagiv(zagibt, zagibu, zagic + 1);
+        zagik[zagiy] = zagiv(zagibv, zagibw, zagic + 1);
+        return zagiy;
+    }
+    var zagiw = [], zagix = [];
+    for (var zagiy = 0; zagiy < zagih; zagiy++) {
+        var zagiz = zagib ? zagib[zagiy * 3] : zagiy * 3, zagiaa = zagib ? zagib[zagiy * 3 + 1] : zagiy * 3 + 1, zagiab = zagib ? zagib[zagiy * 3 + 2] : zagiy * 3 + 2;
+        var zagiac = zagia[zagiz * 3], zagiad = zagia[zagiz * 3 + 1], zagiae = zagia[zagiz * 3 + 2];
+        var zagiaf = zagia[zagiaa * 3], zagiag = zagia[zagiaa * 3 + 1], zagiah = zagia[zagiaa * 3 + 2];
+        var zagiai = zagia[zagiab * 3], zagiaj = zagia[zagiab * 3 + 1], zagiak = zagia[zagiab * 3 + 2];
+        var zagial = zagiac < zagiaf ? zagiac < zagiai ? zagiac : zagiai : zagiaf < zagiai ? zagiaf : zagiai, zagiam = zagiad < zagiag ? zagiad < zagiaj ? zagiad : zagiaj : zagiag < zagiaj ? zagiag : zagiaj, zagian = zagiae < zagiah ? zagiae < zagiak ? zagiae : zagiak : zagiah < zagiak ? zagiah : zagiak;
+        var zagiao = zagiac > zagiaf ? zagiac > zagiai ? zagiac : zagiai : zagiaf > zagiai ? zagiaf : zagiai, zagiap = zagiad > zagiag ? zagiad > zagiaj ? zagiad : zagiaj : zagiag > zagiaj ? zagiag : zagiaj, zagiaq = zagiae > zagiah ? zagiae > zagiak ? zagiae : zagiak : zagiah > zagiak ? zagiah : zagiak;
+        zagiw.push(zagiy);
+        zagix.push(zagial, zagiam, zagian, zagiao, zagiap, zagiaq);
+    }
+    zagiv(zagiw, zagix, 0);
+    var zagiar = zagij.length;
+    var zagias = new Float32Array(zagiar * 6), zagiat = new Int32Array(zagiar), zagiau = new Int32Array(zagiar), zagiav = new Int32Array(zagiar), zagiaw = new Int32Array(zagiar), zagiax = new Uint32Array(zagin.length);
+    for (var zagiay = 0; zagiay < zagiar * 6; zagiay++) zagias[zagiay] = zagii[zagiay];
+    for (var zagiaz = 0; zagiaz < zagiar; zagiaz++) {
+        zagiat[zagiaz] = zagij[zagiaz];
+        zagiau[zagiaz] = zagik[zagiaz];
+        zagiav[zagiaz] = zagil[zagiaz];
+        zagiaw[zagiaz] = zagim[zagiaz];
+    }
+    for (var zagiba = 0; zagiba < zagin.length; zagiba++) zagiax[zagiba] = zagin[zagiba];
+    return {
+        nodeBounds: zagias,
+        nodeLeft: zagiat,
+        nodeRight: zagiau,
+        nodeStart: zagiav,
+        nodeCount: zagiaw,
+        triRefs: zagiax,
+        triangles: zagih,
+        spatialSplits: zagio,
+        maxDepth: zagip,
+        leaves: zagiq,
+        nodes: zagiar,
+        splitFallbacks: zagir
+    };
 }
 
-function pointInTriangle(px, py, pz, ax, ay, az, bx, by, bz, cx, cy, cz) {
-    var e1x = bx - ax, e1y = by - ay, e1z = bz - az, e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
-    var apx = px - ax, apy = py - ay, apz = pz - az;
-    var d11 = e1x * e1x + e1y * e1y + e1z * e1z, d12 = e1x * e2x + e1y * e2y + e1z * e2z, d22 = e2x * e2x + e2y * e2y + e2z * e2z;
-    var d1p = e1x * apx + e1y * apy + e1z * apz, d2p = e2x * apx + e2y * apy + e2z * apz;
-    var denom = d11 * d22 - d12 * d12;
-    if (Math.abs(denom) < 1e-18) return false;
-    var v = (d22 * d1p - d12 * d2p) / denom, w = (d11 * d2p - d12 * d1p) / denom;
-    return v >= -1e-9 && w >= -1e-9 && v + w <= 1 + 1e-9;
+function zagib(zagia, zagib, zagic, zagid, zagie, zagif, zagig, zagih, zagii, zagij, zagik, zagil) {
+    var zagim = zagig - zagid, zagin = zagih - zagie, zagio = zagii - zagif, zagip = zagij - zagid, zagiq = zagik - zagie, zagir = zagil - zagif;
+    var zagis = zagia - zagid, zagit = zagib - zagie, zagiu = zagic - zagif;
+    var zagiv = zagim * zagim + zagin * zagin + zagio * zagio, zagiw = zagim * zagip + zagin * zagiq + zagio * zagir, zagix = zagip * zagip + zagiq * zagiq + zagir * zagir;
+    var zagiy = zagim * zagis + zagin * zagit + zagio * zagiu, zagiz = zagip * zagis + zagiq * zagit + zagir * zagiu;
+    var zagiaa = zagiv * zagix - zagiw * zagiw;
+    if (Math.abs(zagiaa) < 1e-18) return false;
+    var zagiab = (zagix * zagiy - zagiw * zagiz) / zagiaa, zagiac = (zagiv * zagiz - zagiw * zagiy) / zagiaa;
+    return zagiab >= -1e-9 && zagiac >= -1e-9 && zagiab + zagiac <= 1 + 1e-9;
 }
 
-function dist4(px, py, pz, qx, qy, qz) {
-    var ex = px - qx, ey = py - qy, ez = pz - qz;
-    return [qx, qy, qz, Math.sqrt(ex * ex + ey * ey + ez * ez)];
+function zagic(zagia, zagib, zagic, zagid, zagie, zagif) {
+    var zagig = zagia - zagid, zagih = zagib - zagie, zagii = zagic - zagif;
+    return [ zagid, zagie, zagif, Math.sqrt(zagig * zagig + zagih * zagih + zagii * zagii) ];
 }
 
-function boxDistanceAt(pa, pb, s, b0, b1, b2, b3, b4, b5) {
-    var x = pa[0] + (pb[0] - pa[0]) * s, y = pa[1] + (pb[1] - pa[1]) * s, z = pa[2] + (pb[2] - pa[2]) * s;
-    var dx = Math.max(b0 - x, 0, x - b3), dy = Math.max(b1 - y, 0, y - b4), dz = Math.max(b2 - z, 0, z - b5);
-    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+function zagid(zagia, zagib, zagic, zagid, zagie, zagif, zagig, zagih, zagii) {
+    var zagij = zagia[0] + (zagib[0] - zagia[0]) * zagic, zagik = zagia[1] + (zagib[1] - zagia[1]) * zagic, zagil = zagia[2] + (zagib[2] - zagia[2]) * zagic;
+    var zagim = Math.max(zagid - zagij, 0, zagij - zagig), zagin = Math.max(zagie - zagik, 0, zagik - zagih), zagio = Math.max(zagif - zagil, 0, zagil - zagii);
+    return Math.sqrt(zagim * zagim + zagin * zagin + zagio * zagio);
 }
 
-function segmentSegmentClosest(p1, q1, p2, q2) {
-    var d1x = q1[0] - p1[0], d1y = q1[1] - p1[1], d1z = q1[2] - p1[2];
-    var d2x = q2[0] - p2[0], d2y = q2[1] - p2[1], d2z = q2[2] - p2[2];
-    var rx = p1[0] - p2[0], ry = p1[1] - p2[1], rz = p1[2] - p2[2];
-    var a = d1x * d1x + d1y * d1y + d1z * d1z, e = d2x * d2x + d2y * d2y + d2z * d2z;
-    var f = d2x * rx + d2y * ry + d2z * rz;
-    var s = 0, t = 0;
-    if (a <= 1e-18 && e <= 1e-18) { }
-    else if (a <= 1e-18) t = Math.max(0, Math.min(1, f / e));
-    else {
-        var c = d1x * rx + d1y * ry + d1z * rz;
-        if (e <= 1e-18) s = Math.max(0, Math.min(1, -c / a));
-        else {
-            var b = d1x * d2x + d1y * d2y + d1z * d2z;
-            var denom = a * e - b * b;
-            s = denom > 1e-18 ? Math.max(0, Math.min(1, (b * f - c * e) / denom)) : 0;
-            t = (b * s + f) / e;
-            if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
-            else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+function zagie(zagia, zagib, zagic, zagid) {
+    var zagie = zagib[0] - zagia[0], zagif = zagib[1] - zagia[1], zagig = zagib[2] - zagia[2];
+    var zagih = zagid[0] - zagic[0], zagii = zagid[1] - zagic[1], zagij = zagid[2] - zagic[2];
+    var zagik = zagia[0] - zagic[0], zagil = zagia[1] - zagic[1], zagim = zagia[2] - zagic[2];
+    var zagin = zagie * zagie + zagif * zagif + zagig * zagig, zagio = zagih * zagih + zagii * zagii + zagij * zagij;
+    var zagip = zagih * zagik + zagii * zagil + zagij * zagim;
+    var zagiq = 0, zagir = 0;
+    if (zagin <= 1e-18 && zagio <= 1e-18) {} else if (zagin <= 1e-18) zagir = Math.max(0, Math.min(1, zagip / zagio)); else {
+        var zagis = zagie * zagik + zagif * zagil + zagig * zagim;
+        if (zagio <= 1e-18) zagiq = Math.max(0, Math.min(1, -zagis / zagin)); else {
+            var zagit = zagie * zagih + zagif * zagii + zagig * zagij;
+            var zagiu = zagin * zagio - zagit * zagit;
+            zagiq = zagiu > 1e-18 ? Math.max(0, Math.min(1, (zagit * zagip - zagis * zagio) / zagiu)) : 0;
+            zagir = (zagit * zagiq + zagip) / zagio;
+            if (zagir < 0) {
+                zagir = 0;
+                zagiq = Math.max(0, Math.min(1, -zagis / zagin));
+            } else if (zagir > 1) {
+                zagir = 1;
+                zagiq = Math.max(0, Math.min(1, (zagit - zagis) / zagin));
+            }
         }
     }
-    var c1x = p1[0] + d1x * s, c1y = p1[1] + d1y * s, c1z = p1[2] + d1z * s;
-    var c2x = p2[0] + d2x * t, c2y = p2[1] + d2y * t, c2z = p2[2] + d2z * t;
-    var ex = c1x - c2x, ey = c1y - c2y, ez = c1z - c2z;
-    return [c1x, c1y, c1z, c2x, c2y, c2z, Math.sqrt(ex * ex + ey * ey + ez * ez)];
+    var zagiv = zagia[0] + zagie * zagiq, zagiw = zagia[1] + zagif * zagiq, zagix = zagia[2] + zagig * zagiq;
+    var zagiy = zagic[0] + zagih * zagir, zagiz = zagic[1] + zagii * zagir, zagiaa = zagic[2] + zagij * zagir;
+    var zagiab = zagiv - zagiy, zagiac = zagiw - zagiz, zagiad = zagix - zagiaa;
+    return [ zagiv, zagiw, zagix, zagiy, zagiz, zagiaa, Math.sqrt(zagiab * zagiab + zagiac * zagiac + zagiad * zagiad) ];
 }
 
-function closestOnSegmentToPoint(a, b, p) {
-    var dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
-    var len2 = dx * dx + dy * dy + dz * dz;
-    if (len2 < 1e-18) return [a[0], a[1], a[2]];
-    var s = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy + (p[2] - a[2]) * dz) / len2;
-    s = Math.max(0, Math.min(1, s));
-    return [a[0] + dx * s, a[1] + dy * s, a[2] + dz * s];
+function zagif(zagia, zagib, zagic) {
+    var zagid = zagib[0] - zagia[0], zagie = zagib[1] - zagia[1], zagif = zagib[2] - zagia[2];
+    var zagig = zagid * zagid + zagie * zagie + zagif * zagif;
+    if (zagig < 1e-18) return [ zagia[0], zagia[1], zagia[2] ];
+    var zagih = ((zagic[0] - zagia[0]) * zagid + (zagic[1] - zagia[1]) * zagie + (zagic[2] - zagia[2]) * zagif) / zagig;
+    zagih = Math.max(0, Math.min(1, zagih));
+    return [ zagia[0] + zagid * zagih, zagia[1] + zagie * zagih, zagia[2] + zagif * zagih ];
 }
 
 class BVH {
-    constructor(data, options, prebuilt) {
+    constructor(zagib, zagic, zagid) {
         this.type = "BVH";
         this.isBVH = true;
-        var prep = BVH._prepare(data, options);
-        this.maxLeafTris = prep.maxLeafTris; this.maxDepth = prep.maxDepth; this.spatialSplits = prep.spatialSplits;
-        this.positions = prep.positions; this.indices = prep.indices; this.uv = prep.uv; this.triangleCount = prep.triangleCount;
+        var zagie = BVH._prepare(zagib, zagic);
+        this.maxLeafTris = zagie.maxLeafTris;
+        this.maxDepth = zagie.maxDepth;
+        this.spatialSplits = zagie.spatialSplits;
+        this.positions = zagie.positions;
+        this.indices = zagie.indices;
+        this.uv = zagie.uv;
+        this.triangleCount = zagie.triangleCount;
         this.lastQueryTriangleTests = 0;
-        var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-        if (prebuilt) {
-            if (!prebuilt.nodeBounds || !prebuilt.nodeLeft || !prebuilt.nodeRight || !prebuilt.nodeStart || !prebuilt.nodeCount || !prebuilt.triRefs) throw new Error("BVH prebuilt payload is missing arrays");
-            if (prebuilt.nodeLeft.length !== prebuilt.nodeRight.length || prebuilt.nodeLeft.length !== prebuilt.nodeBounds.length / 6) throw new Error("BVH prebuilt payload array sizes disagree");
-            this.nodeBounds = prebuilt.nodeBounds; this.nodeLeft = prebuilt.nodeLeft; this.nodeRight = prebuilt.nodeRight; this.nodeStart = prebuilt.nodeStart; this.nodeCountArr = prebuilt.nodeCount; this.triRefs = prebuilt.triRefs;
-            this.statsSpatialSplits = prebuilt.spatialSplits || 0; this.statsMaxDepth = prebuilt.maxDepth || 0; this.statsLeaves = prebuilt.leaves || 0; this.statsNodes = prebuilt.nodes || prebuilt.nodeLeft.length; this.statsFallbacks = prebuilt.splitFallbacks || 0;
+        var zagif = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+        if (zagid) {
+            if (!zagid.nodeBounds || !zagid.nodeLeft || !zagid.nodeRight || !zagid.nodeStart || !zagid.nodeCount || !zagid.triRefs) throw new Error("BVH prebuilt payload is missing arrays");
+            if (zagid.nodeLeft.length !== zagid.nodeRight.length || zagid.nodeLeft.length !== zagid.nodeBounds.length / 6) throw new Error("BVH prebuilt payload array sizes disagree");
+            this.nodeBounds = zagid.nodeBounds;
+            this.nodeLeft = zagid.nodeLeft;
+            this.nodeRight = zagid.nodeRight;
+            this.nodeStart = zagid.nodeStart;
+            this.nodeCountArr = zagid.nodeCount;
+            this.triRefs = zagid.triRefs;
+            this.statsSpatialSplits = zagid.spatialSplits || 0;
+            this.statsMaxDepth = zagid.maxDepth || 0;
+            this.statsLeaves = zagid.leaves || 0;
+            this.statsNodes = zagid.nodes || zagid.nodeLeft.length;
+            this.statsFallbacks = zagid.splitFallbacks || 0;
         } else {
-            var built = bvhBuildCore(this.positions, this.indices, { maxLeafTris: prep.maxLeafTris, maxDepth: prep.maxDepth, spatialSplits: prep.spatialSplits });
-            this.nodeBounds = built.nodeBounds; this.nodeLeft = built.nodeLeft; this.nodeRight = built.nodeRight; this.nodeStart = built.nodeStart; this.nodeCountArr = built.nodeCount; this.triRefs = built.triRefs;
-            this.statsSpatialSplits = built.spatialSplits; this.statsMaxDepth = built.maxDepth; this.statsLeaves = built.leaves; this.statsNodes = built.nodes; this.statsFallbacks = built.splitFallbacks;
+            var zagig = zagia(this.positions, this.indices, {
+                maxLeafTris: zagie.maxLeafTris,
+                maxDepth: zagie.maxDepth,
+                spatialSplits: zagie.spatialSplits
+            });
+            this.nodeBounds = zagig.nodeBounds;
+            this.nodeLeft = zagig.nodeLeft;
+            this.nodeRight = zagig.nodeRight;
+            this.nodeStart = zagig.nodeStart;
+            this.nodeCountArr = zagig.nodeCount;
+            this.triRefs = zagig.triRefs;
+            this.statsSpatialSplits = zagig.spatialSplits;
+            this.statsMaxDepth = zagig.maxDepth;
+            this.statsLeaves = zagig.leaves;
+            this.statsNodes = zagig.nodes;
+            this.statsFallbacks = zagig.splitFallbacks;
         }
-        this.buildMs = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - t0;
-        this.bounds = { min: new Vector3(this.nodeBounds[0], this.nodeBounds[1], this.nodeBounds[2]), max: new Vector3(this.nodeBounds[3], this.nodeBounds[4], this.nodeBounds[5]) };
+        this.buildMs = (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) - zagif;
+        this.bounds = {
+            min: new Vector3(this.nodeBounds[0], this.nodeBounds[1], this.nodeBounds[2]),
+            max: new Vector3(this.nodeBounds[3], this.nodeBounds[4], this.nodeBounds[5])
+        };
         this.disposed = false;
     }
-    static _prepare(data, options) {
-        options = options || {};
-        var maxLeafTris = faoxomvalue(options.maxLeafTris, 8);
-        if (typeof maxLeafTris !== "number" || !isFinite(maxLeafTris) || Math.floor(maxLeafTris) !== maxLeafTris || maxLeafTris < 1) throw new Error("BVH maxLeafTris must be an integer of at least 1");
-        var maxDepth = faoxomvalue(options.maxDepth, 32);
-        if (typeof maxDepth !== "number" || !isFinite(maxDepth) || Math.floor(maxDepth) !== maxDepth || maxDepth < 1) throw new Error("BVH maxDepth must be an integer of at least 1");
-        var spatialSplits = faoxomvalue(options.spatialSplits, true);
-        if (typeof spatialSplits !== "boolean") throw new Error("BVH spatialSplits must be a boolean");
-        if (options.worker !== undefined && typeof options.worker !== "boolean") throw new Error("BVH worker must be a boolean");
-        var positions = null, indices = null, uv = null;
-        if (data && data.attributes && data.attributes.position) {
-            if (!data.attributes.position.array || !data.attributes.position.array.length) throw new Error("BVH requires a non-empty position attribute");
-            positions = data.attributes.position.array;
-            indices = data.index || null;
-            if (data.attributes.uv && data.attributes.uv.array) uv = { array: data.attributes.uv.array, itemSize: data.attributes.uv.itemSize || 2 };
-        } else if (data && (data.positions || data.vertices)) {
-            positions = data.positions || data.vertices;
-            indices = data.indices || data.index || null;
-            if (data.uv && data.uv.array) uv = { array: data.uv.array, itemSize: data.uv.itemSize || 2 };
+    static _prepare(zagia, zagib) {
+        zagib = zagib || {};
+        var zagic = faoxomvalue(zagib.maxLeafTris, 8);
+        if (typeof zagic !== "number" || !isFinite(zagic) || Math.floor(zagic) !== zagic || zagic < 1) throw new Error("BVH maxLeafTris must be an integer of at least 1");
+        var zagid = faoxomvalue(zagib.maxDepth, 32);
+        if (typeof zagid !== "number" || !isFinite(zagid) || Math.floor(zagid) !== zagid || zagid < 1) throw new Error("BVH maxDepth must be an integer of at least 1");
+        var zagie = faoxomvalue(zagib.spatialSplits, true);
+        if (typeof zagie !== "boolean") throw new Error("BVH spatialSplits must be a boolean");
+        if (zagib.worker !== undefined && typeof zagib.worker !== "boolean") throw new Error("BVH worker must be a boolean");
+        var zagif = null, zagig = null, zagih = null;
+        if (zagia && zagia.attributes && zagia.attributes.position) {
+            if (!zagia.attributes.position.array || !zagia.attributes.position.array.length) throw new Error("BVH requires a non-empty position attribute");
+            zagif = zagia.attributes.position.array;
+            zagig = zagia.index || null;
+            if (zagia.attributes.uv && zagia.attributes.uv.array) zagih = {
+                array: zagia.attributes.uv.array,
+                itemSize: zagia.attributes.uv.itemSize || 2
+            };
+        } else if (zagia && (zagia.positions || zagia.vertices)) {
+            zagif = zagia.positions || zagia.vertices;
+            zagig = zagia.indices || zagia.index || null;
+            if (zagia.uv && zagia.uv.array) zagih = {
+                array: zagia.uv.array,
+                itemSize: zagia.uv.itemSize || 2
+            };
         } else throw new Error("BVH requires a geometry or a {positions, indices} data object");
-        if (!positions || !positions.length) throw new Error("BVH requires a non-empty positions array");
-        if (positions.length % 3 !== 0) throw new Error("BVH positions length must be a multiple of 3");
-        for (var f = 0; f < positions.length; f++) if (typeof positions[f] !== "number" || !isFinite(positions[f])) throw new Error("BVH positions must contain finite numbers");
-        var triangleCount = indices ? indices.length / 3 : positions.length / 9;
-        if (!triangleCount || Math.floor(triangleCount) !== triangleCount) throw new Error("BVH requires at least one triangle");
-        var normalized = null;
-        if (indices) {
-            if (indices.length % 3 !== 0) throw new Error("BVH index length must be a multiple of 3");
-            for (var v = 0; v < indices.length; v++) { var iv = indices[v]; if (typeof iv !== "number" || Math.floor(iv) !== iv || iv < 0 || iv * 3 + 2 >= positions.length) throw new Error("BVH index out of range"); }
-            normalized = indices instanceof Uint32Array ? indices : new Uint32Array(indices);
+        if (!zagif || !zagif.length) throw new Error("BVH requires a non-empty positions array");
+        if (zagif.length % 3 !== 0) throw new Error("BVH positions length must be a multiple of 3");
+        for (var zagii = 0; zagii < zagif.length; zagii++) if (typeof zagif[zagii] !== "number" || !isFinite(zagif[zagii])) throw new Error("BVH positions must contain finite numbers");
+        var zagij = zagig ? zagig.length / 3 : zagif.length / 9;
+        if (!zagij || Math.floor(zagij) !== zagij) throw new Error("BVH requires at least one triangle");
+        var zagik = null;
+        if (zagig) {
+            if (zagig.length % 3 !== 0) throw new Error("BVH index length must be a multiple of 3");
+            for (var zagil = 0; zagil < zagig.length; zagil++) {
+                var zagim = zagig[zagil];
+                if (typeof zagim !== "number" || Math.floor(zagim) !== zagim || zagim < 0 || zagim * 3 + 2 >= zagif.length) throw new Error("BVH index out of range");
+            }
+            zagik = zagig instanceof Uint32Array ? zagig : new Uint32Array(zagig);
         }
-        return { positions: positions, indices: normalized, uv: uv, triangleCount: triangleCount, maxLeafTris: maxLeafTris, maxDepth: maxDepth, spatialSplits: spatialSplits };
+        return {
+            positions: zagif,
+            indices: zagik,
+            uv: zagih,
+            triangleCount: zagij,
+            maxLeafTris: zagic,
+            maxDepth: zagid,
+            spatialSplits: zagie
+        };
     }
     stats() {
-        return { nodes: this.statsNodes, leaves: this.statsLeaves, maxDepth: this.statsMaxDepth, refs: this.triRefs.length, triangles: this.triangleCount, spatialSplits: this.statsSpatialSplits, splitFallbacks: this.statsFallbacks, buildMs: this.buildMs };
+        return {
+            nodes: this.statsNodes,
+            leaves: this.statsLeaves,
+            maxDepth: this.statsMaxDepth,
+            refs: this.triRefs.length,
+            triangles: this.triangleCount,
+            spatialSplits: this.statsSpatialSplits,
+            splitFallbacks: this.statsFallbacks,
+            buildMs: this.buildMs
+        };
     }
-    triangleIndices(t) {
-        if (typeof t !== "number" || Math.floor(t) !== t || t < 0 || t >= this.triangleCount) throw new Error("BVH triangle index out of range");
-        return this.indices ? [this.indices[t * 3], this.indices[t * 3 + 1], this.indices[t * 3 + 2]] : [t * 3, t * 3 + 1, t * 3 + 2];
+    triangleIndices(zagia) {
+        if (typeof zagia !== "number" || Math.floor(zagia) !== zagia || zagia < 0 || zagia >= this.triangleCount) throw new Error("BVH triangle index out of range");
+        return this.indices ? [ this.indices[zagia * 3], this.indices[zagia * 3 + 1], this.indices[zagia * 3 + 2] ] : [ zagia * 3, zagia * 3 + 1, zagia * 3 + 2 ];
     }
-    _vertex(v, out) { out.x = this.positions[v * 3]; out.y = this.positions[v * 3 + 1]; out.z = this.positions[v * 3 + 2]; return out; }
-    _triangle(t, a, b, c) {
-        var i0 = this.indices ? this.indices[t * 3] : t * 3, i1 = this.indices ? this.indices[t * 3 + 1] : t * 3 + 1, i2 = this.indices ? this.indices[t * 3 + 2] : t * 3 + 2;
-        this._vertex(i0, a); this._vertex(i1, b); this._vertex(i2, c);
-        return [i0, i1, i2];
+    _vertex(zagia, zagib) {
+        zagib.x = this.positions[zagia * 3];
+        zagib.y = this.positions[zagia * 3 + 1];
+        zagib.z = this.positions[zagia * 3 + 2];
+        return zagib;
     }
-    _slab(id, ox, oy, oz, dx, dy, dz) {
-        var b0 = this.nodeBounds[id * 6], b1 = this.nodeBounds[id * 6 + 1], b2 = this.nodeBounds[id * 6 + 2], b3 = this.nodeBounds[id * 6 + 3], b4 = this.nodeBounds[id * 6 + 4], b5 = this.nodeBounds[id * 6 + 5];
-        var tmin = -Infinity, tmax = Infinity;
-        if (dx > 0) { var ta = (b0 - ox) / dx, tb = (b3 - ox) / dx; if (ta > tmin) tmin = ta; if (tb < tmax) tmax = tb; }
-        else if (dx < 0) { var ta2 = (b3 - ox) / dx, tb2 = (b0 - ox) / dx; if (ta2 > tmin) tmin = ta2; if (tb2 < tmax) tmax = tb2; }
-        else if (ox < b0 || ox > b3) return null;
-        if (dy > 0) { var tc = (b1 - oy) / dy, td = (b4 - oy) / dy; if (tc > tmin) tmin = tc; if (td < tmax) tmax = td; }
-        else if (dy < 0) { var tc2 = (b4 - oy) / dy, td2 = (b1 - oy) / dy; if (tc2 > tmin) tmin = tc2; if (td2 < tmax) tmax = td2; }
-        else if (oy < b1 || oy > b4) return null;
-        if (dz > 0) { var te = (b2 - oz) / dz, tf = (b5 - oz) / dz; if (te > tmin) tmin = te; if (tf < tmax) tmax = tf; }
-        else if (dz < 0) { var te2 = (b5 - oz) / dz, tf2 = (b2 - oz) / dz; if (te2 > tmin) tmin = te2; if (tf2 < tmax) tmax = tf2; }
-        else if (oz < b2 || oz > b5) return null;
-        if (tmin > tmax || tmax < 0) return null;
-        return tmin < 0 ? 0 : tmin;
+    _triangle(zagia, zagib, zagic, zagid) {
+        var zagie = this.indices ? this.indices[zagia * 3] : zagia * 3, zagif = this.indices ? this.indices[zagia * 3 + 1] : zagia * 3 + 1, zagig = this.indices ? this.indices[zagia * 3 + 2] : zagia * 3 + 2;
+        this._vertex(zagie, zagib);
+        this._vertex(zagif, zagic);
+        this._vertex(zagig, zagid);
+        return [ zagie, zagif, zagig ];
     }
-    _intersectTriangle(ox, oy, oz, dx, dy, dz, ax, ay, az, bx, by, bz, cx, cy, cz, culling) {
-        var e1x = bx - ax, e1y = by - ay, e1z = bz - az, e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
-        var px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x;
-        var det = e1x * px + e1y * py + e1z * pz;
-        var epsilon = 1e-10;
-        if (culling ? det <= epsilon : (det <= epsilon && det >= -epsilon)) return null;
-        var inv = 1 / det;
-        var tx = ox - ax, ty = oy - ay, tz = oz - az;
-        var u = (tx * px + ty * py + tz * pz) * inv;
-        if (u < 0 || u > 1) return null;
-        var qx = ty * e1z - tz * e1y, qy = tz * e1x - tx * e1z, qz = tx * e1y - ty * e1x;
-        var v = (dx * qx + dy * qy + dz * qz) * inv;
-        if (v < 0 || u + v > 1) return null;
-        var t = (e2x * qx + e2y * qy + e2z * qz) * inv;
-        if (t < 0 || !isFinite(t)) return null;
-        return [t, u, v];
+    _slab(zagia, zagib, zagic, zagid, zagie, zagif, zagig) {
+        var zagih = this.nodeBounds[zagia * 6], zagii = this.nodeBounds[zagia * 6 + 1], zagij = this.nodeBounds[zagia * 6 + 2], zagik = this.nodeBounds[zagia * 6 + 3], zagil = this.nodeBounds[zagia * 6 + 4], zagim = this.nodeBounds[zagia * 6 + 5];
+        var zagin = -Infinity, zagio = Infinity;
+        if (zagie > 0) {
+            var zagip = (zagih - zagib) / zagie, zagiq = (zagik - zagib) / zagie;
+            if (zagip > zagin) zagin = zagip;
+            if (zagiq < zagio) zagio = zagiq;
+        } else if (zagie < 0) {
+            var zagir = (zagik - zagib) / zagie, zagis = (zagih - zagib) / zagie;
+            if (zagir > zagin) zagin = zagir;
+            if (zagis < zagio) zagio = zagis;
+        } else if (zagib < zagih || zagib > zagik) return null;
+        if (zagif > 0) {
+            var zagit = (zagii - zagic) / zagif, zagiu = (zagil - zagic) / zagif;
+            if (zagit > zagin) zagin = zagit;
+            if (zagiu < zagio) zagio = zagiu;
+        } else if (zagif < 0) {
+            var zagiv = (zagil - zagic) / zagif, zagiw = (zagii - zagic) / zagif;
+            if (zagiv > zagin) zagin = zagiv;
+            if (zagiw < zagio) zagio = zagiw;
+        } else if (zagic < zagii || zagic > zagil) return null;
+        if (zagig > 0) {
+            var zagix = (zagij - zagid) / zagig, zagiy = (zagim - zagid) / zagig;
+            if (zagix > zagin) zagin = zagix;
+            if (zagiy < zagio) zagio = zagiy;
+        } else if (zagig < 0) {
+            var zagiz = (zagim - zagid) / zagig, zagiaa = (zagij - zagid) / zagig;
+            if (zagiz > zagin) zagin = zagiz;
+            if (zagiaa < zagio) zagio = zagiaa;
+        } else if (zagid < zagij || zagid > zagim) return null;
+        if (zagin > zagio || zagio < 0) return null;
+        return zagin < 0 ? 0 : zagin;
     }
-    _makeHit(t, u, v, tri, i0, i1, i2, ax, ay, az, bx, by, bz, cx, cy, cz, ox, oy, oz, dx, dy, dz) {
-        var nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-        var nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-        nx /= nl; ny /= nl; nz /= nl;
-        var hit = { distance: t, point: new Vector3(ox + t * dx, oy + t * dy, oz + t * dz), faceIndex: tri, indices: [i0, i1, i2], normal: new Vector3(nx, ny, nz) };
+    _intersectTriangle(zagia, zagib, zagic, zagid, zagie, zagif, zagig, zagih, zagii, zagij, zagik, zagil, zagim, zagin, zagio, zagip) {
+        var zagiq = zagij - zagig, zagir = zagik - zagih, zagis = zagil - zagii, zagit = zagim - zagig, zagiu = zagin - zagih, zagiv = zagio - zagii;
+        var zagiw = zagie * zagiv - zagif * zagiu, zagix = zagif * zagit - zagid * zagiv, zagiy = zagid * zagiu - zagie * zagit;
+        var zagiz = zagiq * zagiw + zagir * zagix + zagis * zagiy;
+        var zagiaa = 1e-10;
+        if (zagip ? zagiz <= zagiaa : zagiz <= zagiaa && zagiz >= -zagiaa) return null;
+        var zagiab = 1 / zagiz;
+        var zagiac = zagia - zagig, zagiad = zagib - zagih, zagiae = zagic - zagii;
+        var zagiaf = (zagiac * zagiw + zagiad * zagix + zagiae * zagiy) * zagiab;
+        if (zagiaf < 0 || zagiaf > 1) return null;
+        var zagiag = zagiad * zagis - zagiae * zagir, zagiah = zagiae * zagiq - zagiac * zagis, zagiai = zagiac * zagir - zagiad * zagiq;
+        var zagiaj = (zagid * zagiag + zagie * zagiah + zagif * zagiai) * zagiab;
+        if (zagiaj < 0 || zagiaf + zagiaj > 1) return null;
+        var zagiak = (zagit * zagiag + zagiu * zagiah + zagiv * zagiai) * zagiab;
+        if (zagiak < 0 || !isFinite(zagiak)) return null;
+        return [ zagiak, zagiaf, zagiaj ];
+    }
+    _makeHit(zagia, zagib, zagic, zagid, zagie, zagif, zagig, zagih, zagii, zagij, zagik, zagil, zagim, zagin, zagio, zagip, zagiq, zagir, zagis, zagit, zagiu, zagiv) {
+        var zagiw = (zagil - zagii) * (zagip - zagij) - (zagim - zagij) * (zagio - zagii), zagix = (zagim - zagij) * (zagin - zagih) - (zagik - zagih) * (zagip - zagij), zagiy = (zagik - zagih) * (zagio - zagii) - (zagil - zagii) * (zagin - zagih);
+        var zagiz = Math.sqrt(zagiw * zagiw + zagix * zagix + zagiy * zagiy) || 1;
+        zagiw /= zagiz;
+        zagix /= zagiz;
+        zagiy /= zagiz;
+        var zagiaa = {
+            distance: zagia,
+            point: new Vector3(zagiq + zagia * zagit, zagir + zagia * zagiu, zagis + zagia * zagiv),
+            faceIndex: zagid,
+            indices: [ zagie, zagif, zagig ],
+            normal: new Vector3(zagiw, zagix, zagiy)
+        };
         if (this.uv) {
-            var w0 = 1 - u - v, arr = this.uv.array, is = this.uv.itemSize;
-            hit.uv = new Vector2(arr[i0 * is] * w0 + arr[i1 * is] * u + arr[i2 * is] * v, arr[i0 * is + 1] * w0 + arr[i1 * is + 1] * u + arr[i2 * is + 1] * v);
-        } else hit.uv = null;
-        return hit;
+            var zagiab = 1 - zagib - zagic, zagiac = this.uv.array, zagiad = this.uv.itemSize;
+            zagiaa.uv = new Vector2(zagiac[zagie * zagiad] * zagiab + zagiac[zagif * zagiad] * zagib + zagiac[zagig * zagiad] * zagic, zagiac[zagie * zagiad + 1] * zagiab + zagiac[zagif * zagiad + 1] * zagib + zagiac[zagig * zagiad + 1] * zagic);
+        } else zagiaa.uv = null;
+        return zagiaa;
     }
-    _normalizeDirection(direction) {
-        if (!direction) throw new Error("BVH query requires a direction vector");
-        var dx = direction.x !== undefined ? direction.x : direction[0], dy = direction.y !== undefined ? direction.y : direction[1], dz = direction.z !== undefined ? direction.z : direction[2];
-        var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (!len || !isFinite(len)) throw new Error("BVH query direction must be a non-zero finite vector");
-        return [dx / len, dy / len, dz / len];
+    _normalizeDirection(zagia) {
+        if (!zagia) throw new Error("BVH query requires a direction vector");
+        var zagib = zagia.x !== undefined ? zagia.x : zagia[0], zagic = zagia.y !== undefined ? zagia.y : zagia[1], zagid = zagia.z !== undefined ? zagia.z : zagia[2];
+        var zagie = Math.sqrt(zagib * zagib + zagic * zagic + zagid * zagid);
+        if (!zagie || !isFinite(zagie)) throw new Error("BVH query direction must be a non-zero finite vector");
+        return [ zagib / zagie, zagic / zagie, zagid / zagie ];
     }
-    _validatePoint(p, name) {
-        var x = p.x !== undefined ? p.x : p[0], y = p.y !== undefined ? p.y : p[1], z = p.z !== undefined ? p.z : p[2];
-        if (typeof x !== "number" || !isFinite(x) || typeof y !== "number" || !isFinite(y) || typeof z !== "number" || !isFinite(z)) throw new Error("BVH " + name + " must be a finite vector");
-        return [x, y, z];
+    _validatePoint(zagia, zagib) {
+        var zagic = zagia.x !== undefined ? zagia.x : zagia[0], zagid = zagia.y !== undefined ? zagia.y : zagia[1], zagie = zagia.z !== undefined ? zagia.z : zagia[2];
+        if (typeof zagic !== "number" || !isFinite(zagic) || typeof zagid !== "number" || !isFinite(zagid) || typeof zagie !== "number" || !isFinite(zagie)) throw new Error("BVH " + zagib + " must be a finite vector");
+        return [ zagic, zagid, zagie ];
     }
-    raycastFirst(origin, direction, options) {
+    raycastFirst(zagia, zagib, zagic) {
         if (this.disposed) throw new Error("BVH is disposed");
-        var op = this._validatePoint(origin, "origin"), d = this._normalizeDirection(direction);
-        var ox = op[0], oy = op[1], oz = op[2], dx = d[0], dy = d[1], dz = d[2];
-        options = options || {};
-        var near = faoxomvalue(options.near, 0), far = faoxomvalue(options.far, Infinity);
-        var culling = faoxomvalue(options.backfaceCulling, false);
+        var zagid = this._validatePoint(zagia, "origin"), zagie = this._normalizeDirection(zagib);
+        var zagif = zagid[0], zagig = zagid[1], zagih = zagid[2], zagii = zagie[0], zagij = zagie[1], zagik = zagie[2];
+        zagic = zagic || {};
+        var zagil = faoxomvalue(zagic.near, 0), zagim = faoxomvalue(zagic.far, Infinity);
+        var zagin = faoxomvalue(zagic.backfaceCulling, false);
         this.lastQueryTriangleTests = 0;
-        var bestT = far, best = null;
-        var stack = [0];
-        var a = new Vector3(), b = new Vector3(), c = new Vector3();
-        while (stack.length) {
-            var id = stack.pop();
-            var entry = this._slab(id, ox, oy, oz, dx, dy, dz);
-            if (entry === null || entry > bestT) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
+        var zagio = zagim, zagip = null;
+        var zagiq = [ 0 ];
+        var zagir = new Vector3, zagis = new Vector3, zagit = new Vector3;
+        while (zagiq.length) {
+            var zagiu = zagiq.pop();
+            var zagiv = this._slab(zagiu, zagif, zagig, zagih, zagii, zagij, zagik);
+            if (zagiv === null || zagiv > zagio) continue;
+            var zagiw = this.nodeCountArr[zagiu];
+            if (zagiw > 0) {
+                var zagix = this.nodeStart[zagiu];
+                for (var zagiy = 0; zagiy < zagiw; zagiy++) {
+                    var zagiz = this.triRefs[zagix + zagiy];
                     this.lastQueryTriangleTests++;
-                    var idx = this._triangle(tri, a, b, c);
-                    var hit = this._intersectTriangle(ox, oy, oz, dx, dy, dz, a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, culling);
-                    if (!hit || hit[0] < near || hit[0] > bestT) continue;
-                    bestT = hit[0];
-                    best = this._makeHit(hit[0], hit[1], hit[2], tri, idx[0], idx[1], idx[2], a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ox, oy, oz, dx, dy, dz);
+                    var zagiaa = this._triangle(zagiz, zagir, zagis, zagit);
+                    var zagiab = this._intersectTriangle(zagif, zagig, zagih, zagii, zagij, zagik, zagir.x, zagir.y, zagir.z, zagis.x, zagis.y, zagis.z, zagit.x, zagit.y, zagit.z, zagin);
+                    if (!zagiab || zagiab[0] < zagil || zagiab[0] > zagio) continue;
+                    zagio = zagiab[0];
+                    zagip = this._makeHit(zagiab[0], zagiab[1], zagiab[2], zagiz, zagiaa[0], zagiaa[1], zagiaa[2], zagir.x, zagir.y, zagir.z, zagis.x, zagis.y, zagis.z, zagit.x, zagit.y, zagit.z, zagif, zagig, zagih, zagii, zagij, zagik);
                 }
             } else {
-                var left = this.nodeLeft[id], right = this.nodeRight[id];
-                var el = this._slab(left, ox, oy, oz, dx, dy, dz), er = this._slab(right, ox, oy, oz, dx, dy, dz);
-                if (el !== null && er !== null) { if (el <= er) { stack.push(right); stack.push(left); } else { stack.push(left); stack.push(right); } }
-                else if (el !== null) stack.push(left);
-                else if (er !== null) stack.push(right);
+                var zagiac = this.nodeLeft[zagiu], zagiad = this.nodeRight[zagiu];
+                var zagiae = this._slab(zagiac, zagif, zagig, zagih, zagii, zagij, zagik), zagiaf = this._slab(zagiad, zagif, zagig, zagih, zagii, zagij, zagik);
+                if (zagiae !== null && zagiaf !== null) {
+                    if (zagiae <= zagiaf) {
+                        zagiq.push(zagiad);
+                        zagiq.push(zagiac);
+                    } else {
+                        zagiq.push(zagiac);
+                        zagiq.push(zagiad);
+                    }
+                } else if (zagiae !== null) zagiq.push(zagiac); else if (zagiaf !== null) zagiq.push(zagiad);
             }
         }
-        return best;
+        return zagip;
     }
-    raycastAny(origin, direction, options) {
+    raycastAny(zagia, zagib, zagic) {
         if (this.disposed) throw new Error("BVH is disposed");
-        var op = this._validatePoint(origin, "origin"), d = this._normalizeDirection(direction);
-        var ox = op[0], oy = op[1], oz = op[2], dx = d[0], dy = d[1], dz = d[2];
-        options = options || {};
-        var near = faoxomvalue(options.near, 0), far = faoxomvalue(options.far, Infinity);
-        var culling = faoxomvalue(options.backfaceCulling, false);
+        var zagid = this._validatePoint(zagia, "origin"), zagie = this._normalizeDirection(zagib);
+        var zagif = zagid[0], zagig = zagid[1], zagih = zagid[2], zagii = zagie[0], zagij = zagie[1], zagik = zagie[2];
+        zagic = zagic || {};
+        var zagil = faoxomvalue(zagic.near, 0), zagim = faoxomvalue(zagic.far, Infinity);
+        var zagin = faoxomvalue(zagic.backfaceCulling, false);
         this.lastQueryTriangleTests = 0;
-        var stack = [0];
-        var a = new Vector3(), b = new Vector3(), c = new Vector3();
-        while (stack.length) {
-            var id = stack.pop();
-            var entry = this._slab(id, ox, oy, oz, dx, dy, dz);
-            if (entry === null || entry > far) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
+        var zagio = [ 0 ];
+        var zagip = new Vector3, zagiq = new Vector3, zagir = new Vector3;
+        while (zagio.length) {
+            var zagis = zagio.pop();
+            var zagit = this._slab(zagis, zagif, zagig, zagih, zagii, zagij, zagik);
+            if (zagit === null || zagit > zagim) continue;
+            var zagiu = this.nodeCountArr[zagis];
+            if (zagiu > 0) {
+                var zagiv = this.nodeStart[zagis];
+                for (var zagiw = 0; zagiw < zagiu; zagiw++) {
+                    var zagix = this.triRefs[zagiv + zagiw];
                     this.lastQueryTriangleTests++;
-                    var idx = this._triangle(tri, a, b, c);
-                    var hit = this._intersectTriangle(ox, oy, oz, dx, dy, dz, a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, culling);
-                    if (hit && hit[0] >= near && hit[0] <= far) return this._makeHit(hit[0], hit[1], hit[2], tri, idx[0], idx[1], idx[2], a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ox, oy, oz, dx, dy, dz);
+                    var zagiy = this._triangle(zagix, zagip, zagiq, zagir);
+                    var zagiz = this._intersectTriangle(zagif, zagig, zagih, zagii, zagij, zagik, zagip.x, zagip.y, zagip.z, zagiq.x, zagiq.y, zagiq.z, zagir.x, zagir.y, zagir.z, zagin);
+                    if (zagiz && zagiz[0] >= zagil && zagiz[0] <= zagim) return this._makeHit(zagiz[0], zagiz[1], zagiz[2], zagix, zagiy[0], zagiy[1], zagiy[2], zagip.x, zagip.y, zagip.z, zagiq.x, zagiq.y, zagiq.z, zagir.x, zagir.y, zagir.z, zagif, zagig, zagih, zagii, zagij, zagik);
                 }
             } else {
-                stack.push(this.nodeRight[id]);
-                stack.push(this.nodeLeft[id]);
+                zagio.push(this.nodeRight[zagis]);
+                zagio.push(this.nodeLeft[zagis]);
             }
         }
         return null;
     }
-    raycastAll(origin, direction, options) {
+    raycastAll(zagia, zagib, zagic) {
         if (this.disposed) throw new Error("BVH is disposed");
-        var op = this._validatePoint(origin, "origin"), d = this._normalizeDirection(direction);
-        var ox = op[0], oy = op[1], oz = op[2], dx = d[0], dy = d[1], dz = d[2];
-        options = options || {};
-        var near = faoxomvalue(options.near, 0), far = faoxomvalue(options.far, Infinity);
-        var culling = faoxomvalue(options.backfaceCulling, false);
+        var zagid = this._validatePoint(zagia, "origin"), zagie = this._normalizeDirection(zagib);
+        var zagif = zagid[0], zagig = zagid[1], zagih = zagid[2], zagii = zagie[0], zagij = zagie[1], zagik = zagie[2];
+        zagic = zagic || {};
+        var zagil = faoxomvalue(zagic.near, 0), zagim = faoxomvalue(zagic.far, Infinity);
+        var zagin = faoxomvalue(zagic.backfaceCulling, false);
         this.lastQueryTriangleTests = 0;
-        var hits = [];
-        var seen = this._stamp();
-        var stack = [0];
-        var a = new Vector3(), b = new Vector3(), c = new Vector3();
-        while (stack.length) {
-            var id = stack.pop();
-            var entry = this._slab(id, ox, oy, oz, dx, dy, dz);
-            if (entry === null || entry > far) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
-                    if (seen[tri] === this._stampId) continue;
-                    seen[tri] = this._stampId;
+        var zagio = [];
+        var zagip = this._stamp();
+        var zagiq = [ 0 ];
+        var zagir = new Vector3, zagis = new Vector3, zagit = new Vector3;
+        while (zagiq.length) {
+            var zagiu = zagiq.pop();
+            var zagiv = this._slab(zagiu, zagif, zagig, zagih, zagii, zagij, zagik);
+            if (zagiv === null || zagiv > zagim) continue;
+            var zagiw = this.nodeCountArr[zagiu];
+            if (zagiw > 0) {
+                var zagix = this.nodeStart[zagiu];
+                for (var zagiy = 0; zagiy < zagiw; zagiy++) {
+                    var zagiz = this.triRefs[zagix + zagiy];
+                    if (zagip[zagiz] === this._stampId) continue;
+                    zagip[zagiz] = this._stampId;
                     this.lastQueryTriangleTests++;
-                    var idx = this._triangle(tri, a, b, c);
-                    var hit = this._intersectTriangle(ox, oy, oz, dx, dy, dz, a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, culling);
-                    if (hit && hit[0] >= near && hit[0] <= far) hits.push(this._makeHit(hit[0], hit[1], hit[2], tri, idx[0], idx[1], idx[2], a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ox, oy, oz, dx, dy, dz));
+                    var zagiaa = this._triangle(zagiz, zagir, zagis, zagit);
+                    var zagiab = this._intersectTriangle(zagif, zagig, zagih, zagii, zagij, zagik, zagir.x, zagir.y, zagir.z, zagis.x, zagis.y, zagis.z, zagit.x, zagit.y, zagit.z, zagin);
+                    if (zagiab && zagiab[0] >= zagil && zagiab[0] <= zagim) zagio.push(this._makeHit(zagiab[0], zagiab[1], zagiab[2], zagiz, zagiaa[0], zagiaa[1], zagiaa[2], zagir.x, zagir.y, zagir.z, zagis.x, zagis.y, zagis.z, zagit.x, zagit.y, zagit.z, zagif, zagig, zagih, zagii, zagij, zagik));
                 }
             } else {
-                stack.push(this.nodeRight[id]);
-                stack.push(this.nodeLeft[id]);
+                zagiq.push(this.nodeRight[zagiu]);
+                zagiq.push(this.nodeLeft[zagiu]);
             }
         }
-        hits.sort(function (p, r2) { return p.distance - r2.distance; });
-        return hits;
+        zagio.sort(function(zagia, zagib) {
+            return zagia.distance - zagib.distance;
+        });
+        return zagio;
     }
     _stamp() {
         if (!this._stampArray || this._stampArray.length < this.triangleCount) this._stampArray = new Uint32Array(this.triangleCount);
         this._stampId = (this._stampId || 0) + 1;
         return this._stampArray;
     }
-    sphereCast(origin, radius, direction, maxDistance) {
+    sphereCast(zagia, zagib, zagic, zagid) {
         if (this.disposed) throw new Error("BVH is disposed");
-        if (typeof radius !== "number" || !isFinite(radius) || radius < 0) throw new Error("BVH sphereCast radius must be a non-negative finite number");
-        if (typeof maxDistance !== "number" || !isFinite(maxDistance) || maxDistance < 0) throw new Error("BVH sphereCast maxDistance must be a non-negative finite number");
-        var op = this._validatePoint(origin, "origin"), d = this._normalizeDirection(direction);
-        var ox = op[0], oy = op[1], oz = op[2], dx = d[0], dy = d[1], dz = d[2];
+        if (typeof zagib !== "number" || !isFinite(zagib) || zagib < 0) throw new Error("BVH sphereCast radius must be a non-negative finite number");
+        if (typeof zagid !== "number" || !isFinite(zagid) || zagid < 0) throw new Error("BVH sphereCast maxDistance must be a non-negative finite number");
+        var zagie = this._validatePoint(zagia, "origin"), zagif = this._normalizeDirection(zagic);
+        var zagig = zagie[0], zagih = zagie[1], zagii = zagie[2], zagij = zagif[0], zagik = zagif[1], zagil = zagif[2];
         this.lastQueryTriangleTests = 0;
-        var best = null, bestT = maxDistance;
-        var stack = [0];
-        var a = new Vector3(), b = new Vector3(), c = new Vector3();
-        while (stack.length) {
-            var id = stack.pop();
-            var entry = this._slabInflated(id, ox, oy, oz, dx, dy, dz, radius);
-            if (entry === null || entry > bestT) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
+        var zagim = null, zagin = zagid;
+        var zagio = [ 0 ];
+        var zagip = new Vector3, zagiq = new Vector3, zagir = new Vector3;
+        while (zagio.length) {
+            var zagis = zagio.pop();
+            var zagit = this._slabInflated(zagis, zagig, zagih, zagii, zagij, zagik, zagil, zagib);
+            if (zagit === null || zagit > zagin) continue;
+            var zagiu = this.nodeCountArr[zagis];
+            if (zagiu > 0) {
+                var zagiv = this.nodeStart[zagis];
+                for (var zagiw = 0; zagiw < zagiu; zagiw++) {
+                    var zagix = this.triRefs[zagiv + zagiw];
                     this.lastQueryTriangleTests++;
-                    var res = this._sphereCastTriangle(ox, oy, oz, dx, dy, dz, bestT, radius, tri, a, b, c);
-                    if (res && res[0] < bestT) { bestT = res[0]; best = res; }
+                    var zagiy = this._sphereCastTriangle(zagig, zagih, zagii, zagij, zagik, zagil, zagin, zagib, zagix, zagip, zagiq, zagir);
+                    if (zagiy && zagiy[0] < zagin) {
+                        zagin = zagiy[0];
+                        zagim = zagiy;
+                    }
                 }
-            } else { stack.push(this.nodeRight[id]); stack.push(this.nodeLeft[id]); }
+            } else {
+                zagio.push(this.nodeRight[zagis]);
+                zagio.push(this.nodeLeft[zagis]);
+            }
         }
-        if (!best) return null;
-        return { time: best[0], point: new Vector3(best[1], best[2], best[3]), normal: new Vector3(best[4], best[5], best[6]) };
+        if (!zagim) return null;
+        return {
+            time: zagim[0],
+            point: new Vector3(zagim[1], zagim[2], zagim[3]),
+            normal: new Vector3(zagim[4], zagim[5], zagim[6])
+        };
     }
-    _slabInflated(id, ox, oy, oz, dx, dy, dz, r) {
-        var b0 = this.nodeBounds[id * 6] - r, b1 = this.nodeBounds[id * 6 + 1] - r, b2 = this.nodeBounds[id * 6 + 2] - r, b3 = this.nodeBounds[id * 6 + 3] + r, b4 = this.nodeBounds[id * 6 + 4] + r, b5 = this.nodeBounds[id * 6 + 5] + r;
-        var tmin = -Infinity, tmax = Infinity;
-        if (dx > 0) { var ta = (b0 - ox) / dx, tb = (b3 - ox) / dx; if (ta > tmin) tmin = ta; if (tb < tmax) tmax = tb; }
-        else if (dx < 0) { var ta2 = (b3 - ox) / dx, tb2 = (b0 - ox) / dx; if (ta2 > tmin) tmin = ta2; if (tb2 < tmax) tmax = tb2; }
-        else if (ox < b0 - 1e-9 || ox > b3 + 1e-9) return null;
-        if (dy > 0) { var tc = (b1 - oy) / dy, td = (b4 - oy) / dy; if (tc > tmin) tmin = tc; if (td < tmax) tmax = td; }
-        else if (dy < 0) { var tc2 = (b4 - oy) / dy, td2 = (b1 - oy) / dy; if (tc2 > tmin) tmin = tc2; if (td2 < tmax) tmax = td2; }
-        else if (oy < b1 - 1e-9 || oy > b4 + 1e-9) return null;
-        if (dz > 0) { var te = (b2 - oz) / dz, tf = (b5 - oz) / dz; if (te > tmin) tmin = te; if (tf < tmax) tmax = tf; }
-        else if (dz < 0) { var te2 = (b5 - oz) / dz, tf2 = (b2 - oz) / dz; if (te2 > tmin) tmin = te2; if (tf2 < tmax) tmax = tf2; }
-        else if (oz < b2 - 1e-9 || oz > b5 + 1e-9) return null;
-        if (tmin > tmax || tmax < 0) return null;
-        return tmin < 0 ? 0 : tmin;
+    _slabInflated(zagia, zagib, zagic, zagid, zagie, zagif, zagig, zagih) {
+        var zagii = this.nodeBounds[zagia * 6] - zagih, zagij = this.nodeBounds[zagia * 6 + 1] - zagih, zagik = this.nodeBounds[zagia * 6 + 2] - zagih, zagil = this.nodeBounds[zagia * 6 + 3] + zagih, zagim = this.nodeBounds[zagia * 6 + 4] + zagih, zagin = this.nodeBounds[zagia * 6 + 5] + zagih;
+        var zagio = -Infinity, zagip = Infinity;
+        if (zagie > 0) {
+            var zagiq = (zagii - zagib) / zagie, zagir = (zagil - zagib) / zagie;
+            if (zagiq > zagio) zagio = zagiq;
+            if (zagir < zagip) zagip = zagir;
+        } else if (zagie < 0) {
+            var zagis = (zagil - zagib) / zagie, zagit = (zagii - zagib) / zagie;
+            if (zagis > zagio) zagio = zagis;
+            if (zagit < zagip) zagip = zagit;
+        } else if (zagib < zagii - 1e-9 || zagib > zagil + 1e-9) return null;
+        if (zagif > 0) {
+            var zagiu = (zagij - zagic) / zagif, zagiv = (zagim - zagic) / zagif;
+            if (zagiu > zagio) zagio = zagiu;
+            if (zagiv < zagip) zagip = zagiv;
+        } else if (zagif < 0) {
+            var zagiw = (zagim - zagic) / zagif, zagix = (zagij - zagic) / zagif;
+            if (zagiw > zagio) zagio = zagiw;
+            if (zagix < zagip) zagip = zagix;
+        } else if (zagic < zagij - 1e-9 || zagic > zagim + 1e-9) return null;
+        if (zagig > 0) {
+            var zagiy = (zagik - zagid) / zagig, zagiz = (zagin - zagid) / zagig;
+            if (zagiy > zagio) zagio = zagiy;
+            if (zagiz < zagip) zagip = zagiz;
+        } else if (zagig < 0) {
+            var zagiaa = (zagin - zagid) / zagig, zagiab = (zagik - zagid) / zagig;
+            if (zagiaa > zagio) zagio = zagiaa;
+            if (zagiab < zagip) zagip = zagiab;
+        } else if (zagid < zagik - 1e-9 || zagid > zagin + 1e-9) return null;
+        if (zagio > zagip || zagip < 0) return null;
+        return zagio < 0 ? 0 : zagio;
     }
-    _sphereCastTriangle(ox, oy, oz, dx, dy, dz, maxT, r, tri, a, b, c) {
-        var idx = this._triangle(tri, a, b, c);
-        var ax = a.x, ay = a.y, az = a.z, bx = b.x, by = b.y, bz = b.z, cx = c.x, cy = c.y, cz = c.z;
-        var bestT = Infinity, bestN = null;
-        var nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-        var nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-        if (nl > 1e-12) {
-            nx /= nl; ny /= nl; nz /= nl;
-            var height = (ox - ax) * nx + (oy - ay) * ny + (oz - az) * nz;
-            var px0 = ox - height * nx, py0 = oy - height * ny, pz0 = oz - height * nz;
-            if (Math.abs(height) <= r + 1e-9 && pointInTriangle(px0, py0, pz0, ax, ay, az, bx, by, bz, cx, cy, cz)) { var hs = height >= 0 ? 1 : -1; return [0, px0, py0, pz0, hs * nx, hs * ny, hs * nz]; }
-            var dn = dx * nx + dy * ny + dz * nz;
-            if (Math.abs(dn) > 1e-12) {
-                var base = (ax - ox) * nx + (ay - oy) * ny + (az - oz) * nz;
-                for (var sign = -1; sign <= 1; sign += 2) {
-                    var t = (base + sign * r) / dn;
-                    if (t >= 0 && t <= maxT && t < bestT) {
-                        var qx = ox + t * dx - sign * r * nx, qy = oy + t * dy - sign * r * ny, qz = oz + t * dz - sign * r * nz;
-                        if (pointInTriangle(qx, qy, qz, ax, ay, az, bx, by, bz, cx, cy, cz)) { bestT = t; bestN = [sign * nx, sign * ny, sign * nz]; }
+    _sphereCastTriangle(zagia, zagic, zagid, zagie, zagif, zagig, zagih, zagii, zagij, zagik, zagil, zagim) {
+        var zagin = this._triangle(zagij, zagik, zagil, zagim);
+        var zagio = zagik.x, zagip = zagik.y, zagiq = zagik.z, zagir = zagil.x, zagis = zagil.y, zagit = zagil.z, zagiu = zagim.x, zagiv = zagim.y, zagiw = zagim.z;
+        var zagix = Infinity, zagiy = null;
+        var zagiz = (zagis - zagip) * (zagiw - zagiq) - (zagit - zagiq) * (zagiv - zagip), zagiaa = (zagit - zagiq) * (zagiu - zagio) - (zagir - zagio) * (zagiw - zagiq), zagiab = (zagir - zagio) * (zagiv - zagip) - (zagis - zagip) * (zagiu - zagio);
+        var zagiac = Math.sqrt(zagiz * zagiz + zagiaa * zagiaa + zagiab * zagiab);
+        if (zagiac > 1e-12) {
+            zagiz /= zagiac;
+            zagiaa /= zagiac;
+            zagiab /= zagiac;
+            var zagiad = (zagia - zagio) * zagiz + (zagic - zagip) * zagiaa + (zagid - zagiq) * zagiab;
+            var zagiae = zagia - zagiad * zagiz, zagiaf = zagic - zagiad * zagiaa, zagiag = zagid - zagiad * zagiab;
+            if (Math.abs(zagiad) <= zagii + 1e-9 && zagib(zagiae, zagiaf, zagiag, zagio, zagip, zagiq, zagir, zagis, zagit, zagiu, zagiv, zagiw)) {
+                var zagiah = zagiad >= 0 ? 1 : -1;
+                return [ 0, zagiae, zagiaf, zagiag, zagiah * zagiz, zagiah * zagiaa, zagiah * zagiab ];
+            }
+            var zagiai = zagie * zagiz + zagif * zagiaa + zagig * zagiab;
+            if (Math.abs(zagiai) > 1e-12) {
+                var zagiaj = (zagio - zagia) * zagiz + (zagip - zagic) * zagiaa + (zagiq - zagid) * zagiab;
+                for (var zagiak = -1; zagiak <= 1; zagiak += 2) {
+                    var zagial = (zagiaj + zagiak * zagii) / zagiai;
+                    if (zagial >= 0 && zagial <= zagih && zagial < zagix) {
+                        var zagiam = zagia + zagial * zagie - zagiak * zagii * zagiz, zagian = zagic + zagial * zagif - zagiak * zagii * zagiaa, zagiao = zagid + zagial * zagig - zagiak * zagii * zagiab;
+                        if (zagib(zagiam, zagian, zagiao, zagio, zagip, zagiq, zagir, zagis, zagit, zagiu, zagiv, zagiw)) {
+                            zagix = zagial;
+                            zagiy = [ zagiak * zagiz, zagiak * zagiaa, zagiak * zagiab ];
+                        }
                     }
                 }
             }
         }
-        var edges = [[ax, ay, az, bx, by, bz], [bx, by, bz, cx, cy, cz], [cx, cy, cz, ax, ay, az]];
-        for (var e = 0; e < 3; e++) {
-            var p0x = edges[e][0], p0y = edges[e][1], p0z = edges[e][2], ux = edges[e][3] - p0x, uy = edges[e][4] - p0y, uz = edges[e][5] - p0z;
-            var el = Math.sqrt(ux * ux + uy * uy + uz * uz);
-            if (el <= 1e-12) continue;
-            ux /= el; uy /= el; uz /= el;
-            var wx = ox - p0x, wy = oy - p0y, wz = oz - p0z;
-            var wu = wx * ux + wy * uy + wz * uz, du = dx * ux + dy * uy + dz * uz;
-            var cand = [];
-            var A = 1 - du * du;
-            if (A > 1e-12) {
-                var B = 2 * ((wx * dx + wy * dy + wz * dz) - wu * du);
-                var C = (wx * wx + wy * wy + wz * wz) - wu * wu - r * r;
-                var disc = B * B - 4 * A * C;
-                if (disc >= 0) { var sq = Math.sqrt(disc); cand.push((-B - sq) / (2 * A)); cand.push((-B + sq) / (2 * A)); }
-            } else {
-                if (du > 1e-12) cand.push((0 - wu) / du);
-                else if (du < -1e-12) cand.push((el - wu) / du);
-                cand.push(0);
-            }
-            for (var ci = 0; ci < cand.length; ci++) {
-                var t2 = cand[ci];
-                if (t2 < 0 || t2 > maxT || t2 >= bestT) continue;
-                var hx = ox + t2 * dx - p0x, hy = oy + t2 * dy - p0y, hz = oz + t2 * dz - p0z;
-                var s = hx * ux + hy * uy + hz * uz;
-                var lateralSq = (hx * hx + hy * hy + hz * hz) - s * s;
-                if (s < -1e-9 || s > el + 1e-9 || lateralSq > r * r + 1e-9) continue;
-                var qx2 = p0x + s * ux, qy2 = p0y + s * uy, qz2 = p0z + s * uz;
-                var ddx = ox + t2 * dx - qx2, ddy = oy + t2 * dy - qy2, ddz = oz + t2 * dz - qz2;
-                var dl = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
-                if (dl > 1e-12) { bestT = t2; bestN = [ddx / dl, ddy / dl, ddz / dl]; }
-                else if (t2 === 0) { bestT = 0; bestN = [ux, uy, uz]; }
-            }
-        }
-        var verts = [[ax, ay, az], [bx, by, bz], [cx, cy, cz]];
-        for (var v = 0; v < 3; v++) {
-            var vx = verts[v][0] - ox, vy = verts[v][1] - oy, vz = verts[v][2] - oz;
-            var b2 = vx * dx + vy * dy + vz * dz;
-            var c2 = vx * vx + vy * vy + vz * vz - r * r;
-            if (c2 <= 1e-9) { var d0 = Math.sqrt(vx * vx + vy * vy + vz * vz); if (d0 > 1e-12 && bestT > 0) { bestT = 0; bestN = [-vx / d0, -vy / d0, -vz / d0]; } continue; }
-            var disc2 = b2 * b2 - c2;
-            if (disc2 < 0) continue;
-            var t3 = b2 - Math.sqrt(disc2);
-            if (t3 >= 0 && t3 <= maxT && t3 < bestT) { var cxv = ox + t3 * dx - verts[v][0], cyv = oy + t3 * dy - verts[v][1], czv = oz + t3 * dz - verts[v][2]; var cl = Math.sqrt(cxv * cxv + cyv * cyv + czv * czv); if (cl > 1e-12) { bestT = t3; bestN = [cxv / cl, cyv / cl, czv / cl]; } }
-        }
-        if (bestN === null) return null;
-        return [bestT, ox + bestT * dx - bestN[0] * r, oy + bestT * dy - bestN[1] * r, oz + bestT * dz - bestN[2] * r, bestN[0], bestN[1], bestN[2]];
-    }
-    closestPoint(point) {
-        if (this.disposed) throw new Error("BVH is disposed");
-        var p = this._validatePoint(point, "point");
-        this.lastQueryTriangleTests = 0;
-        var best = Infinity, bestPoint = null, bestTri = -1;
-        var stack = [0];
-        var a = new Vector3(), b = new Vector3(), c = new Vector3();
-        while (stack.length) {
-            var id = stack.pop();
-            var b0 = this.nodeBounds[id * 6], b1 = this.nodeBounds[id * 6 + 1], b2 = this.nodeBounds[id * 6 + 2], b3 = this.nodeBounds[id * 6 + 3], b4 = this.nodeBounds[id * 6 + 4], b5 = this.nodeBounds[id * 6 + 5];
-            var ddx = Math.max(b0 - p[0], 0, p[0] - b3), ddy = Math.max(b1 - p[1], 0, p[1] - b4), ddz = Math.max(b2 - p[2], 0, p[2] - b5);
-            if (Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz) >= best) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
-                    this.lastQueryTriangleTests++;
-                    var cp = this._closestPointTriangle(p[0], p[1], p[2], tri, a, b, c);
-                    if (cp[3] < best) { best = cp[3]; bestPoint = [cp[0], cp[1], cp[2]]; bestTri = tri; }
+        var zagiap = [ [ zagio, zagip, zagiq, zagir, zagis, zagit ], [ zagir, zagis, zagit, zagiu, zagiv, zagiw ], [ zagiu, zagiv, zagiw, zagio, zagip, zagiq ] ];
+        for (var zagiaq = 0; zagiaq < 3; zagiaq++) {
+            var zagiar = zagiap[zagiaq][0], zagias = zagiap[zagiaq][1], zagiat = zagiap[zagiaq][2], zagiau = zagiap[zagiaq][3] - zagiar, zagiav = zagiap[zagiaq][4] - zagias, zagiaw = zagiap[zagiaq][5] - zagiat;
+            var zagiax = Math.sqrt(zagiau * zagiau + zagiav * zagiav + zagiaw * zagiaw);
+            if (zagiax <= 1e-12) continue;
+            zagiau /= zagiax;
+            zagiav /= zagiax;
+            zagiaw /= zagiax;
+            var zagiay = zagia - zagiar, zagiaz = zagic - zagias, zagiba = zagid - zagiat;
+            var zagibb = zagiay * zagiau + zagiaz * zagiav + zagiba * zagiaw, zagibc = zagie * zagiau + zagif * zagiav + zagig * zagiaw;
+            var zagibd = [];
+            var zagibe = 1 - zagibc * zagibc;
+            if (zagibe > 1e-12) {
+                var zagibf = 2 * (zagiay * zagie + zagiaz * zagif + zagiba * zagig - zagibb * zagibc);
+                var zagibg = zagiay * zagiay + zagiaz * zagiaz + zagiba * zagiba - zagibb * zagibb - zagii * zagii;
+                var zagibh = zagibf * zagibf - 4 * zagibe * zagibg;
+                if (zagibh >= 0) {
+                    var zagibi = Math.sqrt(zagibh);
+                    zagibd.push((-zagibf - zagibi) / (2 * zagibe));
+                    zagibd.push((-zagibf + zagibi) / (2 * zagibe));
                 }
             } else {
-                stack.push(this.nodeRight[id]);
-                stack.push(this.nodeLeft[id]);
+                if (zagibc > 1e-12) zagibd.push((0 - zagibb) / zagibc); else if (zagibc < -1e-12) zagibd.push((zagiax - zagibb) / zagibc);
+                zagibd.push(0);
+            }
+            for (var zagibj = 0; zagibj < zagibd.length; zagibj++) {
+                var zagibk = zagibd[zagibj];
+                if (zagibk < 0 || zagibk > zagih || zagibk >= zagix) continue;
+                var zagibl = zagia + zagibk * zagie - zagiar, zagibm = zagic + zagibk * zagif - zagias, zagibn = zagid + zagibk * zagig - zagiat;
+                var zagibo = zagibl * zagiau + zagibm * zagiav + zagibn * zagiaw;
+                var zagibp = zagibl * zagibl + zagibm * zagibm + zagibn * zagibn - zagibo * zagibo;
+                if (zagibo < -1e-9 || zagibo > zagiax + 1e-9 || zagibp > zagii * zagii + 1e-9) continue;
+                var zagibq = zagiar + zagibo * zagiau, zagibr = zagias + zagibo * zagiav, zagibs = zagiat + zagibo * zagiaw;
+                var zagibt = zagia + zagibk * zagie - zagibq, zagibu = zagic + zagibk * zagif - zagibr, zagibv = zagid + zagibk * zagig - zagibs;
+                var zagibw = Math.sqrt(zagibt * zagibt + zagibu * zagibu + zagibv * zagibv);
+                if (zagibw > 1e-12) {
+                    zagix = zagibk;
+                    zagiy = [ zagibt / zagibw, zagibu / zagibw, zagibv / zagibw ];
+                } else if (zagibk === 0) {
+                    zagix = 0;
+                    zagiy = [ zagiau, zagiav, zagiaw ];
+                }
             }
         }
-        if (!bestPoint) return null;
-        return { point: new Vector3(bestPoint[0], bestPoint[1], bestPoint[2]), distance: best, faceIndex: bestTri };
-    }
-    _closestPointTriangle(px, py, pz, tri, a, b, c) {
-        this._triangle(tri, a, b, c);
-        var ax = a.x, ay = a.y, az = a.z, bx = b.x, by = b.y, bz = b.z, cx = c.x, cy = c.y, cz = c.z;
-        var abx = bx - ax, aby = by - ay, abz = bz - az, acx = cx - ax, acy = cy - ay, acz = cz - az, apx = px - ax, apy = py - ay, apz = pz - az;
-        var d1 = abx * apx + aby * apy + abz * apz, d2 = acx * apx + acy * apy + acz * apz;
-        if (d1 <= 0 && d2 <= 0) return dist4(px, py, pz, ax, ay, az);
-        var bpx = px - bx, bpy = py - by, bpz = pz - bz;
-        var d3 = abx * bpx + aby * bpy + abz * bpz, d4 = acx * bpx + acy * bpy + acz * bpz;
-        if (d3 >= 0 && d4 <= d3) return dist4(px, py, pz, bx, by, bz);
-        var vc = d1 * d4 - d3 * d2;
-        if (vc <= 0 && d1 >= 0 && d3 <= 0) { var v = d1 / (d1 - d3); return dist4(px, py, pz, ax + abx * v, ay + aby * v, az + abz * v); }
-        var cpx = px - cx, cpy = py - cy, cpz = pz - cz;
-        var d5 = abx * cpx + aby * cpy + abz * cpz, d6 = acx * cpx + acy * cpy + acz * cpz;
-        if (d6 >= 0 && d5 <= d6) return dist4(px, py, pz, cx, cy, cz);
-        var vb = d5 * d2 - d1 * d6;
-        if (vb <= 0 && d2 >= 0 && d6 <= 0) { var w = d2 / (d2 - d6); return dist4(px, py, pz, ax + acx * w, ay + acy * w, az + acz * w); }
-        var va = d3 * d6 - d5 * d4;
-        if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) { var w2 = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return dist4(px, py, pz, bx + (cx - bx) * w2, by + (cy - by) * w2, bz + (cz - bz) * w2); }
-        var denom = 1 / (va + vb + vc);
-        var v2 = vb * denom, w3 = vc * denom;
-        return dist4(px, py, pz, ax + abx * v2 + acx * w3, ay + aby * v2 + acy * w3, az + abz * v2 + acz * w3);
-    }
-    closestPointSegment(a, b) {
-        if (this.disposed) throw new Error("BVH is disposed");
-        var pa = this._validatePoint(a, "segment endpoint"), pb = this._validatePoint(b, "segment endpoint");
-        this.lastQueryTriangleTests = 0;
-        var best = Infinity, bestPoint = null, bestTri = -1;
-        var stack = [0];
-        var va = new Vector3(), vb = new Vector3(), vc = new Vector3();
-        while (stack.length) {
-            var id = stack.pop();
-            if (this._segmentBoxDistance(pa, pb, id) >= best) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
-                    this.lastQueryTriangleTests++;
-                    var cp = this._closestPointSegmentTriangle(pa, pb, tri, va, vb, vc);
-                    if (cp[3] < best) { best = cp[3]; bestPoint = [cp[0], cp[1], cp[2]]; bestTri = tri; }
+        var zagibx = [ [ zagio, zagip, zagiq ], [ zagir, zagis, zagit ], [ zagiu, zagiv, zagiw ] ];
+        for (var zagiby = 0; zagiby < 3; zagiby++) {
+            var zagibz = zagibx[zagiby][0] - zagia, zagica = zagibx[zagiby][1] - zagic, zagicb = zagibx[zagiby][2] - zagid;
+            var zagicc = zagibz * zagie + zagica * zagif + zagicb * zagig;
+            var zagicd = zagibz * zagibz + zagica * zagica + zagicb * zagicb - zagii * zagii;
+            if (zagicd <= 1e-9) {
+                var zagice = Math.sqrt(zagibz * zagibz + zagica * zagica + zagicb * zagicb);
+                if (zagice > 1e-12 && zagix > 0) {
+                    zagix = 0;
+                    zagiy = [ -zagibz / zagice, -zagica / zagice, -zagicb / zagice ];
                 }
-            } else { stack.push(this.nodeRight[id]); stack.push(this.nodeLeft[id]); }
-        }
-        if (!bestPoint) return null;
-        return { point: new Vector3(bestPoint[0], bestPoint[1], bestPoint[2]), distance: best, faceIndex: bestTri };
-    }
-    _segmentBoxDistance(pa, pb, id) {
-        var b0 = this.nodeBounds[id * 6], b1 = this.nodeBounds[id * 6 + 1], b2 = this.nodeBounds[id * 6 + 2], b3 = this.nodeBounds[id * 6 + 3], b4 = this.nodeBounds[id * 6 + 4], b5 = this.nodeBounds[id * 6 + 5];
-        var lo = 0, hi = 1;
-        for (var it = 0; it < 48; it++) {
-            var m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
-            if (boxDistanceAt(pa, pb, m1, b0, b1, b2, b3, b4, b5) < boxDistanceAt(pa, pb, m2, b0, b1, b2, b3, b4, b5)) hi = m2;
-            else lo = m1;
-        }
-        return boxDistanceAt(pa, pb, (lo + hi) / 2, b0, b1, b2, b3, b4, b5);
-    }
-    _closestPointSegmentTriangle(pa, pb, tri, a, b, c) {
-        this._triangle(tri, a, b, c);
-        var pts = [[a.x, a.y, a.z], [b.x, b.y, b.z], [c.x, c.y, c.z]];
-        var best = null, bestD = Infinity;
-        for (var ep = 0; ep < 2; ep++) {
-            var px = ep === 0 ? pa[0] : pb[0], py = ep === 0 ? pa[1] : pb[1], pz = ep === 0 ? pa[2] : pb[2];
-            var cp = this._closestPointTriangle(px, py, pz, tri, a, b, c);
-            if (cp[3] < bestD) { bestD = cp[3]; best = [cp[0], cp[1], cp[2]]; }
-        }
-        for (var e = 0; e < 3; e++) {
-            var p2 = pts[e], q2 = pts[(e + 1) % 3];
-            var res = segmentSegmentClosest(pa, pb, p2, q2);
-            if (res[6] < bestD) { bestD = res[6]; best = [res[3], res[4], res[5]]; }
-        }
-        return [best[0], best[1], best[2], bestD];
-    }
-    capsuleCast(a, b, radius, direction, maxDistance) {
-        if (this.disposed) throw new Error("BVH is disposed");
-        if (typeof radius !== "number" || !isFinite(radius) || radius < 0) throw new Error("BVH capsuleCast radius must be a non-negative finite number");
-        if (typeof maxDistance !== "number" || !isFinite(maxDistance) || maxDistance < 0) throw new Error("BVH capsuleCast maxDistance must be a non-negative finite number");
-        var d = this._normalizeDirection(direction);
-        var pa = this._validatePoint(a, "capsule endpoint"), pb = this._validatePoint(b, "capsule endpoint");
-        var dx = d[0], dy = d[1], dz = d[2];
-        this.lastQueryTriangleTests = 0;
-        var tol = 1e-7;
-        var va = new Vector3(), vb = new Vector3(), vc = new Vector3();
-        var t = 0, prev = 0, touching = false;
-        for (var iter = 0; iter < 64; iter++) {
-            var sa = [pa[0] + dx * t, pa[1] + dy * t, pa[2] + dz * t], sb = [pb[0] + dx * t, pb[1] + dy * t, pb[2] + dz * t];
-            var cp = this._segmentMeshClosest(sa, sb, va, vb, vc);
-            if (!cp) return null;
-            if (cp.distance <= radius + tol) { touching = true; break; }
-            var step = cp.distance - radius;
-            if (step <= tol) { touching = true; break; }
-            prev = t;
-            t += step;
-            if (t > maxDistance) return null;
-        }
-        if (!touching) return null;
-        var hitT = t;
-        if (t > 0) {
-            var lo = prev, hi = t;
-            for (var bis = 0; bis < 48; bis++) {
-                var mid = (lo + hi) / 2;
-                var mcp = this._segmentMeshClosest([pa[0] + dx * mid, pa[1] + dy * mid, pa[2] + dz * mid], [pb[0] + dx * mid, pb[1] + dy * mid, pb[2] + dz * mid], va, vb, vc);
-                if (mcp && mcp.distance <= radius) { hi = mid; hitT = mid; } else lo = mid;
+                continue;
+            }
+            var zagicf = zagicc * zagicc - zagicd;
+            if (zagicf < 0) continue;
+            var zagicg = zagicc - Math.sqrt(zagicf);
+            if (zagicg >= 0 && zagicg <= zagih && zagicg < zagix) {
+                var zagich = zagia + zagicg * zagie - zagibx[zagiby][0], zagici = zagic + zagicg * zagif - zagibx[zagiby][1], zagicj = zagid + zagicg * zagig - zagibx[zagiby][2];
+                var zagick = Math.sqrt(zagich * zagich + zagici * zagici + zagicj * zagicj);
+                if (zagick > 1e-12) {
+                    zagix = zagicg;
+                    zagiy = [ zagich / zagick, zagici / zagick, zagicj / zagick ];
+                }
             }
         }
-        var fa = [pa[0] + dx * hitT, pa[1] + dy * hitT, pa[2] + dz * hitT], fb = [pb[0] + dx * hitT, pb[1] + dy * hitT, pb[2] + dz * hitT];
-        var fcp = this._segmentMeshClosest(fa, fb, va, vb, vc);
-        if (!fcp) return null;
-        var axisPt = closestOnSegmentToPoint(fa, fb, fcp.point);
-        var nvx = axisPt[0] - fcp.point[0], nvy = axisPt[1] - fcp.point[1], nvz = axisPt[2] - fcp.point[2];
-        var nl = Math.sqrt(nvx * nvx + nvy * nvy + nvz * nvz);
-        var normal = nl > 1e-12 ? new Vector3(nvx / nl, nvy / nl, nvz / nl) : new Vector3(0, 1, 0);
-        return { time: hitT, point: new Vector3(fcp.point[0], fcp.point[1], fcp.point[2]), normal: normal };
+        if (zagiy === null) return null;
+        return [ zagix, zagia + zagix * zagie - zagiy[0] * zagii, zagic + zagix * zagif - zagiy[1] * zagii, zagid + zagix * zagig - zagiy[2] * zagii, zagiy[0], zagiy[1], zagiy[2] ];
     }
-    _segmentMeshClosest(sa, sb, va, vb, vc) {
-        var best = Infinity, bestPoint = null;
-        var stack = [0];
-        while (stack.length) {
-            var id = stack.pop();
-            if (this._segmentBoxDistance(sa, sb, id) >= best) continue;
-            var count = this.nodeCountArr[id];
-            if (count > 0) {
-                var start = this.nodeStart[id];
-                for (var r = 0; r < count; r++) {
-                    var tri = this.triRefs[start + r];
+    closestPoint(zagia) {
+        if (this.disposed) throw new Error("BVH is disposed");
+        var zagib = this._validatePoint(zagia, "point");
+        this.lastQueryTriangleTests = 0;
+        var zagic = Infinity, zagid = null, zagie = -1;
+        var zagif = [ 0 ];
+        var zagig = new Vector3, zagih = new Vector3, zagii = new Vector3;
+        while (zagif.length) {
+            var zagij = zagif.pop();
+            var zagik = this.nodeBounds[zagij * 6], zagil = this.nodeBounds[zagij * 6 + 1], zagim = this.nodeBounds[zagij * 6 + 2], zagin = this.nodeBounds[zagij * 6 + 3], zagio = this.nodeBounds[zagij * 6 + 4], zagip = this.nodeBounds[zagij * 6 + 5];
+            var zagiq = Math.max(zagik - zagib[0], 0, zagib[0] - zagin), zagir = Math.max(zagil - zagib[1], 0, zagib[1] - zagio), zagis = Math.max(zagim - zagib[2], 0, zagib[2] - zagip);
+            if (Math.sqrt(zagiq * zagiq + zagir * zagir + zagis * zagis) >= zagic) continue;
+            var zagit = this.nodeCountArr[zagij];
+            if (zagit > 0) {
+                var zagiu = this.nodeStart[zagij];
+                for (var zagiv = 0; zagiv < zagit; zagiv++) {
+                    var zagiw = this.triRefs[zagiu + zagiv];
                     this.lastQueryTriangleTests++;
-                    var cp = this._closestPointSegmentTriangle(sa, sb, tri, va, vb, vc);
-                    if (cp[3] < best) { best = cp[3]; bestPoint = [cp[0], cp[1], cp[2]]; }
+                    var zagix = this._closestPointTriangle(zagib[0], zagib[1], zagib[2], zagiw, zagig, zagih, zagii);
+                    if (zagix[3] < zagic) {
+                        zagic = zagix[3];
+                        zagid = [ zagix[0], zagix[1], zagix[2] ];
+                        zagie = zagiw;
+                    }
                 }
-            } else { stack.push(this.nodeRight[id]); stack.push(this.nodeLeft[id]); }
+            } else {
+                zagif.push(this.nodeRight[zagij]);
+                zagif.push(this.nodeLeft[zagij]);
+            }
         }
-        if (!bestPoint) return null;
-        return { point: bestPoint, distance: best };
+        if (!zagid) return null;
+        return {
+            point: new Vector3(zagid[0], zagid[1], zagid[2]),
+            distance: zagic,
+            faceIndex: zagie
+        };
+    }
+    _closestPointTriangle(zagia, zagib, zagid, zagie, zagif, zagig, zagih) {
+        this._triangle(zagie, zagif, zagig, zagih);
+        var zagii = zagif.x, zagij = zagif.y, zagik = zagif.z, zagil = zagig.x, zagim = zagig.y, zagin = zagig.z, zagio = zagih.x, zagip = zagih.y, zagiq = zagih.z;
+        var zagir = zagil - zagii, zagis = zagim - zagij, zagit = zagin - zagik, zagiu = zagio - zagii, zagiv = zagip - zagij, zagiw = zagiq - zagik, zagix = zagia - zagii, zagiy = zagib - zagij, zagiz = zagid - zagik;
+        var zagiaa = zagir * zagix + zagis * zagiy + zagit * zagiz, zagiab = zagiu * zagix + zagiv * zagiy + zagiw * zagiz;
+        if (zagiaa <= 0 && zagiab <= 0) return zagic(zagia, zagib, zagid, zagii, zagij, zagik);
+        var zagiac = zagia - zagil, zagiad = zagib - zagim, zagiae = zagid - zagin;
+        var zagiaf = zagir * zagiac + zagis * zagiad + zagit * zagiae, zagiag = zagiu * zagiac + zagiv * zagiad + zagiw * zagiae;
+        if (zagiaf >= 0 && zagiag <= zagiaf) return zagic(zagia, zagib, zagid, zagil, zagim, zagin);
+        var zagiah = zagiaa * zagiag - zagiaf * zagiab;
+        if (zagiah <= 0 && zagiaa >= 0 && zagiaf <= 0) {
+            var zagiai = zagiaa / (zagiaa - zagiaf);
+            return zagic(zagia, zagib, zagid, zagii + zagir * zagiai, zagij + zagis * zagiai, zagik + zagit * zagiai);
+        }
+        var zagiaj = zagia - zagio, zagiak = zagib - zagip, zagial = zagid - zagiq;
+        var zagiam = zagir * zagiaj + zagis * zagiak + zagit * zagial, zagian = zagiu * zagiaj + zagiv * zagiak + zagiw * zagial;
+        if (zagian >= 0 && zagiam <= zagian) return zagic(zagia, zagib, zagid, zagio, zagip, zagiq);
+        var zagiao = zagiam * zagiab - zagiaa * zagian;
+        if (zagiao <= 0 && zagiab >= 0 && zagian <= 0) {
+            var zagiap = zagiab / (zagiab - zagian);
+            return zagic(zagia, zagib, zagid, zagii + zagiu * zagiap, zagij + zagiv * zagiap, zagik + zagiw * zagiap);
+        }
+        var zagiaq = zagiaf * zagian - zagiam * zagiag;
+        if (zagiaq <= 0 && zagiag - zagiaf >= 0 && zagiam - zagian >= 0) {
+            var zagiar = (zagiag - zagiaf) / (zagiag - zagiaf + (zagiam - zagian));
+            return zagic(zagia, zagib, zagid, zagil + (zagio - zagil) * zagiar, zagim + (zagip - zagim) * zagiar, zagin + (zagiq - zagin) * zagiar);
+        }
+        var zagias = 1 / (zagiaq + zagiao + zagiah);
+        var zagiat = zagiao * zagias, zagiau = zagiah * zagias;
+        return zagic(zagia, zagib, zagid, zagii + zagir * zagiat + zagiu * zagiau, zagij + zagis * zagiat + zagiv * zagiau, zagik + zagit * zagiat + zagiw * zagiau);
+    }
+    closestPointSegment(zagia, zagib) {
+        if (this.disposed) throw new Error("BVH is disposed");
+        var zagic = this._validatePoint(zagia, "segment endpoint"), zagid = this._validatePoint(zagib, "segment endpoint");
+        this.lastQueryTriangleTests = 0;
+        var zagie = Infinity, zagif = null, zagig = -1;
+        var zagih = [ 0 ];
+        var zagii = new Vector3, zagij = new Vector3, zagik = new Vector3;
+        while (zagih.length) {
+            var zagil = zagih.pop();
+            if (this._segmentBoxDistance(zagic, zagid, zagil) >= zagie) continue;
+            var zagim = this.nodeCountArr[zagil];
+            if (zagim > 0) {
+                var zagin = this.nodeStart[zagil];
+                for (var zagio = 0; zagio < zagim; zagio++) {
+                    var zagip = this.triRefs[zagin + zagio];
+                    this.lastQueryTriangleTests++;
+                    var zagiq = this._closestPointSegmentTriangle(zagic, zagid, zagip, zagii, zagij, zagik);
+                    if (zagiq[3] < zagie) {
+                        zagie = zagiq[3];
+                        zagif = [ zagiq[0], zagiq[1], zagiq[2] ];
+                        zagig = zagip;
+                    }
+                }
+            } else {
+                zagih.push(this.nodeRight[zagil]);
+                zagih.push(this.nodeLeft[zagil]);
+            }
+        }
+        if (!zagif) return null;
+        return {
+            point: new Vector3(zagif[0], zagif[1], zagif[2]),
+            distance: zagie,
+            faceIndex: zagig
+        };
+    }
+    _segmentBoxDistance(zagia, zagib, zagic) {
+        var zagie = this.nodeBounds[zagic * 6], zagif = this.nodeBounds[zagic * 6 + 1], zagig = this.nodeBounds[zagic * 6 + 2], zagih = this.nodeBounds[zagic * 6 + 3], zagii = this.nodeBounds[zagic * 6 + 4], zagij = this.nodeBounds[zagic * 6 + 5];
+        var zagik = 0, zagil = 1;
+        for (var zagim = 0; zagim < 48; zagim++) {
+            var zagin = zagik + (zagil - zagik) / 3, zagio = zagil - (zagil - zagik) / 3;
+            if (zagid(zagia, zagib, zagin, zagie, zagif, zagig, zagih, zagii, zagij) < zagid(zagia, zagib, zagio, zagie, zagif, zagig, zagih, zagii, zagij)) zagil = zagio; else zagik = zagin;
+        }
+        return zagid(zagia, zagib, (zagik + zagil) / 2, zagie, zagif, zagig, zagih, zagii, zagij);
+    }
+    _closestPointSegmentTriangle(zagia, zagib, zagic, zagid, zagif, zagig) {
+        this._triangle(zagic, zagid, zagif, zagig);
+        var zagih = [ [ zagid.x, zagid.y, zagid.z ], [ zagif.x, zagif.y, zagif.z ], [ zagig.x, zagig.y, zagig.z ] ];
+        var zagii = null, zagij = Infinity;
+        for (var zagik = 0; zagik < 2; zagik++) {
+            var zagil = zagik === 0 ? zagia[0] : zagib[0], zagim = zagik === 0 ? zagia[1] : zagib[1], zagin = zagik === 0 ? zagia[2] : zagib[2];
+            var zagio = this._closestPointTriangle(zagil, zagim, zagin, zagic, zagid, zagif, zagig);
+            if (zagio[3] < zagij) {
+                zagij = zagio[3];
+                zagii = [ zagio[0], zagio[1], zagio[2] ];
+            }
+        }
+        for (var zagip = 0; zagip < 3; zagip++) {
+            var zagiq = zagih[zagip], zagir = zagih[(zagip + 1) % 3];
+            var zagis = zagie(zagia, zagib, zagiq, zagir);
+            if (zagis[6] < zagij) {
+                zagij = zagis[6];
+                zagii = [ zagis[3], zagis[4], zagis[5] ];
+            }
+        }
+        return [ zagii[0], zagii[1], zagii[2], zagij ];
+    }
+    capsuleCast(zagia, zagib, zagic, zagid, zagie) {
+        if (this.disposed) throw new Error("BVH is disposed");
+        if (typeof zagic !== "number" || !isFinite(zagic) || zagic < 0) throw new Error("BVH capsuleCast radius must be a non-negative finite number");
+        if (typeof zagie !== "number" || !isFinite(zagie) || zagie < 0) throw new Error("BVH capsuleCast maxDistance must be a non-negative finite number");
+        var zagig = this._normalizeDirection(zagid);
+        var zagih = this._validatePoint(zagia, "capsule endpoint"), zagii = this._validatePoint(zagib, "capsule endpoint");
+        var zagij = zagig[0], zagik = zagig[1], zagil = zagig[2];
+        this.lastQueryTriangleTests = 0;
+        var zagim = 1e-7;
+        var zagin = new Vector3, zagio = new Vector3, zagip = new Vector3;
+        var zagiq = 0, zagir = 0, zagis = false;
+        for (var zagit = 0; zagit < 64; zagit++) {
+            var zagiu = [ zagih[0] + zagij * zagiq, zagih[1] + zagik * zagiq, zagih[2] + zagil * zagiq ], zagiv = [ zagii[0] + zagij * zagiq, zagii[1] + zagik * zagiq, zagii[2] + zagil * zagiq ];
+            var zagiw = this._segmentMeshClosest(zagiu, zagiv, zagin, zagio, zagip);
+            if (!zagiw) return null;
+            if (zagiw.distance <= zagic + zagim) {
+                zagis = true;
+                break;
+            }
+            var zagix = zagiw.distance - zagic;
+            if (zagix <= zagim) {
+                zagis = true;
+                break;
+            }
+            zagir = zagiq;
+            zagiq += zagix;
+            if (zagiq > zagie) return null;
+        }
+        if (!zagis) return null;
+        var zagiy = zagiq;
+        if (zagiq > 0) {
+            var zagiz = zagir, zagiaa = zagiq;
+            for (var zagiab = 0; zagiab < 48; zagiab++) {
+                var zagiac = (zagiz + zagiaa) / 2;
+                var zagiad = this._segmentMeshClosest([ zagih[0] + zagij * zagiac, zagih[1] + zagik * zagiac, zagih[2] + zagil * zagiac ], [ zagii[0] + zagij * zagiac, zagii[1] + zagik * zagiac, zagii[2] + zagil * zagiac ], zagin, zagio, zagip);
+                if (zagiad && zagiad.distance <= zagic) {
+                    zagiaa = zagiac;
+                    zagiy = zagiac;
+                } else zagiz = zagiac;
+            }
+        }
+        var zagiae = [ zagih[0] + zagij * zagiy, zagih[1] + zagik * zagiy, zagih[2] + zagil * zagiy ], zagiaf = [ zagii[0] + zagij * zagiy, zagii[1] + zagik * zagiy, zagii[2] + zagil * zagiy ];
+        var zagiag = this._segmentMeshClosest(zagiae, zagiaf, zagin, zagio, zagip);
+        if (!zagiag) return null;
+        var zagiah = zagif(zagiae, zagiaf, zagiag.point);
+        var zagiai = zagiah[0] - zagiag.point[0], zagiaj = zagiah[1] - zagiag.point[1], zagiak = zagiah[2] - zagiag.point[2];
+        var zagial = Math.sqrt(zagiai * zagiai + zagiaj * zagiaj + zagiak * zagiak);
+        var zagiam = zagial > 1e-12 ? new Vector3(zagiai / zagial, zagiaj / zagial, zagiak / zagial) : new Vector3(0, 1, 0);
+        return {
+            time: zagiy,
+            point: new Vector3(zagiag.point[0], zagiag.point[1], zagiag.point[2]),
+            normal: zagiam
+        };
+    }
+    _segmentMeshClosest(zagia, zagib, zagic, zagid, zagie) {
+        var zagif = Infinity, zagig = null;
+        var zagih = [ 0 ];
+        while (zagih.length) {
+            var zagii = zagih.pop();
+            if (this._segmentBoxDistance(zagia, zagib, zagii) >= zagif) continue;
+            var zagij = this.nodeCountArr[zagii];
+            if (zagij > 0) {
+                var zagik = this.nodeStart[zagii];
+                for (var zagil = 0; zagil < zagij; zagil++) {
+                    var zagim = this.triRefs[zagik + zagil];
+                    this.lastQueryTriangleTests++;
+                    var zagin = this._closestPointSegmentTriangle(zagia, zagib, zagim, zagic, zagid, zagie);
+                    if (zagin[3] < zagif) {
+                        zagif = zagin[3];
+                        zagig = [ zagin[0], zagin[1], zagin[2] ];
+                    }
+                }
+            } else {
+                zagih.push(this.nodeRight[zagii]);
+                zagih.push(this.nodeLeft[zagii]);
+            }
+        }
+        if (!zagig) return null;
+        return {
+            point: zagig,
+            distance: zagif
+        };
     }
     dispose() {
         if (this.disposed) return this;
-        this.nodeBounds = null; this.nodeLeft = null; this.nodeRight = null; this.nodeStart = null; this.nodeCountArr = null; this.triRefs = null;
-        this.positions = null; this.indices = null; this.uv = null; this._stampArray = null;
+        this.nodeBounds = null;
+        this.nodeLeft = null;
+        this.nodeRight = null;
+        this.nodeStart = null;
+        this.nodeCountArr = null;
+        this.triRefs = null;
+        this.positions = null;
+        this.indices = null;
+        this.uv = null;
+        this._stampArray = null;
         this.disposed = true;
         return this;
     }
-    static buildAsync(data, options) {
-        return new Promise(function (resolve, reject) {
-            var sync = !options || options.worker !== false;
-            sync = sync && (typeof Worker !== "undefined" && typeof Blob !== "undefined" && typeof URL !== "undefined" && !!URL.createObjectURL);
-            if (!sync) {
-                try { resolve(new BVH(data, options)); } catch (error) { reject(error); }
+    static buildAsync(zagib, zagic) {
+        return new Promise(function(zagid, zagie) {
+            var zagif = !zagic || zagic.worker !== false;
+            zagif = zagif && (typeof Worker !== "undefined" && typeof Blob !== "undefined" && typeof URL !== "undefined" && !!URL.createObjectURL);
+            if (!zagif) {
+                try {
+                    zagid(new BVH(zagib, zagic));
+                } catch (zagia) {
+                    zagie(zagia);
+                }
                 return;
             }
-            var prep;
-            try { prep = BVH._prepare(data, options); } catch (error) { reject(error); return; }
-            var payloadPositions = prep.positions instanceof Float32Array ? prep.positions.slice() : new Float32Array(prep.positions);
-            var payloadIndices = prep.indices ? prep.indices.slice() : null;
-            var sanitized = { maxLeafTris: prep.maxLeafTris, maxDepth: prep.maxDepth, spatialSplits: prep.spatialSplits };
-            var source = "self.onmessage=function(e){var r=(" + bvhBuildCore.toString() + ")(e.data.p,e.data.i,e.data.o);self.postMessage(r,[r.nodeBounds.buffer,r.nodeLeft.buffer,r.nodeRight.buffer,r.nodeStart.buffer,r.nodeCount.buffer,r.triRefs.buffer]);};";
-            var worker;
-            try { worker = new Worker(URL.createObjectURL(new Blob([source], { type: "application/javascript" }))); }
-            catch (error) { try { resolve(new BVH(data, options)); } catch (error2) { reject(error2); } return; }
-            worker.onmessage = function (event) {
-                worker.terminate();
-                try { resolve(new BVH(data, options, event.data)); } catch (error) { reject(error); }
+            var zagig;
+            try {
+                zagig = BVH._prepare(zagib, zagic);
+            } catch (zagia) {
+                zagie(zagia);
+                return;
+            }
+            var zagih = zagig.positions instanceof Float32Array ? zagig.positions.slice() : new Float32Array(zagig.positions);
+            var zagii = zagig.indices ? zagig.indices.slice() : null;
+            var zagij = {
+                maxLeafTris: zagig.maxLeafTris,
+                maxDepth: zagig.maxDepth,
+                spatialSplits: zagig.spatialSplits
             };
-            worker.onerror = function () {
-                worker.terminate();
-                try { resolve(new BVH(data, Object.assign({}, options, { worker: false }))); } catch (error) { reject(error); }
+            var zagik = "self.onmessage=function(e){var r=(" + zagia.toString() + ")(e.data.p,e.data.i,e.data.o);self.postMessage(r,[r.nodeBounds.buffer,r.nodeLeft.buffer,r.nodeRight.buffer,r.nodeStart.buffer,r.nodeCount.buffer,r.triRefs.buffer]);};";
+            var zagil;
+            try {
+                zagil = new Worker(URL.createObjectURL(new Blob([ zagik ], {
+                    type: "application/javascript"
+                })));
+            } catch (zagia) {
+                try {
+                    zagid(new BVH(zagib, zagic));
+                } catch (zagia) {
+                    zagie(zagia);
+                }
+                return;
+            }
+            zagil.onmessage = function(zagia) {
+                zagil.terminate();
+                try {
+                    zagid(new BVH(zagib, zagic, zagia.data));
+                } catch (zagia) {
+                    zagie(zagia);
+                }
             };
-            var transfer = [payloadPositions.buffer];
-            if (payloadIndices) transfer.push(payloadIndices.buffer);
-            worker.postMessage({ p: payloadPositions, i: payloadIndices, o: sanitized }, transfer);
+            zagil.onerror = function() {
+                zagil.terminate();
+                try {
+                    zagid(new BVH(zagib, Object.assign({}, zagic, {
+                        worker: false
+                    })));
+                } catch (zagia) {
+                    zagie(zagia);
+                }
+            };
+            var zagim = [ zagih.buffer ];
+            if (zagii) zagim.push(zagii.buffer);
+            zagil.postMessage({
+                p: zagih,
+                i: zagii,
+                o: zagij
+            }, zagim);
         });
     }
 }

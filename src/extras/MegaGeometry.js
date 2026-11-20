@@ -1,4 +1,5 @@
 import { Geometry } from "../geometries/Geometry.js";
+
 import { Color, Matrix4, Vector3 } from "../math/index.js";
 
 class MegaGeometry {
@@ -6,118 +7,134 @@ class MegaGeometry {
         this.entries = [];
         this.geometry = null;
         this.materials = [];
-        this.stats = { objects: 0, triangles: 0, vertices: 0, materials: 0, drawCalls: 1, buildms: 0 };
-    }
-    add(geometry, matrix, options) {
-        options = options || {};
-        var entry = {
-            geometry: geometry,
-            matrix: matrix ? (matrix.elements ? Array.prototype.slice.call(matrix.elements) : new Matrix4().makeTranslation(matrix[0] || 0, matrix[1] || 0, matrix[2] || 0).elements) : null,
-            color: options.color !== undefined ? (options.color instanceof Color ? options.color : new Color(options.color)) : new Color(0xffffff),
-            materialIndex: options.materialIndex !== undefined ? options.materialIndex : this.addMaterial(options),
-            name: options.name || ""
+        this.stats = {
+            objects: 0,
+            triangles: 0,
+            vertices: 0,
+            materials: 0,
+            drawCalls: 1,
+            buildms: 0
         };
-        this.entries.push(entry);
+    }
+    add(zahya, zahyb, zahyc) {
+        zahyc = zahyc || {};
+        var zahyd = {
+            geometry: zahya,
+            matrix: zahyb ? zahyb.elements ? Array.prototype.slice.call(zahyb.elements) : (new Matrix4).makeTranslation(zahyb[0] || 0, zahyb[1] || 0, zahyb[2] || 0).elements : null,
+            color: zahyc.color !== undefined ? zahyc.color instanceof Color ? zahyc.color : new Color(zahyc.color) : new Color(16777215),
+            materialIndex: zahyc.materialIndex !== undefined ? zahyc.materialIndex : this.addMaterial(zahyc),
+            name: zahyc.name || ""
+        };
+        this.entries.push(zahyd);
         return this.entries.length - 1;
     }
-    addMaterial(material) {
+    addMaterial(zahya) {
         this.materials.push({
-            color: material && material.color !== undefined ? (material.color instanceof Color ? material.color : new Color(material.color)) : new Color(0xffffff),
-            roughness: material && material.roughness !== undefined ? material.roughness : 0.5,
-            metalness: material && material.metalness !== undefined ? material.metalness : 0,
-            emissive: material && material.emissive !== undefined ? (material.emissive instanceof Color ? material.emissive : new Color(material.emissive)) : new Color(0),
-            opacity: material && material.opacity !== undefined ? material.opacity : 1
+            color: zahya && zahya.color !== undefined ? zahya.color instanceof Color ? zahya.color : new Color(zahya.color) : new Color(16777215),
+            roughness: zahya && zahya.roughness !== undefined ? zahya.roughness : .5,
+            metalness: zahya && zahya.metalness !== undefined ? zahya.metalness : 0,
+            emissive: zahya && zahya.emissive !== undefined ? zahya.emissive instanceof Color ? zahya.emissive : new Color(zahya.emissive) : new Color(0),
+            opacity: zahya && zahya.opacity !== undefined ? zahya.opacity : 1
         });
         return this.materials.length - 1;
-    }    uploadMaterials(renderer) {
-        var records = [];
-        for (var i = 0; i < this.materials.length; i++) records.push(this.materials[i]);
-        if (!records.length) records.push({ color: 0xffffff, roughness: 1, metalness: 0 });
-        renderer.setMegaMaterials(records);
-        this.stats.materials = records.length;
+    }
+    uploadMaterials(zahya) {
+        var zahyb = [];
+        for (var zahyc = 0; zahyc < this.materials.length; zahyc++) zahyb.push(this.materials[zahyc]);
+        if (!zahyb.length) zahyb.push({
+            color: 16777215,
+            roughness: 1,
+            metalness: 0
+        });
+        zahya.setMegaMaterials(zahyb);
+        this.stats.materials = zahyb.length;
         return this;
     }
-
     build() {
-        var t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
-        var positions = [], normals = [], uvs = [], colors = [], objectIds = [], materialIndices = [];
-        var triOwners = [];
-        var totalTris = 0;
-        var v = new Vector3();
-        for (var i = 0; i < this.entries.length; i++) {
-            var entry = this.entries[i];
-            var geometry = entry.geometry;
-            if (!geometry || !geometry.attributes || !geometry.attributes.position) continue;
-            var pos = geometry.attributes.position.array;
-            var nrm = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-            var uv = geometry.attributes.uv ? geometry.attributes.uv.array : null;
-            var idxraw = geometry.index;
-            var idx = idxraw ? (idxraw.array ? idxraw.array : idxraw) : null;
-            var triCount = idx ? idx.length / 3 : pos.length / 9;
-            var m = entry.matrix;
-            var inv = null;
-            if (m && nrm) inv = new Matrix4().fromArray(m).invert().transpose().elements;
-            for (var t = 0; t < triCount; t++) {
-                for (var vv = 0; vv < 3; vv++) {
-                    var vi = idx ? idx[t * 3 + vv] : t * 3 + vv;
-                    var x = pos[vi * 3], y = pos[vi * 3 + 1], z = pos[vi * 3 + 2];
-                    if (m) {
-                        v.set(x, y, z).applyMatrix4({ elements: m });
-                        x = v.x; y = v.y; z = v.z;
+        var zahya = typeof performance !== "undefined" ? performance.now() : Date.now();
+        var zahyb = [], zahyc = [], zahyd = [], zahye = [], zahyf = [], zahyg = [];
+        var zahyh = [];
+        var zahyi = 0;
+        var zahyj = new Vector3;
+        for (var zahyk = 0; zahyk < this.entries.length; zahyk++) {
+            var zahyl = this.entries[zahyk];
+            var zahym = zahyl.geometry;
+            if (!zahym || !zahym.attributes || !zahym.attributes.position) continue;
+            var zahyn = zahym.attributes.position.array;
+            var zahyo = zahym.attributes.normal ? zahym.attributes.normal.array : null;
+            var zahyp = zahym.attributes.uv ? zahym.attributes.uv.array : null;
+            var zahyq = zahym.index;
+            var zahyr = zahyq ? zahyq.array ? zahyq.array : zahyq : null;
+            var zahys = zahyr ? zahyr.length / 3 : zahyn.length / 9;
+            var zahyt = zahyl.matrix;
+            var zahyu = null;
+            if (zahyt && zahyo) zahyu = (new Matrix4).fromArray(zahyt).invert().transpose().elements;
+            for (var zahyv = 0; zahyv < zahys; zahyv++) {
+                for (var zahyw = 0; zahyw < 3; zahyw++) {
+                    var zahyx = zahyr ? zahyr[zahyv * 3 + zahyw] : zahyv * 3 + zahyw;
+                    var zahyy = zahyn[zahyx * 3], zahyz = zahyn[zahyx * 3 + 1], zahyaa = zahyn[zahyx * 3 + 2];
+                    if (zahyt) {
+                        zahyj.set(zahyy, zahyz, zahyaa).applyMatrix4({
+                            elements: zahyt
+                        });
+                        zahyy = zahyj.x;
+                        zahyz = zahyj.y;
+                        zahyaa = zahyj.z;
                     }
-                    positions.push(x, y, z);
-                    if (nrm) {
-                        var nx = nrm[vi * 3], ny = nrm[vi * 3 + 1], nz = nrm[vi * 3 + 2];
-                        if (inv) {
-                            var tx = inv[0] * nx + inv[4] * ny + inv[8] * nz;
-                            var ty = inv[1] * nx + inv[5] * ny + inv[9] * nz;
-                            var tz = inv[2] * nx + inv[6] * ny + inv[10] * nz;
-                            var tl = Math.sqrt(tx * tx + ty * ty + tz * tz) || 1;
-                            nx = tx / tl; ny = ty / tl; nz = tz / tl;
+                    zahyb.push(zahyy, zahyz, zahyaa);
+                    if (zahyo) {
+                        var zahyab = zahyo[zahyx * 3], zahyac = zahyo[zahyx * 3 + 1], zahyad = zahyo[zahyx * 3 + 2];
+                        if (zahyu) {
+                            var zahyae = zahyu[0] * zahyab + zahyu[4] * zahyac + zahyu[8] * zahyad;
+                            var zahyaf = zahyu[1] * zahyab + zahyu[5] * zahyac + zahyu[9] * zahyad;
+                            var zahyag = zahyu[2] * zahyab + zahyu[6] * zahyac + zahyu[10] * zahyad;
+                            var zahyah = Math.sqrt(zahyae * zahyae + zahyaf * zahyaf + zahyag * zahyag) || 1;
+                            zahyab = zahyae / zahyah;
+                            zahyac = zahyaf / zahyah;
+                            zahyad = zahyag / zahyah;
                         }
-                        normals.push(nx, ny, nz);
+                        zahyc.push(zahyab, zahyac, zahyad);
                     } else {
-                        normals.push(0, 1, 0);
+                        zahyc.push(0, 1, 0);
                     }
-                    if (uv) uvs.push(uv[vi * 2], uv[vi * 2 + 1]);
-                    else uvs.push(0, 0);
-                    colors.push(entry.color.r, entry.color.g, entry.color.b);
-                    objectIds.push(i);
-                    materialIndices.push(entry.materialIndex);
+                    if (zahyp) zahyd.push(zahyp[zahyx * 2], zahyp[zahyx * 2 + 1]); else zahyd.push(0, 0);
+                    zahye.push(zahyl.color.r, zahyl.color.g, zahyl.color.b);
+                    zahyf.push(zahyk);
+                    zahyg.push(zahyl.materialIndex);
                 }
-                triOwners.push(i);
-                totalTris++;
+                zahyh.push(zahyk);
+                zahyi++;
             }
         }
-        var out = new Geometry();
-        out.setAttribute("position", new Float32Array(positions), 3);
-        out.setAttribute("normal", new Float32Array(normals), 3);
-        out.setAttribute("uv", new Float32Array(uvs), 2);
-        out.setAttribute("color", new Float32Array(colors), 3);
-        out.setAttribute("objectId", new Float32Array(objectIds), 1);
-        out.setAttribute("materialIndex", new Float32Array(materialIndices), 1);
-        out.computeBounds();
-        this.triangleOwners = new Uint16Array(triOwners.length <= 65535 ? triOwners.length : 0);
-        if (triOwners.length <= 65535) {
-            for (var o = 0; o < triOwners.length; o++) this.triangleOwners[o] = triOwners[o];
+        var zahyai = new Geometry;
+        zahyai.setAttribute("position", new Float32Array(zahyb), 3);
+        zahyai.setAttribute("normal", new Float32Array(zahyc), 3);
+        zahyai.setAttribute("uv", new Float32Array(zahyd), 2);
+        zahyai.setAttribute("color", new Float32Array(zahye), 3);
+        zahyai.setAttribute("objectId", new Float32Array(zahyf), 1);
+        zahyai.setAttribute("materialIndex", new Float32Array(zahyg), 1);
+        zahyai.computeBounds();
+        this.triangleOwners = new Uint16Array(zahyh.length <= 65535 ? zahyh.length : 0);
+        if (zahyh.length <= 65535) {
+            for (var zahyaj = 0; zahyaj < zahyh.length; zahyaj++) this.triangleOwners[zahyaj] = zahyh[zahyaj];
         } else {
-            this.triangleOwnersBig = new Float32Array(triOwners);
+            this.triangleOwnersBig = new Float32Array(zahyh);
         }
-        this.geometry = out;
+        this.geometry = zahyai;
         this.stats.objects = this.entries.length;
-        this.stats.triangles = totalTris;
-        this.stats.vertices = positions.length / 3;
+        this.stats.triangles = zahyi;
+        this.stats.vertices = zahyb.length / 3;
         this.stats.materials = this.materials.length;
-        this.stats.buildms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+        this.stats.buildms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - zahya;
         return this;
     }
-    objectIdOfTriangle(triIndex) {
-        if (this.triangleOwners && this.triangleOwners.length) return this.triangleOwners[triIndex];
-        if (this.triangleOwnersBig) return this.triangleOwnersBig[triIndex];
+    objectIdOfTriangle(zahya) {
+        if (this.triangleOwners && this.triangleOwners.length) return this.triangleOwners[zahya];
+        if (this.triangleOwnersBig) return this.triangleOwnersBig[zahya];
         return -1;
     }
-    materialIndexOfTriangle(triIndex) {
-        return this.entries[this.objectIdOfTriangle(triIndex)] ? this.entries[this.objectIdOfTriangle(triIndex)].materialIndex : -1;
+    materialIndexOfTriangle(zahya) {
+        return this.entries[this.objectIdOfTriangle(zahya)] ? this.entries[this.objectIdOfTriangle(zahya)].materialIndex : -1;
     }
     dispose() {
         this.entries = [];
@@ -125,7 +142,14 @@ class MegaGeometry {
         this.materials = [];
         this.triangleOwners = null;
         this.triangleOwnersBig = null;
-        this.stats = { objects: 0, triangles: 0, vertices: 0, materials: 0, drawCalls: 1, buildms: 0 };
+        this.stats = {
+            objects: 0,
+            triangles: 0,
+            vertices: 0,
+            materials: 0,
+            drawCalls: 1,
+            buildms: 0
+        };
     }
 }
 

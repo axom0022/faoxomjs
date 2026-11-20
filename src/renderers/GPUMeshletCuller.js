@@ -1,66 +1,12 @@
 import { Matrix4 } from "../math/index.js";
 
-const meshletcullwgsl = `struct mcparams {
-    viewpos: vec4<f32>,
-    planes: array<vec4<f32>, 6>,
-    misc: vec4<f32>,
-};
-struct mrec {
-    a: vec4<f32>,
-    b: vec4<f32>,
-    c: vec4<f32>,
-    d: vec4<f32>,
-    e: vec4<f32>,
-    f: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> params: mcparams;
-@group(0) @binding(1) var<storage, read> meshlets: array<mrec>;
-@group(0) @binding(2) var<storage, read_write> visible: array<u32>;
-@compute @workgroup_size(64)
-fn cullmain(@builtin(global_invocation_id) gid: vec3<u32>) {
-    if (gid.x >= u32(params.misc.x)) {
-        return;
-    }
-    var m = meshlets[gid.x];
-    var vis = 1u;
-    if (params.misc.y > 0.5 && m.c.z > 0.5) {
-        var u = params.viewpos.xyz - m.a.xyz;
-        var r = length(u);
-        if (r < 0.000001) {
-            u = vec3<f32>(0.0, 1.0, 0.0);
-            r = 1.0;
-        } else {
-            u = u / r;
-        }
-        var cosb = dot(u, m.b.xyz);
-        var sinb = sqrt(max(0.0, 1.0 - cosb * cosb));
-        var sintheta = sqrt(max(0.0, 1.0 - m.b.w * m.b.w));
-        var bbound = cosb * m.b.w + sinb * sintheta;
-        if (cosb < m.b.w && bbound < -1.0e-6 && r * (-bbound) >= m.a.w) {
-            vis = 0u;
-        }
-    }
-    if (vis == 1u) {
-        var p = 0;
-        loop {
-            if (p >= 6) {
-                break;
-            }
-            var dist = dot(params.planes[p].xyz, m.a.xyz) + params.planes[p].w;
-            if (dist < -m.a.w) {
-                vis = 0u;
-            }
-            p = p + 1;
-        }
-    }
-    visible[gid.x] = vis;
-}`;
+const zasza = `struct mcparams {\n    viewpos: vec4<f32>,\n    planes: array<vec4<f32>, 6>,\n    misc: vec4<f32>,\n};\nstruct mrec {\n    a: vec4<f32>,\n    b: vec4<f32>,\n    c: vec4<f32>,\n    d: vec4<f32>,\n    e: vec4<f32>,\n    f: vec4<f32>,\n};\n@group(0) @binding(0) var<uniform> params: mcparams;\n@group(0) @binding(1) var<storage, read> meshlets: array<mrec>;\n@group(0) @binding(2) var<storage, read_write> visible: array<u32>;\n@compute @workgroup_size(64)\nfn cullmain(@builtin(global_invocation_id) gid: vec3<u32>) {\n    if (gid.x >= u32(params.misc.x)) {\n        return;\n    }\n    var m = meshlets[gid.x];\n    var vis = 1u;\n    if (params.misc.y > 0.5 && m.c.z > 0.5) {\n        var u = params.viewpos.xyz - m.a.xyz;\n        var r = length(u);\n        if (r < 0.000001) {\n            u = vec3<f32>(0.0, 1.0, 0.0);\n            r = 1.0;\n        } else {\n            u = u / r;\n        }\n        var cosb = dot(u, m.b.xyz);\n        var sinb = sqrt(max(0.0, 1.0 - cosb * cosb));\n        var sintheta = sqrt(max(0.0, 1.0 - m.b.w * m.b.w));\n        var bbound = cosb * m.b.w + sinb * sintheta;\n        if (cosb < m.b.w && bbound < -1.0e-6 && r * (-bbound) >= m.a.w) {\n            vis = 0u;\n        }\n    }\n    if (vis == 1u) {\n        var p = 0;\n        loop {\n            if (p >= 6) {\n                break;\n            }\n            var dist = dot(params.planes[p].xyz, m.a.xyz) + params.planes[p].w;\n            if (dist < -m.a.w) {\n                vis = 0u;\n            }\n            p = p + 1;\n        }\n    }\n    visible[gid.x] = vis;\n}`;
 
 class GPUMeshletCuller {
-    constructor(renderer, meshletSet) {
-        this.renderer = renderer;
-        this.device = renderer.device;
-        this.meshletSet = meshletSet;
+    constructor(zasza, zaszb) {
+        this.renderer = zasza;
+        this.device = zasza.device;
+        this.meshletSet = zaszb;
         this.pipeline = null;
         this.paramsbuffer = null;
         this.meshletbuffer = null;
@@ -68,83 +14,141 @@ class GPUMeshletCuller {
         this.readbackbuffer = null;
         this.bind = null;
         this.count = 0;
-        this.stats = { cullms: 0, visible: 0, total: 0 };
+        this.stats = {
+            cullms: 0,
+            visible: 0,
+            total: 0
+        };
         this.useCone = true;
     }
     ensurepipeline() {
         if (this.pipeline) return;
-        this.pipeline = this.device.createComputePipeline({ layout: "auto", compute: { module: this.device.createShaderModule({ code: meshletcullwgsl }), entryPoint: "cullmain" } });
-        this.paramsbuffer = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        var meshlets = this.meshletSet.meshlets;
-        this.count = meshlets.length;
-        var data = new Float32Array(this.count * 24);
-        for (var i = 0; i < this.count; i++) {
-            var m = meshlets[i];
-            var b = i * 24;
-            data[b] = m.center[0]; data[b + 1] = m.center[1]; data[b + 2] = m.center[2]; data[b + 3] = m.radius;
-            data[b + 4] = m.axis[0]; data[b + 5] = m.axis[1]; data[b + 6] = m.axis[2]; data[b + 7] = m.cosThetaMax;
-            data[b + 8] = m.first; data[b + 9] = m.count; data[b + 10] = m.cullable; data[b + 11] = 0;
-            data[b + 12] = m.min[0]; data[b + 13] = m.min[1]; data[b + 14] = m.min[2]; data[b + 15] = 0;
-            data[b + 16] = m.max[0]; data[b + 17] = m.max[1]; data[b + 18] = m.max[2]; data[b + 19] = 0;
-            data[b + 20] = 0; data[b + 21] = 0; data[b + 22] = 0; data[b + 23] = 0;
+        this.pipeline = this.device.createComputePipeline({
+            layout: "auto",
+            compute: {
+                module: this.device.createShaderModule({
+                    code: zasza
+                }),
+                entryPoint: "cullmain"
+            }
+        });
+        this.paramsbuffer = this.device.createBuffer({
+            size: 128,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        var zaszb = this.meshletSet.meshlets;
+        this.count = zaszb.length;
+        var zaszc = new Float32Array(this.count * 24);
+        for (var zaszd = 0; zaszd < this.count; zaszd++) {
+            var zasze = zaszb[zaszd];
+            var zaszf = zaszd * 24;
+            zaszc[zaszf] = zasze.center[0];
+            zaszc[zaszf + 1] = zasze.center[1];
+            zaszc[zaszf + 2] = zasze.center[2];
+            zaszc[zaszf + 3] = zasze.radius;
+            zaszc[zaszf + 4] = zasze.axis[0];
+            zaszc[zaszf + 5] = zasze.axis[1];
+            zaszc[zaszf + 6] = zasze.axis[2];
+            zaszc[zaszf + 7] = zasze.cosThetaMax;
+            zaszc[zaszf + 8] = zasze.first;
+            zaszc[zaszf + 9] = zasze.count;
+            zaszc[zaszf + 10] = zasze.cullable;
+            zaszc[zaszf + 11] = 0;
+            zaszc[zaszf + 12] = zasze.min[0];
+            zaszc[zaszf + 13] = zasze.min[1];
+            zaszc[zaszf + 14] = zasze.min[2];
+            zaszc[zaszf + 15] = 0;
+            zaszc[zaszf + 16] = zasze.max[0];
+            zaszc[zaszf + 17] = zasze.max[1];
+            zaszc[zaszf + 18] = zasze.max[2];
+            zaszc[zaszf + 19] = 0;
+            zaszc[zaszf + 20] = 0;
+            zaszc[zaszf + 21] = 0;
+            zaszc[zaszf + 22] = 0;
+            zaszc[zaszf + 23] = 0;
         }
-        this.meshletbuffer = this.device.createBuffer({ size: Math.max(16, this.count * 96), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-        this.device.queue.writeBuffer(this.meshletbuffer, 0, data);
-        this.visibility = this.device.createBuffer({ size: Math.max(16, this.count * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
-        this.readbackbuffer = this.device.createBuffer({ size: Math.max(16, this.count * 4), usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-        this.bind = this.device.createBindGroup({ layout: this.pipeline.getBindGroupLayout(0), entries: [
-            { binding: 0, resource: { buffer: this.paramsbuffer } },
-            { binding: 1, resource: { buffer: this.meshletbuffer } },
-            { binding: 2, resource: { buffer: this.visibility } }
-        ] });
+        this.meshletbuffer = this.device.createBuffer({
+            size: Math.max(16, this.count * 96),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        this.device.queue.writeBuffer(this.meshletbuffer, 0, zaszc);
+        this.visibility = this.device.createBuffer({
+            size: Math.max(16, this.count * 4),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+        });
+        this.readbackbuffer = this.device.createBuffer({
+            size: Math.max(16, this.count * 4),
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+        });
+        this.bind = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.paramsbuffer
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.meshletbuffer
+                }
+            }, {
+                binding: 2,
+                resource: {
+                    buffer: this.visibility
+                }
+            } ]
+        });
     }
-    cull(camera) {
+    cull(zasza) {
         this.ensurepipeline();
-        var projection = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        var pe = projection.elements;
-        var planes = [
-            pe[3] + pe[0], pe[7] + pe[4], pe[11] + pe[8], pe[15] + pe[12],
-            pe[3] - pe[0], pe[7] - pe[4], pe[11] - pe[8], pe[15] - pe[12],
-            pe[3] + pe[1], pe[7] + pe[5], pe[11] + pe[9], pe[15] + pe[13],
-            pe[3] - pe[1], pe[7] - pe[5], pe[11] - pe[9], pe[15] - pe[13],
-            pe[2], pe[6], pe[10], pe[14],
-            pe[3] - pe[2], pe[7] - pe[6], pe[11] - pe[10], pe[15] - pe[14]
-        ];
-        for (var pl = 0; pl < 6; pl++) {
-            var ln = Math.sqrt(planes[pl * 4] * planes[pl * 4] + planes[pl * 4 + 1] * planes[pl * 4 + 1] + planes[pl * 4 + 2] * planes[pl * 4 + 2]) || 1;
-            planes[pl * 4] /= ln; planes[pl * 4 + 1] /= ln; planes[pl * 4 + 2] /= ln; planes[pl * 4 + 3] /= ln;
+        var zaszb = (new Matrix4).multiplyMatrices(zasza.projectionMatrix, zasza.matrixWorldInverse);
+        var zaszc = zaszb.elements;
+        var zaszd = [ zaszc[3] + zaszc[0], zaszc[7] + zaszc[4], zaszc[11] + zaszc[8], zaszc[15] + zaszc[12], zaszc[3] - zaszc[0], zaszc[7] - zaszc[4], zaszc[11] - zaszc[8], zaszc[15] - zaszc[12], zaszc[3] + zaszc[1], zaszc[7] + zaszc[5], zaszc[11] + zaszc[9], zaszc[15] + zaszc[13], zaszc[3] - zaszc[1], zaszc[7] - zaszc[5], zaszc[11] - zaszc[9], zaszc[15] - zaszc[13], zaszc[2], zaszc[6], zaszc[10], zaszc[14], zaszc[3] - zaszc[2], zaszc[7] - zaszc[6], zaszc[11] - zaszc[10], zaszc[15] - zaszc[14] ];
+        for (var zasze = 0; zasze < 6; zasze++) {
+            var zaszf = Math.sqrt(zaszd[zasze * 4] * zaszd[zasze * 4] + zaszd[zasze * 4 + 1] * zaszd[zasze * 4 + 1] + zaszd[zasze * 4 + 2] * zaszd[zasze * 4 + 2]) || 1;
+            zaszd[zasze * 4] /= zaszf;
+            zaszd[zasze * 4 + 1] /= zaszf;
+            zaszd[zasze * 4 + 2] /= zaszf;
+            zaszd[zasze * 4 + 3] /= zaszf;
         }
-        var data = new Float32Array(32);
-        data[0] = camera.position.x; data[1] = camera.position.y; data[2] = camera.position.z; data[3] = 0;
-        for (var pp = 0; pp < 24; pp++) data[4 + pp] = planes[pp];
-        data[28] = this.count; data[29] = this.useCone ? 1 : 0; data[30] = 0; data[31] = 0;
-        this.device.queue.writeBuffer(this.paramsbuffer, 0, data);
-        var t0 = performance.now();
-        var encoder = this.device.createCommandEncoder();
-        var pass = encoder.beginComputePass();
-        pass.setPipeline(this.pipeline);
-        pass.setBindGroup(0, this.bind);
-        pass.dispatchWorkgroups(Math.ceil(this.count / 64));
-        pass.end();
-        this.device.queue.submit([encoder.finish()]);
-        this.stats.cullms = performance.now() - t0;
+        var zaszg = new Float32Array(32);
+        zaszg[0] = zasza.position.x;
+        zaszg[1] = zasza.position.y;
+        zaszg[2] = zasza.position.z;
+        zaszg[3] = 0;
+        for (var zaszh = 0; zaszh < 24; zaszh++) zaszg[4 + zaszh] = zaszd[zaszh];
+        zaszg[28] = this.count;
+        zaszg[29] = this.useCone ? 1 : 0;
+        zaszg[30] = 0;
+        zaszg[31] = 0;
+        this.device.queue.writeBuffer(this.paramsbuffer, 0, zaszg);
+        var zaszi = performance.now();
+        var zaszj = this.device.createCommandEncoder();
+        var zaszk = zaszj.beginComputePass();
+        zaszk.setPipeline(this.pipeline);
+        zaszk.setBindGroup(0, this.bind);
+        zaszk.dispatchWorkgroups(Math.ceil(this.count / 64));
+        zaszk.end();
+        this.device.queue.submit([ zaszj.finish() ]);
+        this.stats.cullms = performance.now() - zaszi;
         this.stats.total = this.count;
         return this;
     }
     readback() {
-        var self = this;
+        var zasza = this;
         this.ensurepipeline();
-        var encoder = this.device.createCommandEncoder();
-        encoder.copyBufferToBuffer(this.visibility, 0, this.readbackbuffer, 0, Math.max(16, this.count * 4));
-        this.device.queue.submit([encoder.finish()]);
+        var zaszb = this.device.createCommandEncoder();
+        zaszb.copyBufferToBuffer(this.visibility, 0, this.readbackbuffer, 0, Math.max(16, this.count * 4));
+        this.device.queue.submit([ zaszb.finish() ]);
         return this.device.queue.onSubmittedWorkDone().then(function() {
-            return self.readbackbuffer.mapAsync(GPUMapMode.READ).then(function() {
-                var out = new Uint32Array(self.readbackbuffer.getMappedRange()).slice();
-                self.readbackbuffer.unmap();
-                var vis = 0;
-                for (var i = 0; i < self.count; i++) if (out[i]) vis++;
-                self.stats.visible = vis;
-                return out;
+            return zasza.readbackbuffer.mapAsync(GPUMapMode.READ).then(function() {
+                var zaszb = new Uint32Array(zasza.readbackbuffer.getMappedRange()).slice();
+                zasza.readbackbuffer.unmap();
+                var zaszc = 0;
+                for (var zaszd = 0; zaszd < zasza.count; zaszd++) if (zaszb[zaszd]) zaszc++;
+                zasza.stats.visible = zaszc;
+                return zaszb;
             });
         });
     }

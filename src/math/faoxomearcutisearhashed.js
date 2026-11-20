@@ -1,27 +1,29 @@
 import { faoxomearcutarea } from "./faoxomearcutarea.js";
+
 import { faoxomearcutpointintriangleexceptfirst } from "./faoxomearcutpointintriangleexceptfirst.js";
+
 import { faoxomearcutzorder } from "./faoxomearcutzorder.js";
 
-function faoxomearcutisearhashed(ear, minX, minY, invSize) {
-    var a = ear.prev, b = ear, c = ear.next;
-    if (faoxomearcutarea(a, b, c) >= 0) return false;
-    var ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
-    var x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
-    var minZ = faoxomearcutzorder(x0, y0, minX, minY, invSize), maxZ = faoxomearcutzorder(x1, y1, minX, minY, invSize);
-    var p = ear.prevZ, n = ear.nextZ;
-    while (p && p.z >= minZ && n && n.z <= maxZ) {
-        if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && faoxomearcutpointintriangleexceptfirst(ax, ay, bx, by, cx, cy, p.x, p.y) && faoxomearcutarea(p.prev, p, p.next) >= 0) return false;
-        p = p.prevZ;
-        if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && faoxomearcutpointintriangleexceptfirst(ax, ay, bx, by, cx, cy, n.x, n.y) && faoxomearcutarea(n.prev, n, n.next) >= 0) return false;
-        n = n.nextZ;
+function faoxomearcutisearhashed(zapra, zaprb, zaprc, zaprd) {
+    var zapre = zapra.prev, zaprf = zapra, zaprg = zapra.next;
+    if (faoxomearcutarea(zapre, zaprf, zaprg) >= 0) return false;
+    var zaprh = zapre.x, zapri = zaprf.x, zaprj = zaprg.x, zaprk = zapre.y, zaprl = zaprf.y, zaprm = zaprg.y;
+    var zaprn = Math.min(zaprh, zapri, zaprj), zapro = Math.min(zaprk, zaprl, zaprm), zaprp = Math.max(zaprh, zapri, zaprj), zaprq = Math.max(zaprk, zaprl, zaprm);
+    var zaprr = faoxomearcutzorder(zaprn, zapro, zaprb, zaprc, zaprd), zaprs = faoxomearcutzorder(zaprp, zaprq, zaprb, zaprc, zaprd);
+    var zaprt = zapra.prevZ, zapru = zapra.nextZ;
+    while (zaprt && zaprt.z >= zaprr && zapru && zapru.z <= zaprs) {
+        if (zaprt.x >= zaprn && zaprt.x <= zaprp && zaprt.y >= zapro && zaprt.y <= zaprq && zaprt !== zapre && zaprt !== zaprg && faoxomearcutpointintriangleexceptfirst(zaprh, zaprk, zapri, zaprl, zaprj, zaprm, zaprt.x, zaprt.y) && faoxomearcutarea(zaprt.prev, zaprt, zaprt.next) >= 0) return false;
+        zaprt = zaprt.prevZ;
+        if (zapru.x >= zaprn && zapru.x <= zaprp && zapru.y >= zapro && zapru.y <= zaprq && zapru !== zapre && zapru !== zaprg && faoxomearcutpointintriangleexceptfirst(zaprh, zaprk, zapri, zaprl, zaprj, zaprm, zapru.x, zapru.y) && faoxomearcutarea(zapru.prev, zapru, zapru.next) >= 0) return false;
+        zapru = zapru.nextZ;
     }
-    while (p && p.z >= minZ) {
-        if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && faoxomearcutpointintriangleexceptfirst(ax, ay, bx, by, cx, cy, p.x, p.y) && faoxomearcutarea(p.prev, p, p.next) >= 0) return false;
-        p = p.prevZ;
+    while (zaprt && zaprt.z >= zaprr) {
+        if (zaprt.x >= zaprn && zaprt.x <= zaprp && zaprt.y >= zapro && zaprt.y <= zaprq && zaprt !== zapre && zaprt !== zaprg && faoxomearcutpointintriangleexceptfirst(zaprh, zaprk, zapri, zaprl, zaprj, zaprm, zaprt.x, zaprt.y) && faoxomearcutarea(zaprt.prev, zaprt, zaprt.next) >= 0) return false;
+        zaprt = zaprt.prevZ;
     }
-    while (n && n.z <= maxZ) {
-        if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && faoxomearcutpointintriangleexceptfirst(ax, ay, bx, by, cx, cy, n.x, n.y) && faoxomearcutarea(n.prev, n, n.next) >= 0) return false;
-        n = n.nextZ;
+    while (zapru && zapru.z <= zaprs) {
+        if (zapru.x >= zaprn && zapru.x <= zaprp && zapru.y >= zapro && zapru.y <= zaprq && zapru !== zapre && zapru !== zaprg && faoxomearcutpointintriangleexceptfirst(zaprh, zaprk, zapri, zaprl, zaprj, zaprm, zapru.x, zapru.y) && faoxomearcutarea(zapru.prev, zapru, zapru.next) >= 0) return false;
+        zapru = zapru.nextZ;
     }
     return true;
 }

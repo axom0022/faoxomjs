@@ -1,49 +1,58 @@
 import { ShapePath } from "../math/index.js";
 
-function faoxomfontcreatepath(char, scale, offsetX, offsetY, data) {
-    var glyph = data.glyphs[char] || data.glyphs["?"];
-    if (!glyph) {
-        console.error("Font: character \"" + char + "\" does not exist in font family " + (data.familyName || "unknown") + ".");
-        return { offsetX: 0, path: new ShapePath() };
+function faoxomfontcreatepath(zaewa, zaewb, zaewc, zaewd, zaewe) {
+    var zaewf = zaewe.glyphs[zaewa] || zaewe.glyphs["?"];
+    if (!zaewf) {
+        console.error('Font: character "' + zaewa + '" does not exist in font family ' + (zaewe.familyName || "unknown") + ".");
+        return {
+            offsetX: 0,
+            path: new ShapePath
+        };
     }
-    var path = new ShapePath();
-    var x, y, cpx, cpy, cpx1, cpy1, cpx2, cpy2;
-    if (glyph.o) {
-        var outline = glyph._cachedOutline || (glyph._cachedOutline = glyph.o.split(" "));
-        var i = 0, l = outline.length;
-        while (i < l) {
-            var action = outline[i++];
-            switch (action) {
-                case "m":
-                    x = outline[i++] * scale + offsetX;
-                    y = outline[i++] * scale + offsetY;
-                    path.moveTo(x, y);
-                    break;
-                case "l":
-                    x = outline[i++] * scale + offsetX;
-                    y = outline[i++] * scale + offsetY;
-                    path.lineTo(x, y);
-                    break;
-                case "q":
-                    cpx = outline[i++] * scale + offsetX;
-                    cpy = outline[i++] * scale + offsetY;
-                    cpx1 = outline[i++] * scale + offsetX;
-                    cpy1 = outline[i++] * scale + offsetY;
-                    path.quadraticCurveTo(cpx1, cpy1, cpx, cpy);
-                    break;
-                case "b":
-                    cpx = outline[i++] * scale + offsetX;
-                    cpy = outline[i++] * scale + offsetY;
-                    cpx1 = outline[i++] * scale + offsetX;
-                    cpy1 = outline[i++] * scale + offsetY;
-                    cpx2 = outline[i++] * scale + offsetX;
-                    cpy2 = outline[i++] * scale + offsetY;
-                    path.bezierCurveTo(cpx1, cpy1, cpx2, cpy2, cpx, cpy);
-                    break;
+    var zaewg = new ShapePath;
+    var zaewh, zaewi, zaewj, zaewk, zaewl, zaewm, zaewn, zaewo;
+    if (zaewf.o) {
+        var zaewp = zaewf._cachedOutline || (zaewf._cachedOutline = zaewf.o.split(" "));
+        var zaewq = 0, zaewr = zaewp.length;
+        while (zaewq < zaewr) {
+            var zaews = zaewp[zaewq++];
+            switch (zaews) {
+              case "m":
+                zaewh = zaewp[zaewq++] * zaewb + zaewc;
+                zaewi = zaewp[zaewq++] * zaewb + zaewd;
+                zaewg.moveTo(zaewh, zaewi);
+                break;
+
+              case "l":
+                zaewh = zaewp[zaewq++] * zaewb + zaewc;
+                zaewi = zaewp[zaewq++] * zaewb + zaewd;
+                zaewg.lineTo(zaewh, zaewi);
+                break;
+
+              case "q":
+                zaewj = zaewp[zaewq++] * zaewb + zaewc;
+                zaewk = zaewp[zaewq++] * zaewb + zaewd;
+                zaewl = zaewp[zaewq++] * zaewb + zaewc;
+                zaewm = zaewp[zaewq++] * zaewb + zaewd;
+                zaewg.quadraticCurveTo(zaewl, zaewm, zaewj, zaewk);
+                break;
+
+              case "b":
+                zaewj = zaewp[zaewq++] * zaewb + zaewc;
+                zaewk = zaewp[zaewq++] * zaewb + zaewd;
+                zaewl = zaewp[zaewq++] * zaewb + zaewc;
+                zaewm = zaewp[zaewq++] * zaewb + zaewd;
+                zaewn = zaewp[zaewq++] * zaewb + zaewc;
+                zaewo = zaewp[zaewq++] * zaewb + zaewd;
+                zaewg.bezierCurveTo(zaewl, zaewm, zaewn, zaewo, zaewj, zaewk);
+                break;
             }
         }
     }
-    return { offsetX: glyph.ha * scale, path: path };
+    return {
+        offsetX: zaewf.ha * zaewb,
+        path: zaewg
+    };
 }
 
 export { faoxomfontcreatepath };

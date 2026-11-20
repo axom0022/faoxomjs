@@ -1,13 +1,88 @@
 import { faoxomidnext, faoxomresolve } from "../core/index.js";
 
 class AnimationController {
-    constructor(target) { this.id = faoxomidnext(); this.target = target; this.clips = {}; this.current = null; this.time = 0; this.speed = 1; this.weight = 1; this.loop = true; this.playing = false; this.paused = false; this.onComplete = null; this.onStart = null; }
-    addClip(clip) { this.clips[clip.name] = clip; return this; }
-    play(clip, reset) { var c = typeof clip === "string" ? this.clips[clip] : clip; if (!c) return this; this.current = c; if (reset !== false) this.time = 0; this.playing = true; this.paused = false; if (this.onStart) this.onStart(c, this); return this; }
-    stop() { this.playing = false; this.paused = false; this.time = 0; return this; }
-    pause() { this.paused = true; return this; }
-    resume() { this.paused = false; this.playing = true; return this; }
-    update(delta) { if (!this.playing || this.paused || !this.current) return; this.time += delta * this.speed; var clip = this.current; if (clip.duration > 0 && this.time >= clip.duration) { if (this.loop) this.time = this.time % clip.duration; else { this.time = clip.duration; this.playing = false; if (this.onComplete) this.onComplete(clip, this); } } for (var i = 0; i < clip.tracks.length; i++) { var track = clip.tracks[i]; var result = track.sample(this.time); var resolved = faoxomresolve(this.target, track.name); if (!resolved.object) continue; if (resolved.key === "weights" && resolved.object.userData && resolved.object.userData.meshes) { var weightMeshes = resolved.object.userData.meshes; for (var weightMeshIndex = 0; weightMeshIndex < weightMeshes.length; weightMeshIndex++) { var influences = weightMeshes[weightMeshIndex].morphTargetInfluences; if (!influences) continue; for (var influenceIndex = 0; influenceIndex < result.length; influenceIndex++) influences[influenceIndex] = result[influenceIndex]; } continue; } if (resolved.key === "weights" && resolved.object.morphTargetInfluences) { var directInfluences = resolved.object.morphTargetInfluences; for (var directIndex = 0; directIndex < directInfluences.length && directIndex < result.length; directIndex++) directInfluences[directIndex] = result[directIndex]; continue; } var current = resolved.object[resolved.key]; if (this.weight < 1 && current && current.clone && result && current.lerp) result = current.clone().lerp(result, this.weight); if (current && current.copy && result && result !== current) current.copy(result); else resolved.object[resolved.key] = result; } if (this.target && this.target.skeleton && this.target.skeleton.update) this.target.skeleton.update(); if (this.target && this.target.traverse) this.target.traverse(function(object) { if (object.skeleton && object.skeleton.update) object.skeleton.update(); }); }
+    constructor(zaava) {
+        this.id = faoxomidnext();
+        this.target = zaava;
+        this.clips = {};
+        this.current = null;
+        this.time = 0;
+        this.speed = 1;
+        this.weight = 1;
+        this.loop = true;
+        this.playing = false;
+        this.paused = false;
+        this.onComplete = null;
+        this.onStart = null;
+    }
+    addClip(zaava) {
+        this.clips[zaava.name] = zaava;
+        return this;
+    }
+    play(zaava, zaavb) {
+        var zaavc = typeof zaava === "string" ? this.clips[zaava] : zaava;
+        if (!zaavc) return this;
+        this.current = zaavc;
+        if (zaavb !== false) this.time = 0;
+        this.playing = true;
+        this.paused = false;
+        if (this.onStart) this.onStart(zaavc, this);
+        return this;
+    }
+    stop() {
+        this.playing = false;
+        this.paused = false;
+        this.time = 0;
+        return this;
+    }
+    pause() {
+        this.paused = true;
+        return this;
+    }
+    resume() {
+        this.paused = false;
+        this.playing = true;
+        return this;
+    }
+    update(zaava) {
+        if (!this.playing || this.paused || !this.current) return;
+        this.time += zaava * this.speed;
+        var zaavb = this.current;
+        if (zaavb.duration > 0 && this.time >= zaavb.duration) {
+            if (this.loop) this.time = this.time % zaavb.duration; else {
+                this.time = zaavb.duration;
+                this.playing = false;
+                if (this.onComplete) this.onComplete(zaavb, this);
+            }
+        }
+        for (var zaavc = 0; zaavc < zaavb.tracks.length; zaavc++) {
+            var zaavd = zaavb.tracks[zaavc];
+            var zaave = zaavd.sample(this.time);
+            var zaavf = faoxomresolve(this.target, zaavd.name);
+            if (!zaavf.object) continue;
+            if (zaavf.key === "weights" && zaavf.object.userData && zaavf.object.userData.meshes) {
+                var zaavg = zaavf.object.userData.meshes;
+                for (var zaavh = 0; zaavh < zaavg.length; zaavh++) {
+                    var zaavi = zaavg[zaavh].morphTargetInfluences;
+                    if (!zaavi) continue;
+                    for (var zaavj = 0; zaavj < zaave.length; zaavj++) zaavi[zaavj] = zaave[zaavj];
+                }
+                continue;
+            }
+            if (zaavf.key === "weights" && zaavf.object.morphTargetInfluences) {
+                var zaavk = zaavf.object.morphTargetInfluences;
+                for (var zaavl = 0; zaavl < zaavk.length && zaavl < zaave.length; zaavl++) zaavk[zaavl] = zaave[zaavl];
+                continue;
+            }
+            var zaavm = zaavf.object[zaavf.key];
+            if (this.weight < 1 && zaavm && zaavm.clone && zaave && zaavm.lerp) zaave = zaavm.clone().lerp(zaave, this.weight);
+            if (zaavm && zaavm.copy && zaave && zaave !== zaavm) zaavm.copy(zaave); else zaavf.object[zaavf.key] = zaave;
+        }
+        if (this.target && this.target.skeleton && this.target.skeleton.update) this.target.skeleton.update();
+        if (this.target && this.target.traverse) this.target.traverse(function(zaava) {
+            if (zaava.skeleton && zaava.skeleton.update) zaava.skeleton.update();
+        });
+    }
 }
 
 export { AnimationController };

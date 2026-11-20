@@ -2,32 +2,29 @@ import { Quaternion, Vector3 } from "../math/index.js";
 
 class WebXRHandTracker {
     constructor() {
-        this.jointNames = [
-            "wrist",
-            "thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip",
-            "index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip",
-            "middle-finger-metacarpal", "middle-finger-phalanx-proximal", "middle-finger-phalanx-intermediate", "middle-finger-phalanx-distal", "middle-finger-tip",
-            "ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip",
-            "pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip"
-        ];
+        this.jointNames = [ "wrist", "thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip", "index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip", "middle-finger-metacarpal", "middle-finger-phalanx-proximal", "middle-finger-phalanx-intermediate", "middle-finger-phalanx-distal", "middle-finger-tip", "ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip", "pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip" ];
         this.joints = {};
-        for (var i = 0; i < this.jointNames.length; i++) {
-            this.joints[this.jointNames[i]] = { position: new Vector3(), orientation: new Quaternion(), radius: 0.01 };
+        for (var zajma = 0; zajma < this.jointNames.length; zajma++) {
+            this.joints[this.jointNames[zajma]] = {
+                position: new Vector3,
+                orientation: new Quaternion,
+                radius: .01
+            };
         }
     }
-    update(xrHand, frame, refSpace) {
-        if (!xrHand || !frame || !refSpace) return;
-        for (var i = 0; i < this.jointNames.length; i++) {
-            var name = this.jointNames[i];
-            var joint = xrHand.get(name);
-            if (joint) {
-                var pose = frame.getJointPose ? frame.getJointPose(joint, refSpace) : null;
-                if (pose && pose.transform) {
-                    var pos = pose.transform.position;
-                    var rot = pose.transform.orientation;
-                    this.joints[name].position.set(pos.x, pos.y, pos.z);
-                    this.joints[name].orientation.set(rot.x, rot.y, rot.z, rot.w);
-                    this.joints[name].radius = pose.radius || 0.01;
+    update(zajma, zajmb, zajmc) {
+        if (!zajma || !zajmb || !zajmc) return;
+        for (var zajmd = 0; zajmd < this.jointNames.length; zajmd++) {
+            var zajme = this.jointNames[zajmd];
+            var zajmf = zajma.get(zajme);
+            if (zajmf) {
+                var zajmg = zajmb.getJointPose ? zajmb.getJointPose(zajmf, zajmc) : null;
+                if (zajmg && zajmg.transform) {
+                    var zajmh = zajmg.transform.position;
+                    var zajmi = zajmg.transform.orientation;
+                    this.joints[zajme].position.set(zajmh.x, zajmh.y, zajmh.z);
+                    this.joints[zajme].orientation.set(zajmi.x, zajmi.y, zajmi.z, zajmi.w);
+                    this.joints[zajme].radius = zajmg.radius || .01;
                 }
             }
         }

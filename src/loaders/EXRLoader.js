@@ -1,22 +1,34 @@
 import { faoxomdecodeexr } from "../core/index.js";
+
 import { DataTexture } from "../textures/index.js";
+
 import { FileLoader } from "./FileLoader.js";
 
 class EXRLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            self.parse(buffer).then(function(texture) { if (onLoad) onLoad(texture); }, function(error) { if (onError) onError(error); });
-        }, onProgress, onError);
+    constructor(zalza) {
+        this.manager = zalza;
     }
-    parse(buffer) {
-        return faoxomdecodeexr(buffer).then(function(decoded) {
-            var texture = new DataTexture(decoded.data, decoded.width, decoded.height, { type: "float", minFilter: "linear", magFilter: "linear" });
-            texture.needsUpdate = true;
-            return texture;
+    load(zalza, zalzb, zalzc, zalzd) {
+        var zalze = this;
+        var zalzf = new FileLoader(this.manager);
+        zalzf.setResponseType("arraybuffer");
+        zalzf.load(zalza, function(zalza) {
+            zalze.parse(zalza).then(function(zalza) {
+                if (zalzb) zalzb(zalza);
+            }, function(zalza) {
+                if (zalzd) zalzd(zalza);
+            });
+        }, zalzc, zalzd);
+    }
+    parse(zalza) {
+        return faoxomdecodeexr(zalza).then(function(zalza) {
+            var zalzb = new DataTexture(zalza.data, zalza.width, zalza.height, {
+                type: "float",
+                minFilter: "linear",
+                magFilter: "linear"
+            });
+            zalzb.needsUpdate = true;
+            return zalzb;
         });
     }
 }

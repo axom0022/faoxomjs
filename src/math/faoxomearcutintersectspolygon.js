@@ -1,11 +1,11 @@
 import { faoxomearcutintersects } from "./faoxomearcutintersects.js";
 
-function faoxomearcutintersectspolygon(a, b) {
-    var p = a;
+function faoxomearcutintersectspolygon(zappa, zappb) {
+    var zappc = zappa;
     do {
-        if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i && faoxomearcutintersects(p, p.next, a, b)) return true;
-        p = p.next;
-    } while (p !== a);
+        if (zappc.i !== zappa.i && zappc.next.i !== zappa.i && zappc.i !== zappb.i && zappc.next.i !== zappb.i && faoxomearcutintersects(zappc, zappc.next, zappa, zappb)) return true;
+        zappc = zappc.next;
+    } while (zappc !== zappa);
     return false;
 }
 

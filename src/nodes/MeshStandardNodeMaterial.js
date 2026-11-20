@@ -1,5 +1,10 @@
 import { NodeMaterial } from "./NodeMaterial.js";
 
-class MeshStandardNodeMaterial extends NodeMaterial { constructor(options) { super(options); this.type = "MeshStandardNodeMaterial"; } }
+class MeshStandardNodeMaterial extends NodeMaterial {
+    constructor(zaqua) {
+        super(zaqua);
+        this.type = "MeshStandardNodeMaterial";
+    }
+}
 
 export { MeshStandardNodeMaterial };

@@ -1,42 +1,268 @@
 import { Quaternion } from "./Quaternion.js";
+
 import { Vector3 } from "./Vector3.js";
+
 import { faoxomvalue } from "./faoxomvalue.js";
 
 class Matrix4 {
-    constructor() { this.elements = new Float64Array(16); this.identity(); }
-    set(n11, n12, n13, n14, n21, n22, n23, n24, n31, n32, n33, n34, n41, n42, n43, n44) { var te = this.elements; te[0] = n11; te[4] = n12; te[8] = n13; te[12] = n14; te[1] = n21; te[5] = n22; te[9] = n23; te[13] = n24; te[2] = n31; te[6] = n32; te[10] = n33; te[14] = n34; te[3] = n41; te[7] = n42; te[11] = n43; te[15] = n44; return this; }
-    identity() { return this.set(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
-    clone() { return new Matrix4().fromArray(this.elements); }
-    copy(m) { this.elements.set(m.elements); return this; }
-    fromArray(a, offset) { var i = faoxomvalue(offset, 0); for (var j = 0; j < 16; j++) this.elements[j] = a[i + j]; return this; }
-    toArray(a, offset) { var out = a || []; var i = faoxomvalue(offset, 0); for (var j = 0; j < 16; j++) out[i + j] = this.elements[j]; return out; }
-    multiply(m) { return this.multiplyMatrices(this, m); }
-    premultiply(m) { return this.multiplyMatrices(m, this); }
-    multiplyMatrices(a, b) { var ae = a.elements, be = b.elements, te = this.elements; var a11 = ae[0], a12 = ae[4], a13 = ae[8], a14 = ae[12], a21 = ae[1], a22 = ae[5], a23 = ae[9], a24 = ae[13], a31 = ae[2], a32 = ae[6], a33 = ae[10], a34 = ae[14], a41 = ae[3], a42 = ae[7], a43 = ae[11], a44 = ae[15]; var b11 = be[0], b12 = be[4], b13 = be[8], b14 = be[12], b21 = be[1], b22 = be[5], b23 = be[9], b24 = be[13], b31 = be[2], b32 = be[6], b33 = be[10], b34 = be[14], b41 = be[3], b42 = be[7], b43 = be[11], b44 = be[15]; te[0] = a11 * b11 + a12 * b21 + a13 * b31 + a14 * b41; te[4] = a11 * b12 + a12 * b22 + a13 * b32 + a14 * b42; te[8] = a11 * b13 + a12 * b23 + a13 * b33 + a14 * b43; te[12] = a11 * b14 + a12 * b24 + a13 * b34 + a14 * b44; te[1] = a21 * b11 + a22 * b21 + a23 * b31 + a24 * b41; te[5] = a21 * b12 + a22 * b22 + a23 * b32 + a24 * b42; te[9] = a21 * b13 + a22 * b23 + a23 * b33 + a24 * b43; te[13] = a21 * b14 + a22 * b24 + a23 * b34 + a24 * b44; te[2] = a31 * b11 + a32 * b21 + a33 * b31 + a34 * b41; te[6] = a31 * b12 + a32 * b22 + a33 * b32 + a34 * b42; te[10] = a31 * b13 + a32 * b23 + a33 * b33 + a34 * b43; te[14] = a31 * b14 + a32 * b24 + a33 * b34 + a34 * b44; te[3] = a41 * b11 + a42 * b21 + a43 * b31 + a44 * b41; te[7] = a41 * b12 + a42 * b22 + a43 * b32 + a44 * b42; te[11] = a41 * b13 + a42 * b23 + a43 * b33 + a44 * b43; te[15] = a41 * b14 + a42 * b24 + a43 * b34 + a44 * b44; return this; }
-    determinant() { var te = this.elements; var n11 = te[0], n12 = te[4], n13 = te[8], n14 = te[12], n21 = te[1], n22 = te[5], n23 = te[9], n24 = te[13], n31 = te[2], n32 = te[6], n33 = te[10], n34 = te[14], n41 = te[3], n42 = te[7], n43 = te[11], n44 = te[15]; return n41 * (n14 * n23 * n32 - n13 * n24 * n32 - n14 * n22 * n33 + n12 * n24 * n33 + n13 * n22 * n34 - n12 * n23 * n34) + n42 * (n11 * n23 * n34 - n11 * n24 * n33 + n14 * n21 * n33 - n13 * n21 * n34 + n13 * n24 * n31 - n14 * n23 * n31) + n43 * (n11 * n24 * n32 - n11 * n22 * n34 - n14 * n21 * n32 + n12 * n21 * n34 + n14 * n22 * n31 - n12 * n24 * n31) + n44 * (-n13 * n22 * n31 - n11 * n23 * n32 + n11 * n22 * n33 + n13 * n21 * n32 - n12 * n21 * n33 + n12 * n23 * n31); }
-    invert() { var a = this.elements; var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3], a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7], a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11], a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15]; var b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10, b02 = a00 * a13 - a03 * a10, b03 = a01 * a12 - a02 * a11, b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12, b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30, b08 = a20 * a33 - a23 * a30, b09 = a21 * a32 - a22 * a31, b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32; var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06; if (det === 0) return this.identity(); var inv = 1 / det; var te = this.elements; te[0] = (a11 * b11 - a12 * b10 + a13 * b09) * inv; te[1] = (a02 * b10 - a01 * b11 - a03 * b09) * inv; te[2] = (a31 * b05 - a32 * b04 + a33 * b03) * inv; te[3] = (a22 * b04 - a21 * b05 - a23 * b03) * inv; te[4] = (a12 * b08 - a10 * b11 - a13 * b07) * inv; te[5] = (a00 * b11 - a02 * b08 + a03 * b07) * inv; te[6] = (a32 * b02 - a30 * b05 - a33 * b01) * inv; te[7] = (a20 * b05 - a22 * b02 + a23 * b01) * inv; te[8] = (a10 * b10 - a11 * b08 + a13 * b06) * inv; te[9] = (a01 * b08 - a00 * b10 - a03 * b06) * inv; te[10] = (a30 * b04 - a31 * b02 + a33 * b00) * inv; te[11] = (a21 * b02 - a20 * b04 - a23 * b00) * inv; te[12] = (a11 * b07 - a10 * b09 - a12 * b06) * inv; te[13] = (a00 * b09 - a01 * b07 + a02 * b06) * inv; te[14] = (a31 * b01 - a30 * b03 - a32 * b00) * inv; te[15] = (a20 * b03 - a21 * b01 + a22 * b00) * inv; return this; }
-    transpose() { var e = this.elements; var t; t = e[1]; e[1] = e[4]; e[4] = t; t = e[2]; e[2] = e[8]; e[8] = t; t = e[6]; e[6] = e[9]; e[9] = t; t = e[3]; e[3] = e[12]; e[12] = t; t = e[7]; e[7] = e[13]; e[13] = t; t = e[11]; e[11] = e[14]; e[14] = t; return this; }
-    makeTranslation(x, y, z) { return this.set(1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1); }
-    makeScale(x, y, z) { return this.set(x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, 0, 1); }
-    makeRotationX(theta) { var c = Math.cos(theta), s = Math.sin(theta); return this.set(1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1); }
-    makeRotationY(theta) { var c = Math.cos(theta), s = Math.sin(theta); return this.set(c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1); }
-    makeRotationZ(theta) { var c = Math.cos(theta), s = Math.sin(theta); return this.set(c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
-    makeRotationFromQuaternion(q) { var x = q.x, y = q.y, z = q.z, w = q.w; var x2 = x + x, y2 = y + y, z2 = z + z, xx = x * x2, xy = x * y2, xz = x * z2, yy = y * y2, yz = y * z2, zz = z * z2, wx = w * x2, wy = w * y2, wz = w * z2; return this.set(1 - (yy + zz), xy - wz, xz + wy, 0, xy + wz, 1 - (xx + zz), yz - wx, 0, xz - wy, yz + wx, 1 - (xx + yy), 0, 0, 0, 0, 1); }
-    compose(position, quaternion, scale) { var te = this.elements; this.makeRotationFromQuaternion(quaternion); te[0] *= scale.x; te[1] *= scale.x; te[2] *= scale.x; te[4] *= scale.y; te[5] *= scale.y; te[6] *= scale.y; te[8] *= scale.z; te[9] *= scale.z; te[10] *= scale.z; te[12] = position.x; te[13] = position.y; te[14] = position.z; return this; }
-    decompose(position, quaternion, scale) { var te = this.elements; var sx = new Vector3(te[0], te[1], te[2]).length(); var sy = new Vector3(te[4], te[5], te[6]).length(); var sz = new Vector3(te[8], te[9], te[10]).length(); if (this.determinant() < 0) sx = -sx; position.set(te[12], te[13], te[14]); scale.set(sx, sy, sz); var matrix = this.clone(); var me = matrix.elements; me[0] /= sx; me[1] /= sx; me[2] /= sx; me[4] /= sy; me[5] /= sy; me[6] /= sy; me[8] /= sz; me[9] /= sz; me[10] /= sz; quaternion.setFromRotationMatrix(matrix); return this; }
-    makePerspective(fov, aspect, near, far) { var f = 1 / Math.tan(fov * Math.PI / 360); var nf = 1 / (near - far); return this.set(f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) * nf, 2 * far * near * nf, 0, 0, -1, 0); }
-    makeOrthographic(left, right, top, bottom, near, far) { var w = 1 / (right - left), h = 1 / (top - bottom), p = 1 / (far - near), x = (right + left) * w, y = (top + bottom) * h, z = (far + near) * p; return this.set(2 * w, 0, 0, -x, 0, 2 * h, 0, -y, 0, 0, -2 * p, -z, 0, 0, 0, 1); }
-    lookAt(eye, target, up) { var z = new Vector3().subVectors(eye, target).normalize(); if (z.lengthSq() === 0) z.z = 1; var x = new Vector3().crossVectors(up, z).normalize(); if (x.lengthSq() === 0) { z.x += 0.0001; x.crossVectors(up, z).normalize(); } var y = new Vector3().crossVectors(z, x); return this.set(x.x, y.x, z.x, eye.x, x.y, y.y, z.y, eye.y, x.z, y.z, z.z, eye.z, 0, 0, 0, 1); }
+    constructor() {
+        this.elements = new Float64Array(16);
+        this.identity();
+    }
+    set(zaoga, zaogb, zaogc, zaogd, zaoge, zaogf, zaogg, zaogh, zaogi, zaogj, zaogk, zaogl, zaogm, zaogn, zaogo, zaogp) {
+        var zaogq = this.elements;
+        zaogq[0] = zaoga;
+        zaogq[4] = zaogb;
+        zaogq[8] = zaogc;
+        zaogq[12] = zaogd;
+        zaogq[1] = zaoge;
+        zaogq[5] = zaogf;
+        zaogq[9] = zaogg;
+        zaogq[13] = zaogh;
+        zaogq[2] = zaogi;
+        zaogq[6] = zaogj;
+        zaogq[10] = zaogk;
+        zaogq[14] = zaogl;
+        zaogq[3] = zaogm;
+        zaogq[7] = zaogn;
+        zaogq[11] = zaogo;
+        zaogq[15] = zaogp;
+        return this;
+    }
+    identity() {
+        return this.set(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+    }
+    clone() {
+        return (new Matrix4).fromArray(this.elements);
+    }
+    copy(zaoga) {
+        this.elements.set(zaoga.elements);
+        return this;
+    }
+    fromArray(zaoga, zaogb) {
+        var zaogc = faoxomvalue(zaogb, 0);
+        for (var zaogd = 0; zaogd < 16; zaogd++) this.elements[zaogd] = zaoga[zaogc + zaogd];
+        return this;
+    }
+    toArray(zaoga, zaogb) {
+        var zaogc = zaoga || [];
+        var zaogd = faoxomvalue(zaogb, 0);
+        for (var zaoge = 0; zaoge < 16; zaoge++) zaogc[zaogd + zaoge] = this.elements[zaoge];
+        return zaogc;
+    }
+    multiply(zaoga) {
+        return this.multiplyMatrices(this, zaoga);
+    }
+    premultiply(zaoga) {
+        return this.multiplyMatrices(zaoga, this);
+    }
+    multiplyMatrices(zaoga, zaogb) {
+        var zaogc = zaoga.elements, zaogd = zaogb.elements, zaoge = this.elements;
+        var zaogf = zaogc[0], zaogg = zaogc[4], zaogh = zaogc[8], zaogi = zaogc[12], zaogj = zaogc[1], zaogk = zaogc[5], zaogl = zaogc[9], zaogm = zaogc[13], zaogn = zaogc[2], zaogo = zaogc[6], zaogp = zaogc[10], zaogq = zaogc[14], zaogr = zaogc[3], zaogs = zaogc[7], zaogt = zaogc[11], zaogu = zaogc[15];
+        var zaogv = zaogd[0], zaogw = zaogd[4], zaogx = zaogd[8], zaogy = zaogd[12], zaogz = zaogd[1], zaogaa = zaogd[5], zaogab = zaogd[9], zaogac = zaogd[13], zaogad = zaogd[2], zaogae = zaogd[6], zaogaf = zaogd[10], zaogag = zaogd[14], zaogah = zaogd[3], zaogai = zaogd[7], zaogaj = zaogd[11], zaogak = zaogd[15];
+        zaoge[0] = zaogf * zaogv + zaogg * zaogz + zaogh * zaogad + zaogi * zaogah;
+        zaoge[4] = zaogf * zaogw + zaogg * zaogaa + zaogh * zaogae + zaogi * zaogai;
+        zaoge[8] = zaogf * zaogx + zaogg * zaogab + zaogh * zaogaf + zaogi * zaogaj;
+        zaoge[12] = zaogf * zaogy + zaogg * zaogac + zaogh * zaogag + zaogi * zaogak;
+        zaoge[1] = zaogj * zaogv + zaogk * zaogz + zaogl * zaogad + zaogm * zaogah;
+        zaoge[5] = zaogj * zaogw + zaogk * zaogaa + zaogl * zaogae + zaogm * zaogai;
+        zaoge[9] = zaogj * zaogx + zaogk * zaogab + zaogl * zaogaf + zaogm * zaogaj;
+        zaoge[13] = zaogj * zaogy + zaogk * zaogac + zaogl * zaogag + zaogm * zaogak;
+        zaoge[2] = zaogn * zaogv + zaogo * zaogz + zaogp * zaogad + zaogq * zaogah;
+        zaoge[6] = zaogn * zaogw + zaogo * zaogaa + zaogp * zaogae + zaogq * zaogai;
+        zaoge[10] = zaogn * zaogx + zaogo * zaogab + zaogp * zaogaf + zaogq * zaogaj;
+        zaoge[14] = zaogn * zaogy + zaogo * zaogac + zaogp * zaogag + zaogq * zaogak;
+        zaoge[3] = zaogr * zaogv + zaogs * zaogz + zaogt * zaogad + zaogu * zaogah;
+        zaoge[7] = zaogr * zaogw + zaogs * zaogaa + zaogt * zaogae + zaogu * zaogai;
+        zaoge[11] = zaogr * zaogx + zaogs * zaogab + zaogt * zaogaf + zaogu * zaogaj;
+        zaoge[15] = zaogr * zaogy + zaogs * zaogac + zaogt * zaogag + zaogu * zaogak;
+        return this;
+    }
+    determinant() {
+        var zaoga = this.elements;
+        var zaogb = zaoga[0], zaogc = zaoga[4], zaogd = zaoga[8], zaoge = zaoga[12], zaogf = zaoga[1], zaogg = zaoga[5], zaogh = zaoga[9], zaogi = zaoga[13], zaogj = zaoga[2], zaogk = zaoga[6], zaogl = zaoga[10], zaogm = zaoga[14], zaogn = zaoga[3], zaogo = zaoga[7], zaogp = zaoga[11], zaogq = zaoga[15];
+        return zaogn * (zaoge * zaogh * zaogk - zaogd * zaogi * zaogk - zaoge * zaogg * zaogl + zaogc * zaogi * zaogl + zaogd * zaogg * zaogm - zaogc * zaogh * zaogm) + zaogo * (zaogb * zaogh * zaogm - zaogb * zaogi * zaogl + zaoge * zaogf * zaogl - zaogd * zaogf * zaogm + zaogd * zaogi * zaogj - zaoge * zaogh * zaogj) + zaogp * (zaogb * zaogi * zaogk - zaogb * zaogg * zaogm - zaoge * zaogf * zaogk + zaogc * zaogf * zaogm + zaoge * zaogg * zaogj - zaogc * zaogi * zaogj) + zaogq * (-zaogd * zaogg * zaogj - zaogb * zaogh * zaogk + zaogb * zaogg * zaogl + zaogd * zaogf * zaogk - zaogc * zaogf * zaogl + zaogc * zaogh * zaogj);
+    }
+    invert() {
+        var zaoga = this.elements;
+        var zaogb = zaoga[0], zaogc = zaoga[1], zaogd = zaoga[2], zaoge = zaoga[3], zaogf = zaoga[4], zaogg = zaoga[5], zaogh = zaoga[6], zaogi = zaoga[7], zaogj = zaoga[8], zaogk = zaoga[9], zaogl = zaoga[10], zaogm = zaoga[11], zaogn = zaoga[12], zaogo = zaoga[13], zaogp = zaoga[14], zaogq = zaoga[15];
+        var zaogr = zaogb * zaogg - zaogc * zaogf, zaogs = zaogb * zaogh - zaogd * zaogf, zaogt = zaogb * zaogi - zaoge * zaogf, zaogu = zaogc * zaogh - zaogd * zaogg, zaogv = zaogc * zaogi - zaoge * zaogg, zaogw = zaogd * zaogi - zaoge * zaogh, zaogx = zaogj * zaogo - zaogk * zaogn, zaogy = zaogj * zaogp - zaogl * zaogn, zaogz = zaogj * zaogq - zaogm * zaogn, zaogaa = zaogk * zaogp - zaogl * zaogo, zaogab = zaogk * zaogq - zaogm * zaogo, zaogac = zaogl * zaogq - zaogm * zaogp;
+        var zaogad = zaogr * zaogac - zaogs * zaogab + zaogt * zaogaa + zaogu * zaogz - zaogv * zaogy + zaogw * zaogx;
+        if (zaogad === 0) return this.identity();
+        var zaogae = 1 / zaogad;
+        var zaogaf = this.elements;
+        zaogaf[0] = (zaogg * zaogac - zaogh * zaogab + zaogi * zaogaa) * zaogae;
+        zaogaf[1] = (zaogd * zaogab - zaogc * zaogac - zaoge * zaogaa) * zaogae;
+        zaogaf[2] = (zaogo * zaogw - zaogp * zaogv + zaogq * zaogu) * zaogae;
+        zaogaf[3] = (zaogl * zaogv - zaogk * zaogw - zaogm * zaogu) * zaogae;
+        zaogaf[4] = (zaogh * zaogz - zaogf * zaogac - zaogi * zaogy) * zaogae;
+        zaogaf[5] = (zaogb * zaogac - zaogd * zaogz + zaoge * zaogy) * zaogae;
+        zaogaf[6] = (zaogp * zaogt - zaogn * zaogw - zaogq * zaogs) * zaogae;
+        zaogaf[7] = (zaogj * zaogw - zaogl * zaogt + zaogm * zaogs) * zaogae;
+        zaogaf[8] = (zaogf * zaogab - zaogg * zaogz + zaogi * zaogx) * zaogae;
+        zaogaf[9] = (zaogc * zaogz - zaogb * zaogab - zaoge * zaogx) * zaogae;
+        zaogaf[10] = (zaogn * zaogv - zaogo * zaogt + zaogq * zaogr) * zaogae;
+        zaogaf[11] = (zaogk * zaogt - zaogj * zaogv - zaogm * zaogr) * zaogae;
+        zaogaf[12] = (zaogg * zaogy - zaogf * zaogaa - zaogh * zaogx) * zaogae;
+        zaogaf[13] = (zaogb * zaogaa - zaogc * zaogy + zaogd * zaogx) * zaogae;
+        zaogaf[14] = (zaogo * zaogs - zaogn * zaogu - zaogp * zaogr) * zaogae;
+        zaogaf[15] = (zaogj * zaogu - zaogk * zaogs + zaogl * zaogr) * zaogae;
+        return this;
+    }
+    transpose() {
+        var zaoga = this.elements;
+        var zaogb;
+        zaogb = zaoga[1];
+        zaoga[1] = zaoga[4];
+        zaoga[4] = zaogb;
+        zaogb = zaoga[2];
+        zaoga[2] = zaoga[8];
+        zaoga[8] = zaogb;
+        zaogb = zaoga[6];
+        zaoga[6] = zaoga[9];
+        zaoga[9] = zaogb;
+        zaogb = zaoga[3];
+        zaoga[3] = zaoga[12];
+        zaoga[12] = zaogb;
+        zaogb = zaoga[7];
+        zaoga[7] = zaoga[13];
+        zaoga[13] = zaogb;
+        zaogb = zaoga[11];
+        zaoga[11] = zaoga[14];
+        zaoga[14] = zaogb;
+        return this;
+    }
+    makeTranslation(zaoga, zaogb, zaogc) {
+        return this.set(1, 0, 0, zaoga, 0, 1, 0, zaogb, 0, 0, 1, zaogc, 0, 0, 0, 1);
+    }
+    makeScale(zaoga, zaogb, zaogc) {
+        return this.set(zaoga, 0, 0, 0, 0, zaogb, 0, 0, 0, 0, zaogc, 0, 0, 0, 0, 1);
+    }
+    makeRotationX(zaoga) {
+        var zaogb = Math.cos(zaoga), zaogc = Math.sin(zaoga);
+        return this.set(1, 0, 0, 0, 0, zaogb, -zaogc, 0, 0, zaogc, zaogb, 0, 0, 0, 0, 1);
+    }
+    makeRotationY(zaoga) {
+        var zaogb = Math.cos(zaoga), zaogc = Math.sin(zaoga);
+        return this.set(zaogb, 0, zaogc, 0, 0, 1, 0, 0, -zaogc, 0, zaogb, 0, 0, 0, 0, 1);
+    }
+    makeRotationZ(zaoga) {
+        var zaogb = Math.cos(zaoga), zaogc = Math.sin(zaoga);
+        return this.set(zaogb, -zaogc, 0, 0, zaogc, zaogb, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+    }
+    makeRotationFromQuaternion(zaoga) {
+        var zaogb = zaoga.x, zaogc = zaoga.y, zaogd = zaoga.z, zaoge = zaoga.w;
+        var zaogf = zaogb + zaogb, zaogg = zaogc + zaogc, zaogh = zaogd + zaogd, zaogi = zaogb * zaogf, zaogj = zaogb * zaogg, zaogk = zaogb * zaogh, zaogl = zaogc * zaogg, zaogm = zaogc * zaogh, zaogn = zaogd * zaogh, zaogo = zaoge * zaogf, zaogp = zaoge * zaogg, zaogq = zaoge * zaogh;
+        return this.set(1 - (zaogl + zaogn), zaogj - zaogq, zaogk + zaogp, 0, zaogj + zaogq, 1 - (zaogi + zaogn), zaogm - zaogo, 0, zaogk - zaogp, zaogm + zaogo, 1 - (zaogi + zaogl), 0, 0, 0, 0, 1);
+    }
+    compose(zaoga, zaogb, zaogc) {
+        var zaogd = this.elements;
+        this.makeRotationFromQuaternion(zaogb);
+        zaogd[0] *= zaogc.x;
+        zaogd[1] *= zaogc.x;
+        zaogd[2] *= zaogc.x;
+        zaogd[4] *= zaogc.y;
+        zaogd[5] *= zaogc.y;
+        zaogd[6] *= zaogc.y;
+        zaogd[8] *= zaogc.z;
+        zaogd[9] *= zaogc.z;
+        zaogd[10] *= zaogc.z;
+        zaogd[12] = zaoga.x;
+        zaogd[13] = zaoga.y;
+        zaogd[14] = zaoga.z;
+        return this;
+    }
+    decompose(zaoga, zaogb, zaogc) {
+        var zaogd = this.elements;
+        var zaoge = new Vector3(zaogd[0], zaogd[1], zaogd[2]).length();
+        var zaogf = new Vector3(zaogd[4], zaogd[5], zaogd[6]).length();
+        var zaogg = new Vector3(zaogd[8], zaogd[9], zaogd[10]).length();
+        if (this.determinant() < 0) zaoge = -zaoge;
+        zaoga.set(zaogd[12], zaogd[13], zaogd[14]);
+        zaogc.set(zaoge, zaogf, zaogg);
+        var zaogh = this.clone();
+        var zaogi = zaogh.elements;
+        zaogi[0] /= zaoge;
+        zaogi[1] /= zaoge;
+        zaogi[2] /= zaoge;
+        zaogi[4] /= zaogf;
+        zaogi[5] /= zaogf;
+        zaogi[6] /= zaogf;
+        zaogi[8] /= zaogg;
+        zaogi[9] /= zaogg;
+        zaogi[10] /= zaogg;
+        zaogb.setFromRotationMatrix(zaogh);
+        return this;
+    }
+    makePerspective(zaoga, zaogb, zaogc, zaogd) {
+        var zaoge = 1 / Math.tan(zaoga * Math.PI / 360);
+        var zaogf = 1 / (zaogc - zaogd);
+        return this.set(zaoge / zaogb, 0, 0, 0, 0, zaoge, 0, 0, 0, 0, (zaogd + zaogc) * zaogf, 2 * zaogd * zaogc * zaogf, 0, 0, -1, 0);
+    }
+    makeOrthographic(zaoga, zaogb, zaogc, zaogd, zaoge, zaogf) {
+        var zaogg = 1 / (zaogb - zaoga), zaogh = 1 / (zaogc - zaogd), zaogi = 1 / (zaogf - zaoge), zaogj = (zaogb + zaoga) * zaogg, zaogk = (zaogc + zaogd) * zaogh, zaogl = (zaogf + zaoge) * zaogi;
+        return this.set(2 * zaogg, 0, 0, -zaogj, 0, 2 * zaogh, 0, -zaogk, 0, 0, -2 * zaogi, -zaogl, 0, 0, 0, 1);
+    }
+    lookAt(zaoga, zaogb, zaogc) {
+        var zaogd = (new Vector3).subVectors(zaoga, zaogb).normalize();
+        if (zaogd.lengthSq() === 0) zaogd.z = 1;
+        var zaoge = (new Vector3).crossVectors(zaogc, zaogd).normalize();
+        if (zaoge.lengthSq() === 0) {
+            zaogd.x += 1e-4;
+            zaoge.crossVectors(zaogc, zaogd).normalize();
+        }
+        var zaogf = (new Vector3).crossVectors(zaogd, zaoge);
+        return this.set(zaoge.x, zaogf.x, zaogd.x, zaoga.x, zaoge.y, zaogf.y, zaogd.y, zaoga.y, zaoge.z, zaogf.z, zaogd.z, zaoga.z, 0, 0, 0, 1);
+    }
 }
-Matrix4.prototype.extractRotation = function(matrix) { var scale = new Vector3().setFromMatrixScale(matrix), me = matrix.elements; return this.set(me[0] / (scale.x || 1), me[4] / (scale.y || 1), me[8] / (scale.z || 1), 0, me[1] / (scale.x || 1), me[5] / (scale.y || 1), me[9] / (scale.z || 1), 0, me[2] / (scale.x || 1), me[6] / (scale.y || 1), me[10] / (scale.z || 1), 0, 0, 0, 0, 1); };
-Matrix4.prototype.makeBasis = function(xAxis, yAxis, zAxis) { return this.set(xAxis.x, yAxis.x, zAxis.x, 0, xAxis.y, yAxis.y, zAxis.y, 0, xAxis.z, yAxis.z, zAxis.z, 0, 0, 0, 0, 1); };
-Matrix4.prototype.multiplyScalar = function(s) { for (var i = 0; i < 16; i++) this.elements[i] *= s; return this; };
-Matrix4.prototype.scale = function(v) { return this.multiply(new Matrix4().makeScale(v.x, v.y, v.z)); };
-Matrix4.prototype.setPosition = function(x, y, z) { if (x && x.x !== undefined) return this.setPosition(x.x, x.y, x.z); this.elements[12] = x; this.elements[13] = y; this.elements[14] = z; return this; };
-Matrix4.prototype.getMaxScaleOnAxis = function() { var e = this.elements; return Math.sqrt(Math.max(e[0] * e[0] + e[1] * e[1] + e[2] * e[2], e[4] * e[4] + e[5] * e[5] + e[6] * e[6], e[8] * e[8] + e[9] * e[9] + e[10] * e[10])); };
-Matrix4.prototype.extractBasis = function(xAxis, yAxis, zAxis) { var e = this.elements; xAxis.set(e[0], e[1], e[2]); yAxis.set(e[4], e[5], e[6]); zAxis.set(e[8], e[9], e[10]); return this; };
-Matrix4.prototype.makeRotationAxis = function(axis, angle) { return this.makeRotationFromQuaternion(new Quaternion().setFromAxisAngle(axis, angle)); };
-Matrix4.prototype.makeRotationFromEuler = function(euler) { return this.makeRotationFromQuaternion(new Quaternion().setFromEuler(euler)); };
+
+Matrix4.prototype.extractRotation = function(zaoga) {
+    var zaogb = (new Vector3).setFromMatrixScale(zaoga), zaogc = zaoga.elements;
+    return this.set(zaogc[0] / (zaogb.x || 1), zaogc[4] / (zaogb.y || 1), zaogc[8] / (zaogb.z || 1), 0, zaogc[1] / (zaogb.x || 1), zaogc[5] / (zaogb.y || 1), zaogc[9] / (zaogb.z || 1), 0, zaogc[2] / (zaogb.x || 1), zaogc[6] / (zaogb.y || 1), zaogc[10] / (zaogb.z || 1), 0, 0, 0, 0, 1);
+};
+
+Matrix4.prototype.makeBasis = function(zaoga, zaogb, zaogc) {
+    return this.set(zaoga.x, zaogb.x, zaogc.x, 0, zaoga.y, zaogb.y, zaogc.y, 0, zaoga.z, zaogb.z, zaogc.z, 0, 0, 0, 0, 1);
+};
+
+Matrix4.prototype.multiplyScalar = function(zaoga) {
+    for (var zaogb = 0; zaogb < 16; zaogb++) this.elements[zaogb] *= zaoga;
+    return this;
+};
+
+Matrix4.prototype.scale = function(zaoga) {
+    return this.multiply((new Matrix4).makeScale(zaoga.x, zaoga.y, zaoga.z));
+};
+
+Matrix4.prototype.setPosition = function(zaoga, zaogb, zaogc) {
+    if (zaoga && zaoga.x !== undefined) return this.setPosition(zaoga.x, zaoga.y, zaoga.z);
+    this.elements[12] = zaoga;
+    this.elements[13] = zaogb;
+    this.elements[14] = zaogc;
+    return this;
+};
+
+Matrix4.prototype.getMaxScaleOnAxis = function() {
+    var zaoga = this.elements;
+    return Math.sqrt(Math.max(zaoga[0] * zaoga[0] + zaoga[1] * zaoga[1] + zaoga[2] * zaoga[2], zaoga[4] * zaoga[4] + zaoga[5] * zaoga[5] + zaoga[6] * zaoga[6], zaoga[8] * zaoga[8] + zaoga[9] * zaoga[9] + zaoga[10] * zaoga[10]));
+};
+
+Matrix4.prototype.extractBasis = function(zaoga, zaogb, zaogc) {
+    var zaogd = this.elements;
+    zaoga.set(zaogd[0], zaogd[1], zaogd[2]);
+    zaogb.set(zaogd[4], zaogd[5], zaogd[6]);
+    zaogc.set(zaogd[8], zaogd[9], zaogd[10]);
+    return this;
+};
+
+Matrix4.prototype.makeRotationAxis = function(zaoga, zaogb) {
+    return this.makeRotationFromQuaternion((new Quaternion).setFromAxisAngle(zaoga, zaogb));
+};
+
+Matrix4.prototype.makeRotationFromEuler = function(zaoga) {
+    return this.makeRotationFromQuaternion((new Quaternion).setFromEuler(zaoga));
+};
+
 Matrix4.prototype.isMatrix4 = true;
 
 export { Matrix4 };

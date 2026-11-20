@@ -1,5 +1,16 @@
 import { faoxomfbxinflate } from "./faoxomfbxinflate.js";
 
-async function faoxomfbxdecodearray(property, view, buffer) { var bytes = new Uint8Array(buffer, property.offset, property.length); if (property.encoding === 1) bytes = await faoxomfbxinflate(bytes); var dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength); var count = property.count, type = property.type, result; if (type === "f") result = new Float32Array(count); else if (type === "d") result = new Float64Array(count); else if (type === "i") result = new Int32Array(count); else if (type === "l") result = new Float64Array(count); else if (type === "b") result = new Uint8Array(count); else return bytes; var stride = type === "f" || type === "i" ? 4 : type === "d" || type === "l" ? 8 : 1; for (var i = 0; i < count; i++) { if (type === "f") result[i] = dataView.getFloat32(i * stride, true); else if (type === "d") result[i] = dataView.getFloat64(i * stride, true); else if (type === "i") result[i] = dataView.getInt32(i * stride, true); else if (type === "l") result[i] = dataView.getInt32(i * stride, true) + dataView.getInt32(i * stride + 4, true) * 4294967296; else result[i] = dataView.getUint8(i); } return result; }
+async function faoxomfbxdecodearray(zaeka, zaekb, zaekc) {
+    var zaekd = new Uint8Array(zaekc, zaeka.offset, zaeka.length);
+    if (zaeka.encoding === 1) zaekd = await faoxomfbxinflate(zaekd);
+    var zaeke = new DataView(zaekd.buffer, zaekd.byteOffset, zaekd.byteLength);
+    var zaekf = zaeka.count, zaekg = zaeka.type, zaekh;
+    if (zaekg === "f") zaekh = new Float32Array(zaekf); else if (zaekg === "d") zaekh = new Float64Array(zaekf); else if (zaekg === "i") zaekh = new Int32Array(zaekf); else if (zaekg === "l") zaekh = new Float64Array(zaekf); else if (zaekg === "b") zaekh = new Uint8Array(zaekf); else return zaekd;
+    var zaeki = zaekg === "f" || zaekg === "i" ? 4 : zaekg === "d" || zaekg === "l" ? 8 : 1;
+    for (var zaekj = 0; zaekj < zaekf; zaekj++) {
+        if (zaekg === "f") zaekh[zaekj] = zaeke.getFloat32(zaekj * zaeki, true); else if (zaekg === "d") zaekh[zaekj] = zaeke.getFloat64(zaekj * zaeki, true); else if (zaekg === "i") zaekh[zaekj] = zaeke.getInt32(zaekj * zaeki, true); else if (zaekg === "l") zaekh[zaekj] = zaeke.getInt32(zaekj * zaeki, true) + zaeke.getInt32(zaekj * zaeki + 4, true) * 4294967296; else zaekh[zaekj] = zaeke.getUint8(zaekj);
+    }
+    return zaekh;
+}
 
 export { faoxomfbxdecodearray };

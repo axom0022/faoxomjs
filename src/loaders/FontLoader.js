@@ -1,27 +1,29 @@
 import { Font } from "./Font.js";
 
 class FontLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        fetch(url).then(function(response) {
-            if (!response.ok) throw new Error("fetch failed: " + url);
-            return response.text();
-        }).then(function(text) {
+    constructor(zamda) {
+        this.manager = zamda;
+    }
+    load(zamda, zamdb, zamdc, zamdd) {
+        var zamde = this;
+        fetch(zamda).then(function(zamdb) {
+            if (!zamdb.ok) throw new Error("fetch failed: " + zamda);
+            return zamdb.text();
+        }).then(function(zamda) {
             try {
-                var font = self.parse(JSON.parse(text));
-                if (onLoad) onLoad(font);
-            } catch (e) {
-                if (onError) onError(e);
+                var zamdc = zamde.parse(JSON.parse(zamda));
+                if (zamdb) zamdb(zamdc);
+            } catch (zamda) {
+                if (zamdd) zamdd(zamda);
             }
-        }, function(error) {
-            if (onError) onError(error);
+        }, function(zamda) {
+            if (zamdd) zamdd(zamda);
         });
         return this;
     }
-    parse(json) {
-        if (typeof json === "string") json = JSON.parse(json);
-        return new Font(json);
+    parse(zamda) {
+        if (typeof zamda === "string") zamda = JSON.parse(zamda);
+        return new Font(zamda);
     }
 }
 

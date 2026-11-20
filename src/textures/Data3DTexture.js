@@ -1,13 +1,13 @@
 import { Texture } from "./Texture.js";
 
 class Data3DTexture extends Texture {
-    constructor(data, width, height, depth) {
+    constructor(zauwa, zauwb, zauwc, zauwd) {
         super(null);
         this.type = "Data3DTexture";
-        this.data = data;
-        this.width = width || 16;
-        this.height = height || 16;
-        this.depth = depth || 16;
+        this.data = zauwa;
+        this.width = zauwb || 16;
+        this.height = zauwc || 16;
+        this.depth = zauwd || 16;
         this.is3D = true;
     }
 }

@@ -1,6 +1,25 @@
 import { Vector3 } from "../math/index.js";
+
 import { faoxomlocalpoint } from "./faoxomlocalpoint.js";
 
-function faoxomheightfieldcontact(a, b) { var terrainBody = a.shape.type === "heightfield" ? a : b.shape.type === "heightfield" ? b : null; if (!terrainBody) return null; var other = terrainBody === a ? b : a; if (other.isStatic) return null; var terrain = terrainBody.shape; var local = faoxomlocalpoint(terrainBody.position, terrainBody.rotation, other.position); var height = terrain.getHeight(local.x, local.z); if (height === -Infinity) return null; var otherBox = other.shape.getAABB(other.position, null, other.rotation); var terrainWorldHeight = height + terrainBody.position.y; if (otherBox.min.y >= terrainWorldHeight) return null; var normal = terrainBody === a ? new Vector3(0, 1, 0) : new Vector3(0, -1, 0); return { normal: normal, penetration: terrainWorldHeight - otherBox.min.y, point: new Vector3(other.position.x, terrainWorldHeight, other.position.z) }; }
+function faoxomheightfieldcontact(zafda, zafdb) {
+    var zafdc = zafda.shape.type === "heightfield" ? zafda : zafdb.shape.type === "heightfield" ? zafdb : null;
+    if (!zafdc) return null;
+    var zafdd = zafdc === zafda ? zafdb : zafda;
+    if (zafdd.isStatic) return null;
+    var zafde = zafdc.shape;
+    var zafdf = faoxomlocalpoint(zafdc.position, zafdc.rotation, zafdd.position);
+    var zafdg = zafde.getHeight(zafdf.x, zafdf.z);
+    if (zafdg === -Infinity) return null;
+    var zafdh = zafdd.shape.getAABB(zafdd.position, null, zafdd.rotation);
+    var zafdi = zafdg + zafdc.position.y;
+    if (zafdh.min.y >= zafdi) return null;
+    var zafdj = zafdc === zafda ? new Vector3(0, 1, 0) : new Vector3(0, -1, 0);
+    return {
+        normal: zafdj,
+        penetration: zafdi - zafdh.min.y,
+        point: new Vector3(zafdd.position.x, zafdi, zafdd.position.z)
+    };
+}
 
 export { faoxomheightfieldcontact };

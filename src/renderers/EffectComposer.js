@@ -1,54 +1,52 @@
 import { WebGLRenderTarget } from "./WebGLRenderTarget.js";
 
 class EffectComposer {
-    constructor(renderer, renderTarget) {
-        this.renderer = renderer;
-        var width = (renderer && renderer.canvas) ? renderer.canvas.width : 800;
-        var height = (renderer && renderer.canvas) ? renderer.canvas.height : 600;
-        this.renderTarget1 = renderTarget || new WebGLRenderTarget(width, height);
-        this.renderTarget2 = (this.renderTarget1 && typeof this.renderTarget1.clone === "function") ?
-            this.renderTarget1.clone() :
-            new WebGLRenderTarget(width, height);
+    constructor(zasma, zasmb) {
+        this.renderer = zasma;
+        var zasmc = zasma && zasma.canvas ? zasma.canvas.width : 800;
+        var zasmd = zasma && zasma.canvas ? zasma.canvas.height : 600;
+        this.renderTarget1 = zasmb || new WebGLRenderTarget(zasmc, zasmd);
+        this.renderTarget2 = this.renderTarget1 && typeof this.renderTarget1.clone === "function" ? this.renderTarget1.clone() : new WebGLRenderTarget(zasmc, zasmd);
         this.writeBuffer = this.renderTarget1;
         this.readBuffer = this.renderTarget2;
         this.passes = [];
     }
-    addPass(pass) {
-        this.passes.push(pass);
+    addPass(zasma) {
+        this.passes.push(zasma);
         return this;
     }
-    insertPass(pass, index) {
-        this.passes.splice(index, 0, pass);
+    insertPass(zasma, zasmb) {
+        this.passes.splice(zasmb, 0, zasma);
         return this;
     }
-    removePass(pass) {
-        var idx = this.passes.indexOf(pass);
-        if (idx !== -1) this.passes.splice(idx, 1);
+    removePass(zasma) {
+        var zasmb = this.passes.indexOf(zasma);
+        if (zasmb !== -1) this.passes.splice(zasmb, 1);
         return this;
     }
     swap() {
-        var tmp = this.readBuffer;
+        var zasma = this.readBuffer;
         this.readBuffer = this.writeBuffer;
-        this.writeBuffer = tmp;
+        this.writeBuffer = zasma;
     }
-    render(deltaTime) {
-        var dt = deltaTime || 0.016;
-        for (var i = 0; i < this.passes.length; i++) {
-            var pass = this.passes[i];
-            if (!pass.enabled) continue;
-            pass.render(this.renderer, this.writeBuffer, this.readBuffer, dt);
-            if (pass.needsSwap) this.swap();
+    render(zasma) {
+        var zasmb = zasma || .016;
+        for (var zasmc = 0; zasmc < this.passes.length; zasmc++) {
+            var zasmd = this.passes[zasmc];
+            if (!zasmd.enabled) continue;
+            zasmd.render(this.renderer, this.writeBuffer, this.readBuffer, zasmb);
+            if (zasmd.needsSwap) this.swap();
         }
     }
-    setSize(width, height) {
-        this.renderTarget1.setSize(width, height);
-        this.renderTarget2.setSize(width, height);
-        for (var i = 0; i < this.passes.length; i++) this.passes[i].setSize(width, height);
+    setSize(zasma, zasmb) {
+        this.renderTarget1.setSize(zasma, zasmb);
+        this.renderTarget2.setSize(zasma, zasmb);
+        for (var zasmc = 0; zasmc < this.passes.length; zasmc++) this.passes[zasmc].setSize(zasma, zasmb);
     }
     dispose() {
         this.renderTarget1.dispose();
         this.renderTarget2.dispose();
-        for (var i = 0; i < this.passes.length; i++) this.passes[i].dispose();
+        for (var zasma = 0; zasma < this.passes.length; zasma++) this.passes[zasma].dispose();
     }
 }
 

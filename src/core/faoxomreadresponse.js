@@ -1,3 +1,28 @@
-async function faoxomreadresponse(response, type, onProgress) { if (!response.ok) throw new Error("Asset request failed: " + response.status); if (!response.body || typeof response.body.getReader !== "function") { if (type === "arraybuffer") return response.arrayBuffer(); if (type === "blob") return response.blob(); if (type === "json") return response.json(); return response.text(); } var reader = response.body.getReader(), total = Number(response.headers.get("content-length")) || 0, loaded = 0, chunks = [], result; while (true) { var part = await reader.read(); if (part.done) break; chunks.push(part.value); loaded += part.value.byteLength; if (onProgress) onProgress(loaded, total); } var bytes = new Uint8Array(loaded), offset = 0; for (var chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) { bytes.set(chunks[chunkIndex], offset); offset += chunks[chunkIndex].byteLength; } if (type === "arraybuffer") return bytes.buffer; if (type === "blob") return new Blob([bytes]); var text = new TextDecoder().decode(bytes); return type === "json" ? JSON.parse(text) : text; }
+async function faoxomreadresponse(zafra, zafrb, zafrc) {
+    if (!zafra.ok) throw new Error("Asset request failed: " + zafra.status);
+    if (!zafra.body || typeof zafra.body.getReader !== "function") {
+        if (zafrb === "arraybuffer") return zafra.arrayBuffer();
+        if (zafrb === "blob") return zafra.blob();
+        if (zafrb === "json") return zafra.json();
+        return zafra.text();
+    }
+    var zafrd = zafra.body.getReader(), zafre = Number(zafra.headers.get("content-length")) || 0, zafrf = 0, zafrg = [], zafrh;
+    while (true) {
+        var zafri = await zafrd.read();
+        if (zafri.done) break;
+        zafrg.push(zafri.value);
+        zafrf += zafri.value.byteLength;
+        if (zafrc) zafrc(zafrf, zafre);
+    }
+    var zafrj = new Uint8Array(zafrf), zafrk = 0;
+    for (var zafrl = 0; zafrl < zafrg.length; zafrl++) {
+        zafrj.set(zafrg[zafrl], zafrk);
+        zafrk += zafrg[zafrl].byteLength;
+    }
+    if (zafrb === "arraybuffer") return zafrj.buffer;
+    if (zafrb === "blob") return new Blob([ zafrj ]);
+    var zafrm = (new TextDecoder).decode(zafrj);
+    return zafrb === "json" ? JSON.parse(zafrm) : zafrm;
+}
 
 export { faoxomreadresponse };

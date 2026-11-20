@@ -1,44 +1,182 @@
 import { faoxomclamp } from "./faoxomclamp.js";
+
 import { faoxomvalue } from "./faoxomvalue.js";
 
 class Vector2 {
-    constructor(x, y) { this.x = faoxomvalue(x, 0); this.y = faoxomvalue(y, 0); }
-    set(x, y) { this.x = x; this.y = y; return this; }
-    setX(x) { this.x = x; return this; }
-    setY(y) { this.y = y; return this; }
-    clone() { return new Vector2(this.x, this.y); }
-    copy(v) { this.x = v.x; this.y = v.y; return this; }
-    add(v) { this.x += v.x; this.y += v.y; return this; }
-    addVectors(a, b) { this.x = a.x + b.x; this.y = a.y + b.y; return this; }
-    sub(v) { this.x -= v.x; this.y -= v.y; return this; }
-    subVectors(a, b) { this.x = a.x - b.x; this.y = a.y - b.y; return this; }
-    multiply(v) { this.x *= v.x; this.y *= v.y; return this; }
-    multiplyScalar(s) { this.x *= s; this.y *= s; return this; }
-    divideScalar(s) { return this.multiplyScalar(s === 0 ? 0 : 1 / s); }
-    negate() { this.x = -this.x; this.y = -this.y; return this; }
-    dot(v) { return this.x * v.x + this.y * v.y; }
-    lengthSq() { return this.x * this.x + this.y * this.y; }
-    length() { return Math.sqrt(this.lengthSq()); }
-    normalize() { return this.divideScalar(this.length() || 1); }
-    distanceTo(v) { return Math.sqrt(this.distanceToSquared(v)); }
-    distanceToSquared(v) { var x = this.x - v.x; var y = this.y - v.y; return x * x + y * y; }
-    lerp(v, alpha) { this.x += (v.x - this.x) * alpha; this.y += (v.y - this.y) * alpha; return this; }
-    rotateAround(center, angle) { var c = Math.cos(angle); var s = Math.sin(angle); var x = this.x - center.x; var y = this.y - center.y; this.x = x * c - y * s + center.x; this.y = x * s + y * c + center.y; return this; }
-    fromArray(a, offset) { var i = faoxomvalue(offset, 0); this.x = a[i] || 0; this.y = a[i + 1] || 0; return this; }
-    toArray(a, offset) { var out = a || []; var i = faoxomvalue(offset, 0); out[i] = this.x; out[i + 1] = this.y; return out; }
-    equals(v) { return this.x === v.x && this.y === v.y; }
+    constructor(zaova, zaovb) {
+        this.x = faoxomvalue(zaova, 0);
+        this.y = faoxomvalue(zaovb, 0);
+    }
+    set(zaova, zaovb) {
+        this.x = zaova;
+        this.y = zaovb;
+        return this;
+    }
+    setX(zaova) {
+        this.x = zaova;
+        return this;
+    }
+    setY(zaova) {
+        this.y = zaova;
+        return this;
+    }
+    clone() {
+        return new Vector2(this.x, this.y);
+    }
+    copy(zaova) {
+        this.x = zaova.x;
+        this.y = zaova.y;
+        return this;
+    }
+    add(zaova) {
+        this.x += zaova.x;
+        this.y += zaova.y;
+        return this;
+    }
+    addVectors(zaova, zaovb) {
+        this.x = zaova.x + zaovb.x;
+        this.y = zaova.y + zaovb.y;
+        return this;
+    }
+    sub(zaova) {
+        this.x -= zaova.x;
+        this.y -= zaova.y;
+        return this;
+    }
+    subVectors(zaova, zaovb) {
+        this.x = zaova.x - zaovb.x;
+        this.y = zaova.y - zaovb.y;
+        return this;
+    }
+    multiply(zaova) {
+        this.x *= zaova.x;
+        this.y *= zaova.y;
+        return this;
+    }
+    multiplyScalar(zaova) {
+        this.x *= zaova;
+        this.y *= zaova;
+        return this;
+    }
+    divideScalar(zaova) {
+        return this.multiplyScalar(zaova === 0 ? 0 : 1 / zaova);
+    }
+    negate() {
+        this.x = -this.x;
+        this.y = -this.y;
+        return this;
+    }
+    dot(zaova) {
+        return this.x * zaova.x + this.y * zaova.y;
+    }
+    lengthSq() {
+        return this.x * this.x + this.y * this.y;
+    }
+    length() {
+        return Math.sqrt(this.lengthSq());
+    }
+    normalize() {
+        return this.divideScalar(this.length() || 1);
+    }
+    distanceTo(zaova) {
+        return Math.sqrt(this.distanceToSquared(zaova));
+    }
+    distanceToSquared(zaova) {
+        var zaovb = this.x - zaova.x;
+        var zaovc = this.y - zaova.y;
+        return zaovb * zaovb + zaovc * zaovc;
+    }
+    lerp(zaova, zaovb) {
+        this.x += (zaova.x - this.x) * zaovb;
+        this.y += (zaova.y - this.y) * zaovb;
+        return this;
+    }
+    rotateAround(zaova, zaovb) {
+        var zaovc = Math.cos(zaovb);
+        var zaovd = Math.sin(zaovb);
+        var zaove = this.x - zaova.x;
+        var zaovf = this.y - zaova.y;
+        this.x = zaove * zaovc - zaovf * zaovd + zaova.x;
+        this.y = zaove * zaovd + zaovf * zaovc + zaova.y;
+        return this;
+    }
+    fromArray(zaova, zaovb) {
+        var zaovc = faoxomvalue(zaovb, 0);
+        this.x = zaova[zaovc] || 0;
+        this.y = zaova[zaovc + 1] || 0;
+        return this;
+    }
+    toArray(zaova, zaovb) {
+        var zaovc = zaova || [];
+        var zaovd = faoxomvalue(zaovb, 0);
+        zaovc[zaovd] = this.x;
+        zaovc[zaovd + 1] = this.y;
+        return zaovc;
+    }
+    equals(zaova) {
+        return this.x === zaova.x && this.y === zaova.y;
+    }
 }
-Vector2.prototype.angle = function() { return Math.atan2(this.y, this.x); };
-Vector2.prototype.setLength = function(length) { return this.normalize().multiplyScalar(length); };
-Vector2.prototype.clampLength = function(min, max) { var length = this.length(); return this.multiplyScalar(length === 0 ? 1 : faoxomclamp(length, min, max) / length); };
-Vector2.prototype.addScaledVector = function(v, s) { this.x += v.x * s; this.y += v.y * s; return this; };
-Vector2.prototype.lerpVectors = function(a, b, alpha) { this.x = a.x + (b.x - a.x) * alpha; this.y = a.y + (b.y - a.y) * alpha; return this; };
-Vector2.prototype.setScalar = function(s) { this.x = s; this.y = s; return this; };
-Vector2.prototype.angleTo = function(v) { return Math.acos(faoxomclamp(this.dot(v) / ((this.length() * v.length()) || 1), -1, 1)); };
-Vector2.prototype.cross = function(v) { return this.x * v.y - this.y * v.x; };
-Vector2.prototype.min = function(v) { this.x = Math.min(this.x, v.x); this.y = Math.min(this.y, v.y); return this; };
-Vector2.prototype.max = function(v) { this.x = Math.max(this.x, v.x); this.y = Math.max(this.y, v.y); return this; };
-Vector2.prototype.clamp = function(min, max) { this.x = faoxomclamp(this.x, min.x, max.x); this.y = faoxomclamp(this.y, min.y, max.y); return this; };
-Vector2.prototype.setFromBufferAttribute = function(attribute, index) { return this.set(attribute.getX ? attribute.getX(index) : attribute.array[index * attribute.itemSize], attribute.getY ? attribute.getY(index) : attribute.array[index * attribute.itemSize + 1]); };
+
+Vector2.prototype.angle = function() {
+    return Math.atan2(this.y, this.x);
+};
+
+Vector2.prototype.setLength = function(zaova) {
+    return this.normalize().multiplyScalar(zaova);
+};
+
+Vector2.prototype.clampLength = function(zaova, zaovb) {
+    var zaovc = this.length();
+    return this.multiplyScalar(zaovc === 0 ? 1 : faoxomclamp(zaovc, zaova, zaovb) / zaovc);
+};
+
+Vector2.prototype.addScaledVector = function(zaova, zaovb) {
+    this.x += zaova.x * zaovb;
+    this.y += zaova.y * zaovb;
+    return this;
+};
+
+Vector2.prototype.lerpVectors = function(zaova, zaovb, zaovc) {
+    this.x = zaova.x + (zaovb.x - zaova.x) * zaovc;
+    this.y = zaova.y + (zaovb.y - zaova.y) * zaovc;
+    return this;
+};
+
+Vector2.prototype.setScalar = function(zaova) {
+    this.x = zaova;
+    this.y = zaova;
+    return this;
+};
+
+Vector2.prototype.angleTo = function(zaova) {
+    return Math.acos(faoxomclamp(this.dot(zaova) / (this.length() * zaova.length() || 1), -1, 1));
+};
+
+Vector2.prototype.cross = function(zaova) {
+    return this.x * zaova.y - this.y * zaova.x;
+};
+
+Vector2.prototype.min = function(zaova) {
+    this.x = Math.min(this.x, zaova.x);
+    this.y = Math.min(this.y, zaova.y);
+    return this;
+};
+
+Vector2.prototype.max = function(zaova) {
+    this.x = Math.max(this.x, zaova.x);
+    this.y = Math.max(this.y, zaova.y);
+    return this;
+};
+
+Vector2.prototype.clamp = function(zaova, zaovb) {
+    this.x = faoxomclamp(this.x, zaova.x, zaovb.x);
+    this.y = faoxomclamp(this.y, zaova.y, zaovb.y);
+    return this;
+};
+
+Vector2.prototype.setFromBufferAttribute = function(zaova, zaovb) {
+    return this.set(zaova.getX ? zaova.getX(zaovb) : zaova.array[zaovb * zaova.itemSize], zaova.getY ? zaova.getY(zaovb) : zaova.array[zaovb * zaova.itemSize + 1]);
+};
 
 export { Vector2 };

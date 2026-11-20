@@ -1,3 +1,5 @@
-function faoxomvalue(value, fallback) { return value === undefined || value === null ? fallback : value; }
+function faoxomvalue(zaqma, zaqmb) {
+    return zaqma === undefined || zaqma === null ? zaqmb : zaqma;
+}
 
 export { faoxomvalue };

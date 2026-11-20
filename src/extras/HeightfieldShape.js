@@ -1,5 +1,15 @@
 import { CollisionShape } from "./CollisionShape.js";
 
-class HeightfieldShape extends CollisionShape { constructor(width, depth, segmentsX, segmentsZ, heights, options) { options = options || {}; options.width = width; options.depth = depth; options.segmentsX = segmentsX; options.segmentsZ = segmentsZ; options.heights = heights; super("heightfield", options); } }
+class HeightfieldShape extends CollisionShape {
+    constructor(zahta, zahtb, zahtc, zahtd, zahte, zahtf) {
+        zahtf = zahtf || {};
+        zahtf.width = zahta;
+        zahtf.depth = zahtb;
+        zahtf.segmentsX = zahtc;
+        zahtf.segmentsZ = zahtd;
+        zahtf.heights = zahte;
+        super("heightfield", zahtf);
+    }
+}
 
 export { HeightfieldShape };

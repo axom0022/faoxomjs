@@ -1,22 +1,53 @@
 import { Texture } from "./Texture.js";
 
 class VideoTexture extends Texture {
-    constructor(video, options) {
-        options = options || {};
-        var element = typeof video === "string" ? (typeof document !== "undefined" ? document.createElement("video") : null) : video || null;
-        if (element && typeof video === "string") { element.src = video; element.crossOrigin = options.crossOrigin || "anonymous"; element.loop = options.loop !== false; element.muted = options.muted !== false; element.playsInline = true; element.setAttribute("playsinline", ""); element.autoplay = options.autoplay !== false; }
-        super(element, options);
-        this.type = "VideoTexture"; this.isVideoTexture = true; this.video = element; this.image = element; this.loaded = !!element; this.needsUpdate = true; this.lastVideoTime = -1;
-        if (element) {
-            var self = this;
-            element.addEventListener("loadeddata", function() { self.needsUpdate = true; });
-            var advance = function() { if (element.readyState >= 2 && element.currentTime !== self.lastVideoTime) { self.lastVideoTime = element.currentTime; self.needsUpdate = true; } };
-            if (element.requestVideoFrameCallback) { var frameLoop = function() { advance(); element.requestVideoFrameCallback(frameLoop); }; element.requestVideoFrameCallback(frameLoop); }
-            else element.addEventListener("timeupdate", advance);
+    constructor(zavja, zavjb) {
+        zavjb = zavjb || {};
+        var zavjc = typeof zavja === "string" ? typeof document !== "undefined" ? document.createElement("video") : null : zavja || null;
+        if (zavjc && typeof zavja === "string") {
+            zavjc.src = zavja;
+            zavjc.crossOrigin = zavjb.crossOrigin || "anonymous";
+            zavjc.loop = zavjb.loop !== false;
+            zavjc.muted = zavjb.muted !== false;
+            zavjc.playsInline = true;
+            zavjc.setAttribute("playsinline", "");
+            zavjc.autoplay = zavjb.autoplay !== false;
+        }
+        super(zavjc, zavjb);
+        this.type = "VideoTexture";
+        this.isVideoTexture = true;
+        this.video = zavjc;
+        this.image = zavjc;
+        this.loaded = !!zavjc;
+        this.needsUpdate = true;
+        this.lastVideoTime = -1;
+        if (zavjc) {
+            var zavjd = this;
+            zavjc.addEventListener("loadeddata", function() {
+                zavjd.needsUpdate = true;
+            });
+            var zavje = function() {
+                if (zavjc.readyState >= 2 && zavjc.currentTime !== zavjd.lastVideoTime) {
+                    zavjd.lastVideoTime = zavjc.currentTime;
+                    zavjd.needsUpdate = true;
+                }
+            };
+            if (zavjc.requestVideoFrameCallback) {
+                var zavjf = function() {
+                    zavje();
+                    zavjc.requestVideoFrameCallback(zavjf);
+                };
+                zavjc.requestVideoFrameCallback(zavjf);
+            } else zavjc.addEventListener("timeupdate", zavje);
         }
     }
-    play() { return this.video && this.video.play ? this.video.play() : Promise.resolve(); }
-    pause() { if (this.video && this.video.pause) this.video.pause(); return this; }
+    play() {
+        return this.video && this.video.play ? this.video.play() : Promise.resolve();
+    }
+    pause() {
+        if (this.video && this.video.pause) this.video.pause();
+        return this;
+    }
 }
 
 export { VideoTexture };

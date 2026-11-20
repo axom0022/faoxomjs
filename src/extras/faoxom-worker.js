@@ -1,23 +1,17 @@
-// faoxom-worker.js - the worker side of the worker-first offscreen
-// architecture (roadmap item 43). Receives a transferred OffscreenCanvas,
-// initializes a real WebGPURenderer on it, loads .faox scenes, and renders
-// deterministically to an internal offscreen target (never presenting, so it
-// is safe in headless/CI environments too), reporting pixel hashes, PNG
-// bytes and draw stats back to the main thread.
-//
-// Registration is guarded so bundling this module into a page build is a
-// no-op - the message handler only installs inside a worker global scope.
-
 import { Scene } from "../scenes/index.js";
+
 import { PerspectiveCamera } from "../camera/index.js";
+
 import { WebGPURenderer } from "../renderers/WebGPURenderer.js";
+
 import { FaoxLoader } from "./Faox.js";
+
 import { PNGCodec } from "./PNGCodec.js";
 
-var workerScope = (typeof WorkerGlobalScope !== "undefined" && typeof self !== "undefined" && self instanceof WorkerGlobalScope) ? self : null;
+var zajta = typeof WorkerGlobalScope !== "undefined" && typeof self !== "undefined" && self instanceof WorkerGlobalScope ? self : null;
 
-function createWorkerEngine(scope) {
-    var state = {
+function createWorkerEngine(zajta) {
+    var zajtb = {
         renderer: null,
         scene: null,
         camera: null,
@@ -29,152 +23,209 @@ function createWorkerEngine(scope) {
         loader: null,
         frames: 0
     };
-
-    function ensureTarget() {
-        var device = state.renderer.device;
-        if (state.colorTexture) {
-            try { state.colorTexture.destroy(); } catch (destroyError) { /* gone */ }
-            try { state.depthTexture.destroy(); } catch (depthDestroyError) { /* gone */ }
+    function zajtc() {
+        var zajta = zajtb.renderer.device;
+        if (zajtb.colorTexture) {
+            try {
+                zajtb.colorTexture.destroy();
+            } catch (zajta) {}
+            try {
+                zajtb.depthTexture.destroy();
+            } catch (zajta) {}
         }
-        state.colorTexture = device.createTexture({
-            size: [state.width, state.height, 1],
+        zajtb.colorTexture = zajta.createTexture({
+            size: [ zajtb.width, zajtb.height, 1 ],
             format: "rgba8unorm",
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
         });
-        state.colorView = state.colorTexture.createView();
-        state.depthTexture = device.createTexture({
-            size: [state.width, state.height, 1],
+        zajtb.colorView = zajtb.colorTexture.createView();
+        zajtb.depthTexture = zajta.createTexture({
+            size: [ zajtb.width, zajtb.height, 1 ],
             format: "depth24plus",
             usage: GPUTextureUsage.RENDER_ATTACHMENT
         });
     }
-
-    function readPixels() {
-        var device = state.renderer.device;
-        var bytesPerRow = Math.ceil(state.width * 4 / 256) * 256;
-        var staging = device.createBuffer({ size: bytesPerRow * state.height, usage: 0x1 | 0x8 });
-        var encoder = device.createCommandEncoder();
-        encoder.copyTextureToBuffer({ texture: state.colorTexture }, { buffer: staging, bytesPerRow: bytesPerRow, rowsPerImage: state.height }, [state.width, state.height, 1]);
-        device.queue.submit([encoder.finish()]);
-        return staging.mapAsync(0x1).then(function () {
-            var mapped = new Uint8Array(staging.getMappedRange());
-            var out = new Uint8Array(state.width * state.height * 4);
-            for (var row = 0; row < state.height; row++) {
-                var source = row * bytesPerRow;
-                out.set(mapped.subarray(source, source + state.width * 4), row * state.width * 4);
+    function zajtd() {
+        var zajta = zajtb.renderer.device;
+        var zajtc = Math.ceil(zajtb.width * 4 / 256) * 256;
+        var zajtd = zajta.createBuffer({
+            size: zajtc * zajtb.height,
+            usage: 1 | 8
+        });
+        var zajte = zajta.createCommandEncoder();
+        zajte.copyTextureToBuffer({
+            texture: zajtb.colorTexture
+        }, {
+            buffer: zajtd,
+            bytesPerRow: zajtc,
+            rowsPerImage: zajtb.height
+        }, [ zajtb.width, zajtb.height, 1 ]);
+        zajta.queue.submit([ zajte.finish() ]);
+        return zajtd.mapAsync(1).then(function() {
+            var zajta = new Uint8Array(zajtd.getMappedRange());
+            var zajte = new Uint8Array(zajtb.width * zajtb.height * 4);
+            for (var zajtf = 0; zajtf < zajtb.height; zajtf++) {
+                var zajtg = zajtf * zajtc;
+                zajte.set(zajta.subarray(zajtg, zajtg + zajtb.width * 4), zajtf * zajtb.width * 4);
             }
-            staging.unmap();
-            staging.destroy();
-            return out;
+            zajtd.unmap();
+            zajtd.destroy();
+            return zajte;
         });
     }
-
-    function countObjects(object) {
-        var count = 0;
-        object.traverse(function () { count++; });
-        return count;
+    function zajte(zajta) {
+        var zajtb = 0;
+        zajta.traverse(function() {
+            zajtb++;
+        });
+        return zajtb;
     }
-
-    function applyCamera(settings) {
-        if (!state.camera) return;
-        if (settings.fov) state.camera.fov = settings.fov;
-        if (settings.aspect) state.camera.aspect = settings.aspect;
-        if (settings.position) state.camera.position.set(settings.position[0], settings.position[1], settings.position[2]);
-        var target = settings.target || [0, 0, 0];
-        state.camera.lookAt(target[0], target[1], target[2]);
-        state.camera.updateProjectionMatrix();
-        state.camera.updateMatrixWorld(true);
+    function zajtf(zajta) {
+        if (!zajtb.camera) return;
+        if (zajta.fov) zajtb.camera.fov = zajta.fov;
+        if (zajta.aspect) zajtb.camera.aspect = zajta.aspect;
+        if (zajta.position) zajtb.camera.position.set(zajta.position[0], zajta.position[1], zajta.position[2]);
+        var zajtc = zajta.target || [ 0, 0, 0 ];
+        zajtb.camera.lookAt(zajtc[0], zajtc[1], zajtc[2]);
+        zajtb.camera.updateProjectionMatrix();
+        zajtb.camera.updateMatrixWorld(true);
     }
-
-    function renderOnce() {
-        if (!state.renderer || !state.scene || !state.camera) throw new Error("worker engine not ready (init + load required)");
-        state.renderer.renderToView(state.scene, state.camera, state.colorView, state.depthTexture.createView(), "rgba8unorm");
-        state.frames++;
+    function zajtg() {
+        if (!zajtb.renderer || !zajtb.scene || !zajtb.camera) throw new Error("worker engine not ready (init + load required)");
+        zajtb.renderer.renderToView(zajtb.scene, zajtb.camera, zajtb.colorView, zajtb.depthTexture.createView(), "rgba8unorm");
+        zajtb.frames++;
         return {
-            draws: state.renderer.info.render.calls,
-            triangles: state.renderer.info.render.triangles,
-            frames: state.frames
+            draws: zajtb.renderer.info.render.calls,
+            triangles: zajtb.renderer.info.render.triangles,
+            frames: zajtb.frames
         };
     }
-
-    async function handleMessage(event) {
-        var message = event.data;
-        if (!message || !message.type) return;
+    async function zajth(zajth) {
+        var zajti = zajth.data;
+        if (!zajti || !zajti.type) return;
         try {
-            if (message.type === "init") {
-                state.width = message.width || 256;
-                state.height = message.height || 256;
-                var renderer = new WebGPURenderer({ canvas: message.canvas, pixelRatio: 1, clearColor: message.background || 0x000000 });
-                await renderer.init();
-                state.renderer = renderer;
-                state.camera = new PerspectiveCamera(message.fov || 60, state.width / state.height, 0.1, 1000);
-                state.camera.position.set(0, 0, 5);
-                state.camera.lookAt(0, 0, 0);
-                state.camera.updateMatrixWorld(true);
-                renderer.resize(state.width, state.height);
-                ensureTarget();
-                scope.postMessage({ type: "ready", width: state.width, height: state.height, format: renderer.format });
-            } else if (message.type === "load") {
-                if (!state.renderer) throw new Error("init required before load");
-                if (!state.loader) state.loader = new FaoxLoader();
-                var bytes = message.bytes instanceof Uint8Array ? message.bytes : new Uint8Array(message.bytes || new ArrayBuffer(0));
-                var loaded = state.loader.parse(bytes);
-                state.scene = loaded.scene;
-                var wrapped = new Scene();
-                var kids = loaded.scene.children.slice();
-                for (var k = 0; k < kids.length; k++) wrapped.add(kids[k]);
-                state.scene = wrapped;
-                scope.postMessage({ type: "loaded", objects: countObjects(loaded.scene), faoxHash: loaded.hash, byteLength: bytes.length });
-            } else if (message.type === "camera") {
-                applyCamera(message);
-                scope.postMessage({ type: "camera-updated", position: message.position || null });
-            } else if (message.type === "render") {
-                var stats = renderOnce();
-                var pixels = await readPixels();
-                scope.postMessage({ type: "rendered", hash: PNGCodec.hashPixels(pixels), draws: stats.draws, triangles: stats.triangles, frames: stats.frames });
-            } else if (message.type === "png") {
-                var pngStats = renderOnce();
-                var pngPixels = await readPixels();
-                var png = PNGCodec.encode(state.width, state.height, pngPixels);
-                scope.postMessage({ type: "png", hash: PNGCodec.hashPixels(pngPixels), byteLength: png.length, draws: pngStats.draws, png: png }, [png.buffer]);
-            } else if (message.type === "resize") {
-                state.width = message.width || state.width;
-                state.height = message.height || state.height;
-                if (state.renderer) {
-                    state.renderer.resize(state.width, state.height);
-                    if (state.camera) {
-                        state.camera.aspect = state.width / state.height;
-                        state.camera.updateProjectionMatrix();
+            if (zajti.type === "init") {
+                zajtb.width = zajti.width || 256;
+                zajtb.height = zajti.height || 256;
+                var zajtj = new WebGPURenderer({
+                    canvas: zajti.canvas,
+                    pixelRatio: 1,
+                    clearColor: zajti.background || 0
+                });
+                await zajtj.init();
+                zajtb.renderer = zajtj;
+                zajtb.camera = new PerspectiveCamera(zajti.fov || 60, zajtb.width / zajtb.height, .1, 1e3);
+                zajtb.camera.position.set(0, 0, 5);
+                zajtb.camera.lookAt(0, 0, 0);
+                zajtb.camera.updateMatrixWorld(true);
+                zajtj.resize(zajtb.width, zajtb.height);
+                zajtc();
+                zajta.postMessage({
+                    type: "ready",
+                    width: zajtb.width,
+                    height: zajtb.height,
+                    format: zajtj.format
+                });
+            } else if (zajti.type === "load") {
+                if (!zajtb.renderer) throw new Error("init required before load");
+                if (!zajtb.loader) zajtb.loader = new FaoxLoader;
+                var zajtk = zajti.bytes instanceof Uint8Array ? zajti.bytes : new Uint8Array(zajti.bytes || new ArrayBuffer(0));
+                var zajtl = zajtb.loader.parse(zajtk);
+                zajtb.scene = zajtl.scene;
+                var zajtm = new Scene;
+                var zajtn = zajtl.scene.children.slice();
+                for (var zajto = 0; zajto < zajtn.length; zajto++) zajtm.add(zajtn[zajto]);
+                zajtb.scene = zajtm;
+                zajta.postMessage({
+                    type: "loaded",
+                    objects: zajte(zajtl.scene),
+                    faoxHash: zajtl.hash,
+                    byteLength: zajtk.length
+                });
+            } else if (zajti.type === "camera") {
+                zajtf(zajti);
+                zajta.postMessage({
+                    type: "camera-updated",
+                    position: zajti.position || null
+                });
+            } else if (zajti.type === "render") {
+                var zajtp = zajtg();
+                var zajtq = await zajtd();
+                zajta.postMessage({
+                    type: "rendered",
+                    hash: PNGCodec.hashPixels(zajtq),
+                    draws: zajtp.draws,
+                    triangles: zajtp.triangles,
+                    frames: zajtp.frames
+                });
+            } else if (zajti.type === "png") {
+                var zajtr = zajtg();
+                var zajts = await zajtd();
+                var zajtt = PNGCodec.encode(zajtb.width, zajtb.height, zajts);
+                zajta.postMessage({
+                    type: "png",
+                    hash: PNGCodec.hashPixels(zajts),
+                    byteLength: zajtt.length,
+                    draws: zajtr.draws,
+                    png: zajtt
+                }, [ zajtt.buffer ]);
+            } else if (zajti.type === "resize") {
+                zajtb.width = zajti.width || zajtb.width;
+                zajtb.height = zajti.height || zajtb.height;
+                if (zajtb.renderer) {
+                    zajtb.renderer.resize(zajtb.width, zajtb.height);
+                    if (zajtb.camera) {
+                        zajtb.camera.aspect = zajtb.width / zajtb.height;
+                        zajtb.camera.updateProjectionMatrix();
                     }
-                    ensureTarget();
+                    zajtc();
                 }
-                scope.postMessage({ type: "resized", width: state.width, height: state.height });
-            } else if (message.type === "ping") {
-                scope.postMessage({ type: "pong", frames: state.frames });
-            } else if (message.type === "dispose") {
-                if (state.renderer) {
-                    try { state.renderer.dispose(); } catch (disposeError) { /* gone */ }
+                zajta.postMessage({
+                    type: "resized",
+                    width: zajtb.width,
+                    height: zajtb.height
+                });
+            } else if (zajti.type === "ping") {
+                zajta.postMessage({
+                    type: "pong",
+                    frames: zajtb.frames
+                });
+            } else if (zajti.type === "dispose") {
+                if (zajtb.renderer) {
+                    try {
+                        zajtb.renderer.dispose();
+                    } catch (zajta) {}
                 }
-                state.renderer = null;
-                state.scene = null;
-                state.colorTexture = null;
-                state.colorView = null;
-                state.depthTexture = null;
-                scope.postMessage({ type: "disposed" });
+                zajtb.renderer = null;
+                zajtb.scene = null;
+                zajtb.colorTexture = null;
+                zajtb.colorView = null;
+                zajtb.depthTexture = null;
+                zajta.postMessage({
+                    type: "disposed"
+                });
             } else {
-                scope.postMessage({ type: "error", message: "unknown command: " + message.type });
+                zajta.postMessage({
+                    type: "error",
+                    message: "unknown command: " + zajti.type
+                });
             }
-        } catch (error) {
-            scope.postMessage({ type: "error", message: String(error && error.message || error), command: message.type });
+        } catch (zajtb) {
+            zajta.postMessage({
+                type: "error",
+                message: String(zajtb && zajtb.message || zajtb),
+                command: zajti.type
+            });
         }
     }
-
-    return { handleMessage: handleMessage };
+    return {
+        handleMessage: zajth
+    };
 }
 
-if (workerScope) {
-    var engine = createWorkerEngine(workerScope);
-    workerScope.onmessage = engine.handleMessage;
+if (zajta) {
+    var zajtb = createWorkerEngine(zajta);
+    zajta.onmessage = zajtb.handleMessage;
 }
 
 export { createWorkerEngine };

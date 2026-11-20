@@ -1,32 +1,54 @@
 import { faoxomclosestpointtriangle, faoxomgjkcontact, faoxommeshtriangles } from "../core/index.js";
+
 import { Box3, Vector3 } from "../math/index.js";
+
 import { faoxomtrianglebody } from "./faoxomtrianglebody.js";
 
-function faoxommeshcontact(meshBody, otherBody, meshIsA) {
-    var meshTriangles = faoxommeshtriangles(meshBody);
-    if (!meshTriangles.length) return null;
-    var otherBox = otherBody.shape.getAABB(otherBody.position, null, otherBody.rotation);
-    var best = null;
-    if (otherBody.shape.type === "mesh") {
-        var otherTriangles = faoxommeshtriangles(otherBody); var pairCount = 0;
-        for (var ma = 0; ma < meshTriangles.length && pairCount < 4096; ma++) { var firstBox = new Box3().setFromPoints(meshTriangles[ma]); if (!firstBox.intersectsBox(otherBox)) continue; for (var mb = 0; mb < otherTriangles.length && pairCount < 4096; mb++) { var secondBox = new Box3().setFromPoints(otherTriangles[mb]); if (!firstBox.intersectsBox(secondBox)) continue; var firstBody = faoxomtrianglebody(meshTriangles[ma][0], meshTriangles[ma][1], meshTriangles[ma][2]); var secondBody = faoxomtrianglebody(otherTriangles[mb][0], otherTriangles[mb][1], otherTriangles[mb][2]); var pairContact = meshIsA ? faoxomgjkcontact(firstBody, secondBody) : faoxomgjkcontact(secondBody, firstBody); if (pairContact && (!best || pairContact.penetration > best.penetration)) best = pairContact; pairCount++; } }
-        return best;
+function faoxommeshcontact(zajva, zajvb, zajvc) {
+    var zajvd = faoxommeshtriangles(zajva);
+    if (!zajvd.length) return null;
+    var zajve = zajvb.shape.getAABB(zajvb.position, null, zajvb.rotation);
+    var zajvf = null;
+    if (zajvb.shape.type === "mesh") {
+        var zajvg = faoxommeshtriangles(zajvb);
+        var zajvh = 0;
+        for (var zajvi = 0; zajvi < zajvd.length && zajvh < 4096; zajvi++) {
+            var zajvj = (new Box3).setFromPoints(zajvd[zajvi]);
+            if (!zajvj.intersectsBox(zajve)) continue;
+            for (var zajvk = 0; zajvk < zajvg.length && zajvh < 4096; zajvk++) {
+                var zajvl = (new Box3).setFromPoints(zajvg[zajvk]);
+                if (!zajvj.intersectsBox(zajvl)) continue;
+                var zajvm = faoxomtrianglebody(zajvd[zajvi][0], zajvd[zajvi][1], zajvd[zajvi][2]);
+                var zajvn = faoxomtrianglebody(zajvg[zajvk][0], zajvg[zajvk][1], zajvg[zajvk][2]);
+                var zajvo = zajvc ? faoxomgjkcontact(zajvm, zajvn) : faoxomgjkcontact(zajvn, zajvm);
+                if (zajvo && (!zajvf || zajvo.penetration > zajvf.penetration)) zajvf = zajvo;
+                zajvh++;
+            }
+        }
+        return zajvf;
     }
-    var limit = Math.min(meshTriangles.length, 2048);
-    for (var i = 0; i < limit; i++) {
-        var triangle = meshTriangles[i];
-        var triBox = new Box3().setFromPoints(triangle);
-        if (!triBox.intersectsBox(otherBox)) continue;
-        var triangleBody = faoxomtrianglebody(triangle[0], triangle[1], triangle[2]);
-        var contact = null;
-        if (otherBody.shape.type === "sphere") {
-            var closest = faoxomclosestpointtriangle(otherBody.position, triangle[0], triangle[1], triangle[2]);
-            var separation = otherBody.position.distanceTo(closest);
-            if (separation < otherBody.shape.radius) { var sphereNormal = separation > 1e-8 ? otherBody.position.clone().sub(closest).multiplyScalar(1 / separation) : new Vector3().crossVectors(new Vector3().subVectors(triangle[1], triangle[0]), new Vector3().subVectors(triangle[2], triangle[0])).normalize(); contact = { normal: meshIsA ? sphereNormal : sphereNormal.clone().negate(), penetration: otherBody.shape.radius - separation, point: closest.clone().addScaledVector(sphereNormal, otherBody.shape.radius * 0.5) }; }
-        } else contact = meshIsA ? faoxomgjkcontact(triangleBody, otherBody) : faoxomgjkcontact(otherBody, triangleBody);
-        if (contact && (!best || contact.penetration > best.penetration)) best = contact;
+    var zajvp = Math.min(zajvd.length, 2048);
+    for (var zajvq = 0; zajvq < zajvp; zajvq++) {
+        var zajvr = zajvd[zajvq];
+        var zajvs = (new Box3).setFromPoints(zajvr);
+        if (!zajvs.intersectsBox(zajve)) continue;
+        var zajvt = faoxomtrianglebody(zajvr[0], zajvr[1], zajvr[2]);
+        var zajvu = null;
+        if (zajvb.shape.type === "sphere") {
+            var zajvv = faoxomclosestpointtriangle(zajvb.position, zajvr[0], zajvr[1], zajvr[2]);
+            var zajvw = zajvb.position.distanceTo(zajvv);
+            if (zajvw < zajvb.shape.radius) {
+                var zajvx = zajvw > 1e-8 ? zajvb.position.clone().sub(zajvv).multiplyScalar(1 / zajvw) : (new Vector3).crossVectors((new Vector3).subVectors(zajvr[1], zajvr[0]), (new Vector3).subVectors(zajvr[2], zajvr[0])).normalize();
+                zajvu = {
+                    normal: zajvc ? zajvx : zajvx.clone().negate(),
+                    penetration: zajvb.shape.radius - zajvw,
+                    point: zajvv.clone().addScaledVector(zajvx, zajvb.shape.radius * .5)
+                };
+            }
+        } else zajvu = zajvc ? faoxomgjkcontact(zajvt, zajvb) : faoxomgjkcontact(zajvb, zajvt);
+        if (zajvu && (!zajvf || zajvu.penetration > zajvf.penetration)) zajvf = zajvu;
     }
-    return best;
+    return zajvf;
 }
 
 export { faoxommeshcontact };

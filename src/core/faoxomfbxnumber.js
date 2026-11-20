@@ -1,3 +1,5 @@
-function faoxomfbxnumber(value) { return typeof value === "number" ? value : Number(value) || 0; }
+function faoxomfbxnumber(zaepa) {
+    return typeof zaepa === "number" ? zaepa : Number(zaepa) || 0;
+}
 
 export { faoxomfbxnumber };

@@ -1,21 +1,21 @@
 import { Constraint } from "./Constraint.js";
 
 class SpringJoint extends Constraint {
-    constructor(bodyA, bodyB, restLength, stiffness, damping) {
-        super(bodyA, bodyB);
-        this.restLength = restLength !== undefined ? restLength : bodyA.position.distanceTo(bodyB.position);
-        this.stiffness = stiffness || 50;
-        this.damping = damping || 2.0;
+    constructor(zajca, zajcb, zajcc, zajcd, zajce) {
+        super(zajca, zajcb);
+        this.restLength = zajcc !== undefined ? zajcc : zajca.position.distanceTo(zajcb.position);
+        this.stiffness = zajcd || 50;
+        this.damping = zajce || 2;
     }
-    solve(dt) {
-        var delta = this.bodyB.position.clone().sub(this.bodyA.position);
-        var dist = delta.length();
-        if (dist === 0) return;
-        var forceMag = (dist - this.restLength) * this.stiffness;
-        var dir = delta.normalize();
-        var f = dir.multiplyScalar(forceMag * dt);
-        if (!this.bodyA.isStatic && this.bodyA.velocity) this.bodyA.velocity.add(f);
-        if (!this.bodyB.isStatic && this.bodyB.velocity) this.bodyB.velocity.sub(f);
+    solve(zajca) {
+        var zajcb = this.bodyB.position.clone().sub(this.bodyA.position);
+        var zajcc = zajcb.length();
+        if (zajcc === 0) return;
+        var zajcd = (zajcc - this.restLength) * this.stiffness;
+        var zajce = zajcb.normalize();
+        var zajcf = zajce.multiplyScalar(zajcd * zajca);
+        if (!this.bodyA.isStatic && this.bodyA.velocity) this.bodyA.velocity.add(zajcf);
+        if (!this.bodyB.isStatic && this.bodyB.velocity) this.bodyB.velocity.sub(zajcf);
     }
 }
 

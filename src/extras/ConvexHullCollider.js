@@ -1,20 +1,23 @@
 import { Vector3 } from "../math/index.js";
 
 class ConvexHullCollider {
-    constructor(vertices) {
-        this.vertices = vertices || [];
-        this.center = new Vector3();
-        for (var i = 0; i < this.vertices.length; i++) this.center.add(this.vertices[i]);
+    constructor(zagva) {
+        this.vertices = zagva || [];
+        this.center = new Vector3;
+        for (var zagvb = 0; zagvb < this.vertices.length; zagvb++) this.center.add(this.vertices[zagvb]);
         if (this.vertices.length) this.center.multiplyScalar(1 / this.vertices.length);
     }
-    getSupportPoint(direction) {
-        var maxDot = -Infinity;
-        var best = this.vertices[0] || new Vector3();
-        for (var i = 0; i < this.vertices.length; i++) {
-            var dot = this.vertices[i].dot(direction);
-            if (dot > maxDot) { maxDot = dot; best = this.vertices[i]; }
+    getSupportPoint(zagva) {
+        var zagvb = -Infinity;
+        var zagvc = this.vertices[0] || new Vector3;
+        for (var zagvd = 0; zagvd < this.vertices.length; zagvd++) {
+            var zagve = this.vertices[zagvd].dot(zagva);
+            if (zagve > zagvb) {
+                zagvb = zagve;
+                zagvc = this.vertices[zagvd];
+            }
         }
-        return best.clone();
+        return zagvc.clone();
     }
 }
 

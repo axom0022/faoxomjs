@@ -1,10 +1,31 @@
 import { faoxomvalue } from "../math/index.js";
+
 import { AnimationClip } from "./AnimationClip.js";
+
 import { AnimationTrack } from "./AnimationTrack.js";
 
 class AnimationRetargeter {
-    constructor(mapping, options) { this.mapping = mapping || {}; options = options || {}; this.positionScale = faoxomvalue(options.positionScale, 1); this.preserveRoot = options.preserveRoot !== false; }
-    retarget(clip, mapping, options) { mapping = mapping || this.mapping; options = options || {}; var scale = faoxomvalue(options.positionScale, this.positionScale); var tracks = []; for (var i = 0; i < clip.tracks.length; i++) { var source = clip.tracks[i]; var leaf = source.name.split(".")[0]; var targetName = mapping[source.name] || mapping[leaf] || source.name; var values = Array.prototype.slice.call(source.values); if (scale !== 1 && (source.valueType === "vector3" || source.valueType === "vector2") && (targetName.indexOf("position") !== -1 || targetName.indexOf("translation") !== -1)) for (var j = 0; j < values.length; j++) values[j] *= scale; tracks.push(new AnimationTrack(targetName, Array.prototype.slice.call(source.times), values, source.valueType, source.interpolation)); } return new AnimationClip(options.name || clip.name, clip.duration, tracks, (clip.events || []).slice()); }
+    constructor(zaaza, zaazb) {
+        this.mapping = zaaza || {};
+        zaazb = zaazb || {};
+        this.positionScale = faoxomvalue(zaazb.positionScale, 1);
+        this.preserveRoot = zaazb.preserveRoot !== false;
+    }
+    retarget(zaaza, zaazb, zaazc) {
+        zaazb = zaazb || this.mapping;
+        zaazc = zaazc || {};
+        var zaazd = faoxomvalue(zaazc.positionScale, this.positionScale);
+        var zaaze = [];
+        for (var zaazf = 0; zaazf < zaaza.tracks.length; zaazf++) {
+            var zaazg = zaaza.tracks[zaazf];
+            var zaazh = zaazg.name.split(".")[0];
+            var zaazi = zaazb[zaazg.name] || zaazb[zaazh] || zaazg.name;
+            var zaazj = Array.prototype.slice.call(zaazg.values);
+            if (zaazd !== 1 && (zaazg.valueType === "vector3" || zaazg.valueType === "vector2") && (zaazi.indexOf("position") !== -1 || zaazi.indexOf("translation") !== -1)) for (var zaazk = 0; zaazk < zaazj.length; zaazk++) zaazj[zaazk] *= zaazd;
+            zaaze.push(new AnimationTrack(zaazi, Array.prototype.slice.call(zaazg.times), zaazj, zaazg.valueType, zaazg.interpolation));
+        }
+        return new AnimationClip(zaazc.name || zaaza.name, zaaza.duration, zaaze, (zaaza.events || []).slice());
+    }
 }
 
 export { AnimationRetargeter };

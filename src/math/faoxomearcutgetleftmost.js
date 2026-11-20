@@ -1,10 +1,10 @@
-function faoxomearcutgetleftmost(start) {
-    var p = start, leftmost = start;
+function faoxomearcutgetleftmost(zapla) {
+    var zaplb = zapla, zaplc = zapla;
     do {
-        if (p.x < leftmost.x || (p.x === leftmost.x && p.y < leftmost.y)) leftmost = p;
-        p = p.next;
-    } while (p !== start);
-    return leftmost;
+        if (zaplb.x < zaplc.x || zaplb.x === zaplc.x && zaplb.y < zaplc.y) zaplc = zaplb;
+        zaplb = zaplb.next;
+    } while (zaplb !== zapla);
+    return zaplc;
 }
 
 export { faoxomearcutgetleftmost };

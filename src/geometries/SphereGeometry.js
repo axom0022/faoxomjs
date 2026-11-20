@@ -1,9 +1,47 @@
 import { faoxomvalue } from "../math/index.js";
+
 import { Geometry } from "./Geometry.js";
+
 import { faoxomgeometry } from "./faoxomgeometry.js";
 
 class SphereGeometry extends Geometry {
-    constructor(radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength) { super(); radius = faoxomvalue(radius, 1); widthSegments = Math.max(3, Math.floor(faoxomvalue(widthSegments, 24))); heightSegments = Math.max(2, Math.floor(faoxomvalue(heightSegments, 16))); phiStart = faoxomvalue(phiStart, 0); phiLength = faoxomvalue(phiLength, Math.PI * 2); thetaStart = faoxomvalue(thetaStart, 0); thetaLength = faoxomvalue(thetaLength, Math.PI); var p = [], n = [], u = [], ind = []; for (var y = 0; y <= heightSegments; y++) { var v = y / heightSegments; var theta = thetaStart + v * thetaLength; for (var x = 0; x <= widthSegments; x++) { var uu = x / widthSegments; var phi = phiStart + uu * phiLength; var sx = -radius * Math.cos(phi) * Math.sin(theta); var sy = radius * Math.cos(theta); var sz = radius * Math.sin(phi) * Math.sin(theta); p.push(sx, sy, sz); n.push(sx / radius, sy / radius, sz / radius); u.push(uu, 1 - v); } } for (var iy = 0; iy < heightSegments; iy++) for (var ix = 0; ix < widthSegments; ix++) { var a = iy * (widthSegments + 1) + ix; var b = a + widthSegments + 1; var c = b + 1; var d = a + 1; if (iy !== 0) ind.push(a, b, d); if (iy !== heightSegments - 1) ind.push(b, c, d); } this.attributes = faoxomgeometry(p, n, u, ind).attributes; this.index = ind.length > 65535 ? new Uint32Array(ind) : new Uint16Array(ind); this.computeBoundingBox(); this.computeBoundingSphere(); }
+    constructor(zakqa, zakqb, zakqc, zakqd, zakqe, zakqf, zakqg) {
+        super();
+        zakqa = faoxomvalue(zakqa, 1);
+        zakqb = Math.max(3, Math.floor(faoxomvalue(zakqb, 24)));
+        zakqc = Math.max(2, Math.floor(faoxomvalue(zakqc, 16)));
+        zakqd = faoxomvalue(zakqd, 0);
+        zakqe = faoxomvalue(zakqe, Math.PI * 2);
+        zakqf = faoxomvalue(zakqf, 0);
+        zakqg = faoxomvalue(zakqg, Math.PI);
+        var zakqh = [], zakqi = [], zakqj = [], zakqk = [];
+        for (var zakql = 0; zakql <= zakqc; zakql++) {
+            var zakqm = zakql / zakqc;
+            var zakqn = zakqf + zakqm * zakqg;
+            for (var zakqo = 0; zakqo <= zakqb; zakqo++) {
+                var zakqp = zakqo / zakqb;
+                var zakqq = zakqd + zakqp * zakqe;
+                var zakqr = -zakqa * Math.cos(zakqq) * Math.sin(zakqn);
+                var zakqs = zakqa * Math.cos(zakqn);
+                var zakqt = zakqa * Math.sin(zakqq) * Math.sin(zakqn);
+                zakqh.push(zakqr, zakqs, zakqt);
+                zakqi.push(zakqr / zakqa, zakqs / zakqa, zakqt / zakqa);
+                zakqj.push(zakqp, 1 - zakqm);
+            }
+        }
+        for (var zakqu = 0; zakqu < zakqc; zakqu++) for (var zakqv = 0; zakqv < zakqb; zakqv++) {
+            var zakqw = zakqu * (zakqb + 1) + zakqv;
+            var zakqx = zakqw + zakqb + 1;
+            var zakqy = zakqx + 1;
+            var zakqz = zakqw + 1;
+            if (zakqu !== 0) zakqk.push(zakqw, zakqx, zakqz);
+            if (zakqu !== zakqc - 1) zakqk.push(zakqx, zakqy, zakqz);
+        }
+        this.attributes = faoxomgeometry(zakqh, zakqi, zakqj, zakqk).attributes;
+        this.index = zakqk.length > 65535 ? new Uint32Array(zakqk) : new Uint16Array(zakqk);
+        this.computeBoundingBox();
+        this.computeBoundingSphere();
+    }
 }
 
 export { SphereGeometry };

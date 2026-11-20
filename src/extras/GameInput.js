@@ -1,32 +1,56 @@
 import { faoxomclamp, faoxomvalue } from "../math/index.js";
 
-var SOURCE_RE = /^(Key[A-Z0-9]+|Digit[0-9]|Numpad[0-9]+|Space|Enter|ShiftLeft|ShiftRight|ControlLeft|ControlRight|AltLeft|AltRight|Tab|Backspace|Escape|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Backquote|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Backslash|Comma|Period|Slash|IntlBackslash)$/;
-var MOUSE_RE = /^Mouse([0-9]+)$/;
-var PAD_RE = /^Pad([0-9]+):B([0-9]+)$/;
-var AXIS_RE = /^Pad([0-9]+):A([0-9]+)([+-])?$/;
+var zahra = /^(Key[A-Z0-9]+|Digit[0-9]|Numpad[0-9]+|Space|Enter|ShiftLeft|ShiftRight|ControlLeft|ControlRight|AltLeft|AltRight|Tab|Backspace|Escape|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Backquote|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Backslash|Comma|Period|Slash|IntlBackslash)$/;
 
-function parseSource(source) {
-    if (!source || typeof source !== "string") return null;
-    if (MOUSE_RE.test(source)) return { kind: "mouse", button: parseInt(source.match(MOUSE_RE)[1], 10) };
-    if (PAD_RE.test(source)) { var m = source.match(PAD_RE); return { kind: "padButton", pad: parseInt(m[1], 10), button: parseInt(m[2], 10) }; }
-    if (AXIS_RE.test(source)) { var a = source.match(AXIS_RE); return { kind: "padAxis", pad: parseInt(a[1], 10), axis: parseInt(a[2], 10), sign: a[3] === "-" ? -1 : 1 }; }
-    if (SOURCE_RE.test(source)) return { kind: "key", code: source };
+var zahrb = /^Mouse([0-9]+)$/;
+
+var zahrc = /^Pad([0-9]+):B([0-9]+)$/;
+
+var zahrd = /^Pad([0-9]+):A([0-9]+)([+-])?$/;
+
+function zahre(zahre) {
+    if (!zahre || typeof zahre !== "string") return null;
+    if (zahrb.test(zahre)) return {
+        kind: "mouse",
+        button: parseInt(zahre.match(zahrb)[1], 10)
+    };
+    if (zahrc.test(zahre)) {
+        var zahrf = zahre.match(zahrc);
+        return {
+            kind: "padButton",
+            pad: parseInt(zahrf[1], 10),
+            button: parseInt(zahrf[2], 10)
+        };
+    }
+    if (zahrd.test(zahre)) {
+        var zahrg = zahre.match(zahrd);
+        return {
+            kind: "padAxis",
+            pad: parseInt(zahrg[1], 10),
+            axis: parseInt(zahrg[2], 10),
+            sign: zahrg[3] === "-" ? -1 : 1
+        };
+    }
+    if (zahra.test(zahre)) return {
+        kind: "key",
+        code: zahre
+    };
     return null;
 }
 
-function deadzoneAxis(value, deadzone) {
-    var magnitude = Math.abs(value);
-    if (magnitude <= deadzone) return 0;
-    return Math.sign(value) * ((magnitude - deadzone) / (1 - deadzone));
+function zahrf(zahra, zahrb) {
+    var zahrc = Math.abs(zahra);
+    if (zahrc <= zahrb) return 0;
+    return Math.sign(zahra) * ((zahrc - zahrb) / (1 - zahrb));
 }
 
 class GameInput {
-    constructor(options) {
-        options = options || {};
+    constructor(zahra) {
+        zahra = zahra || {};
         if (typeof window === "undefined" || typeof document === "undefined") throw new Error("GameInput requires a browser environment");
-        this.target = options.target || document.body || document.documentElement;
-        this.deadzone = faoxomclamp(faoxomvalue(options.gamepadDeadzone, 0.12), 0, 0.95);
-        this.axisThreshold = faoxomclamp(faoxomvalue(options.axisThreshold, 0.5), 0.05, 0.95);
+        this.target = zahra.target || document.body || document.documentElement;
+        this.deadzone = faoxomclamp(faoxomvalue(zahra.gamepadDeadzone, .12), 0, .95);
+        this.axisThreshold = faoxomclamp(faoxomvalue(zahra.axisThreshold, .5), .05, .95);
         this.bindings = {};
         this.defaultBindings = {};
         this.axes = {};
@@ -35,456 +59,575 @@ class GameInput {
         this.padConnectCallbacks = [];
         this.padDisconnectCallbacks = [];
         this.disposed = false;
-
         this._keys = {};
         this._mouseButtons = {};
-        this._pointer = { x: 0, y: 0 };
-        this._mouseDelta = { x: 0, y: 0 };
+        this._pointer = {
+            x: 0,
+            y: 0
+        };
+        this._mouseDelta = {
+            x: 0,
+            y: 0
+        };
         this._wheelDelta = 0;
-        this._wheelEdges = { up: false, down: false };
+        this._wheelEdges = {
+            up: false,
+            down: false
+        };
         this._prevActionState = {};
         this._padStates = {};
         this._prevPads = [];
         this._rebind = null;
-        this.stats = { updates: 0, actionsFired: 0, padsConnected: 0, rebinds: 0 };
-
-        var defaults = options.bindings || {};
-        for (var action in defaults) {
-            var sources = Array.isArray(defaults[action]) ? defaults[action] : [defaults[action]];
-            for (var i = 0; i < sources.length; i++) this.setBinding(action, sources[i], true);
+        this.stats = {
+            updates: 0,
+            actionsFired: 0,
+            padsConnected: 0,
+            rebinds: 0
+        };
+        var zahrb = zahra.bindings || {};
+        for (var zahrc in zahrb) {
+            var zahrd = Array.isArray(zahrb[zahrc]) ? zahrb[zahrc] : [ zahrb[zahrc] ];
+            for (var zahre = 0; zahre < zahrd.length; zahre++) this.setBinding(zahrc, zahrd[zahre], true);
         }
-
-        var self = this;
+        var zahrf = this;
         this._handlers = {
-            keydown: function (event) { self._onKeyDown(event); },
-            keyup: function (event) { self._onKeyUp(event); },
-            mousedown: function (event) { self._mouseButtons[event.button] = { down: true, edge: true }; },
-            mouseup: function (event) { self._mouseButtons[event.button] = { down: false, edge: true }; },
-            mousemove: function (event) {
-                self._pointer.x = event.clientX; self._pointer.y = event.clientY;
-                if (document.pointerLockElement === self.target) {
-                    self._mouseDelta.x += event.movementX || 0;
-                    self._mouseDelta.y += event.movementY || 0;
+            keydown: function(zahra) {
+                zahrf._onKeyDown(zahra);
+            },
+            keyup: function(zahra) {
+                zahrf._onKeyUp(zahra);
+            },
+            mousedown: function(zahra) {
+                zahrf._mouseButtons[zahra.button] = {
+                    down: true,
+                    edge: true
+                };
+            },
+            mouseup: function(zahra) {
+                zahrf._mouseButtons[zahra.button] = {
+                    down: false,
+                    edge: true
+                };
+            },
+            mousemove: function(zahra) {
+                zahrf._pointer.x = zahra.clientX;
+                zahrf._pointer.y = zahra.clientY;
+                if (document.pointerLockElement === zahrf.target) {
+                    zahrf._mouseDelta.x += zahra.movementX || 0;
+                    zahrf._mouseDelta.y += zahra.movementY || 0;
                 }
             },
-            wheel: function (event) {
-                self._wheelDelta += event.deltaY;
-                if (event.deltaY < 0) self._wheelEdges.up = true;
-                else if (event.deltaY > 0) self._wheelEdges.down = true;
+            wheel: function(zahra) {
+                zahrf._wheelDelta += zahra.deltaY;
+                if (zahra.deltaY < 0) zahrf._wheelEdges.up = true; else if (zahra.deltaY > 0) zahrf._wheelEdges.down = true;
             },
-            pointerlockchange: function () { self._fireLockChange(document.pointerLockElement === self.target); },
-            gamepadconnected: function (event) { self._onPadConnected(event && event.gamepad); },
-            gamepaddisconnected: function (event) { self._onPadDisconnected(event && event.gamepad); },
-            contextmenu: function (event) { event.preventDefault(); }
+            pointerlockchange: function() {
+                zahrf._fireLockChange(document.pointerLockElement === zahrf.target);
+            },
+            gamepadconnected: function(zahra) {
+                zahrf._onPadConnected(zahra && zahra.gamepad);
+            },
+            gamepaddisconnected: function(zahra) {
+                zahrf._onPadDisconnected(zahra && zahra.gamepad);
+            },
+            contextmenu: function(zahra) {
+                zahra.preventDefault();
+            }
         };
         window.addEventListener("keydown", this._handlers.keydown);
         window.addEventListener("keyup", this._handlers.keyup);
         this.target.addEventListener("mousedown", this._handlers.mousedown);
         window.addEventListener("mouseup", this._handlers.mouseup);
         window.addEventListener("mousemove", this._handlers.mousemove);
-        window.addEventListener("wheel", this._handlers.wheel, { passive: true });
+        window.addEventListener("wheel", this._handlers.wheel, {
+            passive: true
+        });
         document.addEventListener("pointerlockchange", this._handlers.pointerlockchange);
         window.addEventListener("gamepadconnected", this._handlers.gamepadconnected);
         window.addEventListener("gamepaddisconnected", this._handlers.gamepaddisconnected);
         this.target.addEventListener("contextmenu", this._handlers.contextmenu);
     }
-
-    _onKeyDown(event) {
-        var code = event.code;
+    _onKeyDown(zahra) {
+        var zahrb = zahra.code;
         if (this._rebind) {
-            if (code === (this._rebind.cancelKey || "Escape")) this.cancelRebind();
-            else this._finishRebind({ kind: "key", code: code, label: code });
-            if (event.preventDefault) event.preventDefault();
+            if (zahrb === (this._rebind.cancelKey || "Escape")) this.cancelRebind(); else this._finishRebind({
+                kind: "key",
+                code: zahrb,
+                label: zahrb
+            });
+            if (zahra.preventDefault) zahra.preventDefault();
             return;
         }
-        if (!this._keys[code]) this._keys[code] = { down: true, edge: true };
-        else { this._keys[code].down = true; }
-        if (event.preventDefault && this._bindingsForSource("key:" + code).length) event.preventDefault();
-    }
-
-    _onKeyUp(event) {
-        var code = event.code;
-        if (this._keys[code]) { this._keys[code].down = false; this._keys[code].edge = true; }
-    }
-
-    _bindingsForSource(key) {
-        var matches = [];
-        for (var action in this.bindings) {
-            var sources = this.bindings[action];
-            for (var i = 0; i < sources.length; i++) if (sources[i]._sourceKey === key) matches.push(action);
+        if (!this._keys[zahrb]) this._keys[zahrb] = {
+            down: true,
+            edge: true
+        }; else {
+            this._keys[zahrb].down = true;
         }
-        return matches;
+        if (zahra.preventDefault && this._bindingsForSource("key:" + zahrb).length) zahra.preventDefault();
     }
-
-    setBinding(action, source, isDefault) {
+    _onKeyUp(zahra) {
+        var zahrb = zahra.code;
+        if (this._keys[zahrb]) {
+            this._keys[zahrb].down = false;
+            this._keys[zahrb].edge = true;
+        }
+    }
+    _bindingsForSource(zahra) {
+        var zahrb = [];
+        for (var zahrc in this.bindings) {
+            var zahrd = this.bindings[zahrc];
+            for (var zahre = 0; zahre < zahrd.length; zahre++) if (zahrd[zahre]._sourceKey === zahra) zahrb.push(zahrc);
+        }
+        return zahrb;
+    }
+    setBinding(zahra, zahrb, zahrc) {
         if (this.disposed) throw new Error("GameInput is disposed");
-        if (!action || typeof action !== "string") throw new Error("setBinding requires an action name");
-        var parsed = parseSource(source);
-        if (!parsed) throw new Error("invalid input source '" + source + "'");
-        if (!this.bindings[action]) this.bindings[action] = [];
-        var exists = false;
-        for (var i = 0; i < this.bindings[action].length; i++) if (this.bindings[action][i].source === source) exists = true;
-        if (exists) return this;
-        this.bindings[action].push({ source: source, parsed: parsed, _sourceKey: this._sourceKey(parsed) });
-        if (isDefault) {
-            if (!this.defaultBindings[action]) this.defaultBindings[action] = [];
-            this.defaultBindings[action].push(source);
+        if (!zahra || typeof zahra !== "string") throw new Error("setBinding requires an action name");
+        var zahrd = zahre(zahrb);
+        if (!zahrd) throw new Error("invalid input source '" + zahrb + "'");
+        if (!this.bindings[zahra]) this.bindings[zahra] = [];
+        var zahrf = false;
+        for (var zahrg = 0; zahrg < this.bindings[zahra].length; zahrg++) if (this.bindings[zahra][zahrg].source === zahrb) zahrf = true;
+        if (zahrf) return this;
+        this.bindings[zahra].push({
+            source: zahrb,
+            parsed: zahrd,
+            _sourceKey: this._sourceKey(zahrd)
+        });
+        if (zahrc) {
+            if (!this.defaultBindings[zahra]) this.defaultBindings[zahra] = [];
+            this.defaultBindings[zahra].push(zahrb);
         }
         return this;
     }
-
-    _sourceKey(parsed) {
-        if (parsed.kind === "key") return "key:" + parsed.code;
-        if (parsed.kind === "mouse") return "mouse:" + parsed.button;
-        if (parsed.kind === "padButton") return "padButton:" + parsed.pad + ":" + parsed.button;
-        return "padAxis:" + parsed.pad + ":" + parsed.axis + ":" + (parsed.sign > 0 ? "+" : "-");
+    _sourceKey(zahra) {
+        if (zahra.kind === "key") return "key:" + zahra.code;
+        if (zahra.kind === "mouse") return "mouse:" + zahra.button;
+        if (zahra.kind === "padButton") return "padButton:" + zahra.pad + ":" + zahra.button;
+        return "padAxis:" + zahra.pad + ":" + zahra.axis + ":" + (zahra.sign > 0 ? "+" : "-");
     }
-
-    getBindings(action) {
-        var sources = this.bindings[action] || [];
-        var out = [];
-        for (var i = 0; i < sources.length; i++) out.push(sources[i].source);
-        return out;
+    getBindings(zahra) {
+        var zahrb = this.bindings[zahra] || [];
+        var zahrc = [];
+        for (var zahrd = 0; zahrd < zahrb.length; zahrd++) zahrc.push(zahrb[zahrd].source);
+        return zahrc;
     }
-
-    clearBindings(action) {
-        if (this.bindings[action]) this.bindings[action].length = 0;
+    clearBindings(zahra) {
+        if (this.bindings[zahra]) this.bindings[zahra].length = 0;
         return this;
     }
-
     resetBindings() {
         this.bindings = {};
-        for (var action in this.defaultBindings) {
-            var sources = this.defaultBindings[action];
-            for (var i = 0; i < sources.length; i++) this.setBinding(action, sources[i], true);
+        for (var zahra in this.defaultBindings) {
+            var zahrb = this.defaultBindings[zahra];
+            for (var zahrc = 0; zahrc < zahrb.length; zahrc++) this.setBinding(zahra, zahrb[zahrc], true);
         }
         return this;
     }
-
-    bindAxis(action, options) {
-        options = options || {};
-        this.axes[action] = {
-            up: options.up || null, down: options.down || null, left: options.left || null, right: options.right || null,
-            pad: options.pad === undefined ? null : options.pad, padXAxis: options.padXAxis === undefined ? 0 : options.padXAxis,
-            padYAxis: options.padYAxis === undefined ? 1 : options.padYAxis, invertY: options.invertY === true
+    bindAxis(zahra, zahrb) {
+        zahrb = zahrb || {};
+        this.axes[zahra] = {
+            up: zahrb.up || null,
+            down: zahrb.down || null,
+            left: zahrb.left || null,
+            right: zahrb.right || null,
+            pad: zahrb.pad === undefined ? null : zahrb.pad,
+            padXAxis: zahrb.padXAxis === undefined ? 0 : zahrb.padXAxis,
+            padYAxis: zahrb.padYAxis === undefined ? 1 : zahrb.padYAxis,
+            invertY: zahrb.invertY === true
         };
         return this;
     }
-
-    startRebind(action, options) {
+    startRebind(zahra, zahrb) {
         if (this.disposed) throw new Error("GameInput is disposed");
-        options = options || {};
-        if (!action || !this.bindings[action]) throw new Error("rebind requires an existing action");
+        zahrb = zahrb || {};
+        if (!zahra || !this.bindings[zahra]) throw new Error("rebind requires an existing action");
         if (this._rebind) return this;
         this._rebind = {
-            action: action,
-            mode: options.add === true ? "add" : "replace",
-            cancelKey: options.cancelKey || "Escape",
-            timeout: faoxomvalue(options.timeout, 0),
-            onDone: options.onDone || null,
-            onCancel: options.onCancel || null,
+            action: zahra,
+            mode: zahrb.add === true ? "add" : "replace",
+            cancelKey: zahrb.cancelKey || "Escape",
+            timeout: faoxomvalue(zahrb.timeout, 0),
+            onDone: zahrb.onDone || null,
+            onCancel: zahrb.onCancel || null,
             startedAt: Date.now()
         };
         return this;
     }
-
     cancelRebind() {
         if (!this._rebind) return this;
-        var cancelled = this._rebind;
+        var zahra = this._rebind;
         this._rebind = null;
-        if (cancelled.onCancel) cancelled.onCancel(cancelled.action);
+        if (zahra.onCancel) zahra.onCancel(zahra.action);
         return this;
     }
-
-    get isRebinding() { return !!this._rebind; }
-
-    _finishRebind(source) {
-        var rebind = this._rebind;
-        if (!rebind) return;
+    get isRebinding() {
+        return !!this._rebind;
+    }
+    _finishRebind(zahra) {
+        var zahrb = this._rebind;
+        if (!zahrb) return;
         this._rebind = null;
-        var sourceString = source.kind === "key" ? source.code : source.kind === "mouse" ? "Mouse" + source.button : source.kind === "padButton" ? "Pad" + source.pad + ":B" + source.button : "Pad" + source.pad + ":A" + source.axis + (source.sign < 0 ? "-" : "+");
-        if (rebind.mode === "replace") this.clearBindings(rebind.action);
-        this.setBinding(rebind.action, sourceString);
+        var zahrc = zahra.kind === "key" ? zahra.code : zahra.kind === "mouse" ? "Mouse" + zahra.button : zahra.kind === "padButton" ? "Pad" + zahra.pad + ":B" + zahra.button : "Pad" + zahra.pad + ":A" + zahra.axis + (zahra.sign < 0 ? "-" : "+");
+        if (zahrb.mode === "replace") this.clearBindings(zahrb.action);
+        this.setBinding(zahrb.action, zahrc);
         this.stats.rebinds++;
-        if (rebind.onDone) rebind.onDone(rebind.action, sourceString);
+        if (zahrb.onDone) zahrb.onDone(zahrb.action, zahrc);
     }
-
-    onAction(action, callback) {
-        if (!this.callbacks[action]) this.callbacks[action] = [];
-        this.callbacks[action].push(callback);
+    onAction(zahra, zahrb) {
+        if (!this.callbacks[zahra]) this.callbacks[zahra] = [];
+        this.callbacks[zahra].push(zahrb);
         return this;
     }
-
-    offAction(action, callback) {
-        var list = this.callbacks[action];
-        if (!list) return this;
-        var index = callback === undefined ? -1 : list.indexOf(callback);
-        if (index === -1) list.length = 0;
-        else list.splice(index, 1);
+    offAction(zahra, zahrb) {
+        var zahrc = this.callbacks[zahra];
+        if (!zahrc) return this;
+        var zahrd = zahrb === undefined ? -1 : zahrc.indexOf(zahrb);
+        if (zahrd === -1) zahrc.length = 0; else zahrc.splice(zahrd, 1);
         return this;
     }
-
-    onLockChange(callback) { this.lockCallbacks.push(callback); return this; }
-
-    _fireLockChange(locked) {
-        for (var i = 0; i < this.lockCallbacks.length; i++) this.lockCallbacks[i](locked);
+    onLockChange(zahra) {
+        this.lockCallbacks.push(zahra);
+        return this;
     }
-
-    onGamepadConnected(callback) { this.padConnectCallbacks.push(callback); return this; }
-    onGamepadDisconnected(callback) { this.padDisconnectCallbacks.push(callback); return this; }
-
-    _onPadConnected(pad) {
-        if (!pad || this._prevPads.indexOf(pad.index) >= 0) return;
-        this._prevPads.push(pad.index);
+    _fireLockChange(zahra) {
+        for (var zahrb = 0; zahrb < this.lockCallbacks.length; zahrb++) this.lockCallbacks[zahrb](zahra);
+    }
+    onGamepadConnected(zahra) {
+        this.padConnectCallbacks.push(zahra);
+        return this;
+    }
+    onGamepadDisconnected(zahra) {
+        this.padDisconnectCallbacks.push(zahra);
+        return this;
+    }
+    _onPadConnected(zahra) {
+        if (!zahra || this._prevPads.indexOf(zahra.index) >= 0) return;
+        this._prevPads.push(zahra.index);
         this.stats.padsConnected++;
-        for (var i = 0; i < this.padConnectCallbacks.length; i++) this.padConnectCallbacks[i](pad);
+        for (var zahrb = 0; zahrb < this.padConnectCallbacks.length; zahrb++) this.padConnectCallbacks[zahrb](zahra);
     }
-
-    _onPadDisconnected(pad) {
-        if (!pad) return;
-        var index = this._prevPads.indexOf(pad.index);
-        if (index < 0) return;
-        this._prevPads.splice(index, 1);
-        delete this._padStates[pad.index];
-        for (var i = 0; i < this.padDisconnectCallbacks.length; i++) this.padDisconnectCallbacks[i](pad);
+    _onPadDisconnected(zahra) {
+        if (!zahra) return;
+        var zahrb = this._prevPads.indexOf(zahra.index);
+        if (zahrb < 0) return;
+        this._prevPads.splice(zahrb, 1);
+        delete this._padStates[zahra.index];
+        for (var zahrc = 0; zahrc < this.padDisconnectCallbacks.length; zahrc++) this.padDisconnectCallbacks[zahrc](zahra);
     }
-
     lock() {
         if (this.disposed) throw new Error("GameInput is disposed");
         if (this.target && this.target.requestPointerLock) {
-            var result = this.target.requestPointerLock();
-            if (result && result.catch) result.catch(function () { });
+            var zahra = this.target.requestPointerLock();
+            if (zahra && zahra.catch) zahra.catch(function() {});
             return true;
         }
         return false;
     }
-
     unlock() {
         if (this.disposed) throw new Error("GameInput is disposed");
-        if (document.exitPointerLock) { document.exitPointerLock(); return true; }
+        if (document.exitPointerLock) {
+            document.exitPointerLock();
+            return true;
+        }
         return false;
     }
-
-    get isLocked() { return typeof document !== "undefined" && document.pointerLockElement === this.target; }
-
+    get isLocked() {
+        return typeof document !== "undefined" && document.pointerLockElement === this.target;
+    }
     _padList() {
         if (typeof navigator === "undefined" || !navigator.getGamepads) return [];
-        var pads = navigator.getGamepads() || [];
-        var out = [];
-        for (var i = 0; i < pads.length; i++) if (pads && pads[i]) out.push(pads[i]);
-        return out;
+        var zahra = navigator.getGamepads() || [];
+        var zahrb = [];
+        for (var zahrc = 0; zahrc < zahra.length; zahrc++) if (zahra && zahra[zahrc]) zahrb.push(zahra[zahrc]);
+        return zahrb;
     }
-
     gamepads() {
-        var pads = this._padList();
-        var out = [];
-        for (var i = 0; i < pads.length; i++) {
-            var pad = pads[i], state = this._padStates[pad.index];
-            out.push({
-                index: pad.index, id: pad.id, mapping: pad.mapping,
-                buttons: state ? state.buttons.map(function (button) { return { pressed: button.pressed, justPressed: button.justPressed, justReleased: button.justReleased, value: button.value }; }) : [],
-                rawAxes: pad.axes ? Array.prototype.slice.call(pad.axes) : [],
-                axes: state ? state.axes.slice() : []
+        var zahra = this._padList();
+        var zahrb = [];
+        for (var zahrc = 0; zahrc < zahra.length; zahrc++) {
+            var zahrd = zahra[zahrc], zahre = this._padStates[zahrd.index];
+            zahrb.push({
+                index: zahrd.index,
+                id: zahrd.id,
+                mapping: zahrd.mapping,
+                buttons: zahre ? zahre.buttons.map(function(zahra) {
+                    return {
+                        pressed: zahra.pressed,
+                        justPressed: zahra.justPressed,
+                        justReleased: zahra.justReleased,
+                        value: zahra.value
+                    };
+                }) : [],
+                rawAxes: zahrd.axes ? Array.prototype.slice.call(zahrd.axes) : [],
+                axes: zahre ? zahre.axes.slice() : []
             });
         }
-        return out;
+        return zahrb;
     }
-
-    setDeadzone(value, padIndex, axisIndex) {
-        var dz = faoxomclamp(value, 0, 0.95);
-        if (padIndex === undefined) { this.deadzone = dz; return this; }
-        var state = this._padStates[padIndex];
-        if (!state) return this;
-        if (axisIndex === undefined) for (var i = 0; i < state.axesDeadzone.length; i++) state.axesDeadzone[i] = dz;
-        else if (state.axesDeadzone[axisIndex] !== undefined) state.axesDeadzone[axisIndex] = dz;
+    setDeadzone(zahra, zahrb, zahrc) {
+        var zahrd = faoxomclamp(zahra, 0, .95);
+        if (zahrb === undefined) {
+            this.deadzone = zahrd;
+            return this;
+        }
+        var zahre = this._padStates[zahrb];
+        if (!zahre) return this;
+        if (zahrc === undefined) for (var zahrf = 0; zahrf < zahre.axesDeadzone.length; zahrf++) zahre.axesDeadzone[zahrf] = zahrd; else if (zahre.axesDeadzone[zahrc] !== undefined) zahre.axesDeadzone[zahrc] = zahrd;
         return this;
     }
-
     _pollGamepads() {
-        var pads = this._padList();
-        var seen = {};
-        for (var i = 0; i < pads.length; i++) {
-            var pad = pads[i];
-            seen[pad.index] = true;
-            if (this._prevPads.indexOf(pad.index) < 0) {
-                this._prevPads.push(pad.index);
+        var zahra = this._padList();
+        var zahrb = {};
+        for (var zahrc = 0; zahrc < zahra.length; zahrc++) {
+            var zahrd = zahra[zahrc];
+            zahrb[zahrd.index] = true;
+            if (this._prevPads.indexOf(zahrd.index) < 0) {
+                this._prevPads.push(zahrd.index);
                 this.stats.padsConnected++;
-                for (var c = 0; c < this.padConnectCallbacks.length; c++) this.padConnectCallbacks[c](pad);
+                for (var zahre = 0; zahre < this.padConnectCallbacks.length; zahre++) this.padConnectCallbacks[zahre](zahrd);
             }
-            var state = this._padStates[pad.index];
-            if (!state) {
-                state = this._padStates[pad.index] = { buttons: [], axes: [], axesDeadzone: [] };
-                for (var b = 0; b < (pad.buttons ? pad.buttons.length : 0); b++) state.buttons.push({ pressed: false, justPressed: false, justReleased: false, value: 0 });
-                for (var a = 0; a < (pad.axes ? pad.axes.length : 0); a++) { state.axes.push(0); state.axesDeadzone.push(this.deadzone); }
-            }
-            while (state.buttons.length < (pad.buttons ? pad.buttons.length : 0)) state.buttons.push({ pressed: false, justPressed: false, justReleased: false, value: 0 });
-            while (state.axes.length < (pad.axes ? pad.axes.length : 0)) { state.axes.push(0); state.axesDeadzone.push(this.deadzone); }
-            for (var bi = 0; bi < (pad.buttons ? pad.buttons.length : 0); bi++) {
-                var raw = pad.buttons[bi];
-                var target = state.buttons[bi];
-                var pressedNow = !!(raw && (raw.pressed || (raw.value || 0) > this.axisThreshold));
-                target.justPressed = pressedNow && !target.pressed;
-                target.justReleased = !pressedNow && target.pressed;
-                target.pressed = pressedNow;
-                target.value = raw ? +raw.value || 0 : 0;
-                if (this._rebind && target.justPressed && this._rebind.padIndex === undefined) {
-                    this._rebind.padIndex = pad.index;
-                    this._finishRebind({ kind: "padButton", pad: pad.index, button: bi, sign: 1 });
+            var zahrg = this._padStates[zahrd.index];
+            if (!zahrg) {
+                zahrg = this._padStates[zahrd.index] = {
+                    buttons: [],
+                    axes: [],
+                    axesDeadzone: []
+                };
+                for (var zahrh = 0; zahrh < (zahrd.buttons ? zahrd.buttons.length : 0); zahrh++) zahrg.buttons.push({
+                    pressed: false,
+                    justPressed: false,
+                    justReleased: false,
+                    value: 0
+                });
+                for (var zahri = 0; zahri < (zahrd.axes ? zahrd.axes.length : 0); zahri++) {
+                    zahrg.axes.push(0);
+                    zahrg.axesDeadzone.push(this.deadzone);
                 }
             }
-            for (var ai = 0; ai < (pad.axes ? pad.axes.length : 0); ai++) {
-                state.axes[ai] = deadzoneAxis(+pad.axes[ai] || 0, state.axesDeadzone[ai] || this.deadzone);
+            while (zahrg.buttons.length < (zahrd.buttons ? zahrd.buttons.length : 0)) zahrg.buttons.push({
+                pressed: false,
+                justPressed: false,
+                justReleased: false,
+                value: 0
+            });
+            while (zahrg.axes.length < (zahrd.axes ? zahrd.axes.length : 0)) {
+                zahrg.axes.push(0);
+                zahrg.axesDeadzone.push(this.deadzone);
+            }
+            for (var zahrj = 0; zahrj < (zahrd.buttons ? zahrd.buttons.length : 0); zahrj++) {
+                var zahrk = zahrd.buttons[zahrj];
+                var zahrl = zahrg.buttons[zahrj];
+                var zahrm = !!(zahrk && (zahrk.pressed || (zahrk.value || 0) > this.axisThreshold));
+                zahrl.justPressed = zahrm && !zahrl.pressed;
+                zahrl.justReleased = !zahrm && zahrl.pressed;
+                zahrl.pressed = zahrm;
+                zahrl.value = zahrk ? +zahrk.value || 0 : 0;
+                if (this._rebind && zahrl.justPressed && this._rebind.padIndex === undefined) {
+                    this._rebind.padIndex = zahrd.index;
+                    this._finishRebind({
+                        kind: "padButton",
+                        pad: zahrd.index,
+                        button: zahrj,
+                        sign: 1
+                    });
+                }
+            }
+            for (var zahrn = 0; zahrn < (zahrd.axes ? zahrd.axes.length : 0); zahrn++) {
+                zahrg.axes[zahrn] = zahrf(+zahrd.axes[zahrn] || 0, zahrg.axesDeadzone[zahrn] || this.deadzone);
             }
         }
-        var missing = this._prevPads.slice();
-        for (var m = 0; m < missing.length; m++) {
-            if (!seen[missing[m]]) {
-                var index = this._prevPads.indexOf(missing[m]);
-                this._prevPads.splice(index, 1);
-                delete this._padStates[missing[m]];
-                for (var d = 0; d < this.padDisconnectCallbacks.length; d++) this.padDisconnectCallbacks[d]({ index: missing[m], id: "" });
+        var zahro = this._prevPads.slice();
+        for (var zahrp = 0; zahrp < zahro.length; zahrp++) {
+            if (!zahrb[zahro[zahrp]]) {
+                var zahrq = this._prevPads.indexOf(zahro[zahrp]);
+                this._prevPads.splice(zahrq, 1);
+                delete this._padStates[zahro[zahrp]];
+                for (var zahrr = 0; zahrr < this.padDisconnectCallbacks.length; zahrr++) this.padDisconnectCallbacks[zahrr]({
+                    index: zahro[zahrp],
+                    id: ""
+                });
             }
         }
     }
-
-    _bindingActive(binding) {
-        var parsed = binding.parsed;
-        if (parsed.kind === "key") { var key = this._keys[parsed.code]; return !!(key && key.down); }
-        if (parsed.kind === "mouse") { var mouse = this._mouseButtons[parsed.button]; return !!(mouse && mouse.down); }
-        if (parsed.kind === "padButton") {
-            var padState = this._padStates[parsed.pad];
-            if (!padState) return false;
-            var button = padState.buttons[parsed.button];
-            return !!(button && button.pressed);
+    _bindingActive(zahra) {
+        var zahrb = zahra.parsed;
+        if (zahrb.kind === "key") {
+            var zahrc = this._keys[zahrb.code];
+            return !!(zahrc && zahrc.down);
         }
-        if (parsed.kind === "padAxis") {
-            var axisState = this._padStates[parsed.pad];
-            if (!axisState) return false;
-            var axis = axisState.axes[parsed.axis];
-            if (axis === undefined) return false;
-            return parsed.sign > 0 ? axis > this.axisThreshold : axis < -this.axisThreshold;
+        if (zahrb.kind === "mouse") {
+            var zahrd = this._mouseButtons[zahrb.button];
+            return !!(zahrd && zahrd.down);
+        }
+        if (zahrb.kind === "padButton") {
+            var zahre = this._padStates[zahrb.pad];
+            if (!zahre) return false;
+            var zahrf = zahre.buttons[zahrb.button];
+            return !!(zahrf && zahrf.pressed);
+        }
+        if (zahrb.kind === "padAxis") {
+            var zahrg = this._padStates[zahrb.pad];
+            if (!zahrg) return false;
+            var zahrh = zahrg.axes[zahrb.axis];
+            if (zahrh === undefined) return false;
+            return zahrb.sign > 0 ? zahrh > this.axisThreshold : zahrh < -this.axisThreshold;
         }
         return false;
     }
-
-    _bindingValue(binding) {
-        var parsed = binding.parsed;
-        if (parsed.kind === "key") { var key = this._keys[parsed.code]; return key && key.down ? 1 : 0; }
-        if (parsed.kind === "mouse") { var mouse = this._mouseButtons[parsed.button]; return mouse && mouse.down ? 1 : 0; }
-        if (parsed.kind === "padButton") {
-            var padState = this._padStates[parsed.pad];
-            if (!padState) return 0;
-            var button = padState.buttons[parsed.button];
-            return button ? faoxomclamp(button.value, 0, 1) : 0;
+    _bindingValue(zahra) {
+        var zahrb = zahra.parsed;
+        if (zahrb.kind === "key") {
+            var zahrc = this._keys[zahrb.code];
+            return zahrc && zahrc.down ? 1 : 0;
         }
-        if (parsed.kind === "padAxis") {
-            var axisState = this._padStates[parsed.pad];
-            if (!axisState) return 0;
-            var axis = axisState.axes[parsed.axis];
-            if (axis === undefined) return 0;
-            var magnitude = parsed.sign > 0 ? axis : -axis;
-            return magnitude > this.axisThreshold ? magnitude : 0;
+        if (zahrb.kind === "mouse") {
+            var zahrd = this._mouseButtons[zahrb.button];
+            return zahrd && zahrd.down ? 1 : 0;
+        }
+        if (zahrb.kind === "padButton") {
+            var zahre = this._padStates[zahrb.pad];
+            if (!zahre) return 0;
+            var zahrf = zahre.buttons[zahrb.button];
+            return zahrf ? faoxomclamp(zahrf.value, 0, 1) : 0;
+        }
+        if (zahrb.kind === "padAxis") {
+            var zahrg = this._padStates[zahrb.pad];
+            if (!zahrg) return 0;
+            var zahrh = zahrg.axes[zahrb.axis];
+            if (zahrh === undefined) return 0;
+            var zahri = zahrb.sign > 0 ? zahrh : -zahrh;
+            return zahri > this.axisThreshold ? zahri : 0;
         }
         return 0;
     }
-
     update() {
         if (this.disposed) throw new Error("GameInput is disposed");
         this._actionEdges = {};
         this._pollGamepads();
         if (this._rebind && this._rebind.timeout > 0 && Date.now() - this._rebind.startedAt > this._rebind.timeout) this.cancelRebind();
-        for (var action in this.bindings) {
-            var sources = this.bindings[action];
-            var down = false, bestValue = 0;
-            for (var i = 0; i < sources.length; i++) {
-                if (this._bindingActive(sources[i])) down = true;
-                var value = this._bindingValue(sources[i]);
-                if (value > bestValue) bestValue = value;
+        for (var zahra in this.bindings) {
+            var zahrb = this.bindings[zahra];
+            var zahrc = false, zahrd = 0;
+            for (var zahre = 0; zahre < zahrb.length; zahre++) {
+                if (this._bindingActive(zahrb[zahre])) zahrc = true;
+                var zahrf = this._bindingValue(zahrb[zahre]);
+                if (zahrf > zahrd) zahrd = zahrf;
             }
-            var previous = !!this._prevActionState[action];
-            var pressed = down && !previous;
-            var released = !down && previous;
-            this._prevActionState[action] = down;
+            var zahrg = !!this._prevActionState[zahra];
+            var zahrh = zahrc && !zahrg;
+            var zahri = !zahrc && zahrg;
+            this._prevActionState[zahra] = zahrc;
             if (!this._actionEdges) this._actionEdges = {};
-            this._actionEdges[action] = { pressed: pressed, released: released };
-            if (pressed) {
+            this._actionEdges[zahra] = {
+                pressed: zahrh,
+                released: zahri
+            };
+            if (zahrh) {
                 this.stats.actionsFired++;
-                var callbacks = this.callbacks[action];
-                if (callbacks) for (var c = 0; c < callbacks.length; c++) callbacks[c](action, bestValue);
+                var zahrj = this.callbacks[zahra];
+                if (zahrj) for (var zahrk = 0; zahrk < zahrj.length; zahrk++) zahrj[zahrk](zahra, zahrd);
             }
         }
-        for (var code in this._keys) this._keys[code].edge = false;
-        for (var button in this._mouseButtons) this._mouseButtons[button].edge = false;
-        for (var padIndex in this._padStates) {
-            var state = this._padStates[padIndex];
-            for (var b = 0; b < state.buttons.length; b++) { state.buttons[b].justPressed = false; state.buttons[b].justReleased = false; }
+        for (var zahrl in this._keys) this._keys[zahrl].edge = false;
+        for (var zahrm in this._mouseButtons) this._mouseButtons[zahrm].edge = false;
+        for (var zahrn in this._padStates) {
+            var zahro = this._padStates[zahrn];
+            for (var zahrp = 0; zahrp < zahro.buttons.length; zahrp++) {
+                zahro.buttons[zahrp].justPressed = false;
+                zahro.buttons[zahrp].justReleased = false;
+            }
         }
-        this._mouseDelta.x = 0; this._mouseDelta.y = 0;
+        this._mouseDelta.x = 0;
+        this._mouseDelta.y = 0;
         this._wheelDelta = 0;
-        this._wheelEdges.up = false; this._wheelEdges.down = false;
+        this._wheelEdges.up = false;
+        this._wheelEdges.down = false;
         this.stats.updates++;
         return this;
     }
-
-    isDown(action) {
-        var sources = this.bindings[action];
-        if (!sources) return false;
-        for (var i = 0; i < sources.length; i++) if (this._bindingActive(sources[i])) return true;
+    isDown(zahra) {
+        var zahrb = this.bindings[zahra];
+        if (!zahrb) return false;
+        for (var zahrc = 0; zahrc < zahrb.length; zahrc++) if (this._bindingActive(zahrb[zahrc])) return true;
         return false;
     }
-
-    getValue(action) {
-        var sources = this.bindings[action];
-        if (!sources) return 0;
-        var best = 0;
-        for (var i = 0; i < sources.length; i++) { var value = this._bindingValue(sources[i]); if (value > best) best = value; }
-        return best;
+    getValue(zahra) {
+        var zahrb = this.bindings[zahra];
+        if (!zahrb) return 0;
+        var zahrc = 0;
+        for (var zahrd = 0; zahrd < zahrb.length; zahrd++) {
+            var zahre = this._bindingValue(zahrb[zahrd]);
+            if (zahre > zahrc) zahrc = zahre;
+        }
+        return zahrc;
     }
-
-    wasPressed(action) {
-        if (this._actionEdges && this._actionEdges[action]) return this._actionEdges[action].pressed;
-        return this.isDown(action) && !this._prevActionState[action];
+    wasPressed(zahra) {
+        if (this._actionEdges && this._actionEdges[zahra]) return this._actionEdges[zahra].pressed;
+        return this.isDown(zahra) && !this._prevActionState[zahra];
     }
-
-    wasReleased(action) {
-        if (this._actionEdges && this._actionEdges[action]) return this._actionEdges[action].released;
-        return !this.isDown(action) && !!this._prevActionState[action];
+    wasReleased(zahra) {
+        if (this._actionEdges && this._actionEdges[zahra]) return this._actionEdges[zahra].released;
+        return !this.isDown(zahra) && !!this._prevActionState[zahra];
     }
-
-    getVector2(action) {
-        var axis = this.axes[action];
-        if (!axis) return { x: 0, y: 0 };
-        var x = 0, y = 0;
-        if (axis.right && this._directionDown(axis.right)) x += 1;
-        if (axis.left && this._directionDown(axis.left)) x -= 1;
-        if (axis.up && this._directionDown(axis.up)) y += 1;
-        if (axis.down && this._directionDown(axis.down)) y -= 1;
-        if (axis.pad !== null) {
-            var state = this._padStates[axis.pad];
-            if (state) {
-                var padX = state.axes[axis.padXAxis] || 0;
-                var padY = state.axes[axis.padYAxis] || 0;
-                if (Math.abs(padX) > Math.abs(x)) x = padX;
-                if (Math.abs(padY) > Math.abs(y)) y = padY;
+    getVector2(zahra) {
+        var zahrb = this.axes[zahra];
+        if (!zahrb) return {
+            x: 0,
+            y: 0
+        };
+        var zahrc = 0, zahrd = 0;
+        if (zahrb.right && this._directionDown(zahrb.right)) zahrc += 1;
+        if (zahrb.left && this._directionDown(zahrb.left)) zahrc -= 1;
+        if (zahrb.up && this._directionDown(zahrb.up)) zahrd += 1;
+        if (zahrb.down && this._directionDown(zahrb.down)) zahrd -= 1;
+        if (zahrb.pad !== null) {
+            var zahre = this._padStates[zahrb.pad];
+            if (zahre) {
+                var zahrf = zahre.axes[zahrb.padXAxis] || 0;
+                var zahrg = zahre.axes[zahrb.padYAxis] || 0;
+                if (Math.abs(zahrf) > Math.abs(zahrc)) zahrc = zahrf;
+                if (Math.abs(zahrg) > Math.abs(zahrd)) zahrd = zahrg;
             }
         }
-        if (x !== 0 && y !== 0) { var length = Math.sqrt(x * x + y * y); x /= length; y /= length; }
-        if (axis.invertY) y = -y;
-        return { x: x, y: y };
+        if (zahrc !== 0 && zahrd !== 0) {
+            var zahrh = Math.sqrt(zahrc * zahrc + zahrd * zahrd);
+            zahrc /= zahrh;
+            zahrd /= zahrh;
+        }
+        if (zahrb.invertY) zahrd = -zahrd;
+        return {
+            x: zahrc,
+            y: zahrd
+        };
     }
-
-    _directionDown(name) {
-        var key = this._keys[name];
-        if (key && key.down) return true;
-        return this.isDown(name);
+    _directionDown(zahra) {
+        var zahrb = this._keys[zahra];
+        if (zahrb && zahrb.down) return true;
+        return this.isDown(zahra);
     }
-
-    get pointer() { return { x: this._pointer.x, y: this._pointer.y }; }
-    get mouseDelta() { return { x: this._mouseDelta.x, y: this._mouseDelta.y }; }
-    get wheelDelta() { return this._wheelDelta; }
-    get wheelScrolledUp() { return this._wheelEdges.up; }
-    get wheelScrolledDown() { return this._wheelEdges.down; }
-
+    get pointer() {
+        return {
+            x: this._pointer.x,
+            y: this._pointer.y
+        };
+    }
+    get mouseDelta() {
+        return {
+            x: this._mouseDelta.x,
+            y: this._mouseDelta.y
+        };
+    }
+    get wheelDelta() {
+        return this._wheelDelta;
+    }
+    get wheelScrolledUp() {
+        return this._wheelEdges.up;
+    }
+    get wheelScrolledDown() {
+        return this._wheelEdges.down;
+    }
     dispose() {
         if (this.disposed) return this;
         this.disposed = true;

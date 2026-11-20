@@ -1,9 +1,34 @@
 import { faoxomvalue } from "../math/index.js";
+
 import { Geometry } from "./Geometry.js";
+
 import { faoxomgeometry } from "./faoxomgeometry.js";
 
 class PlaneGeometry extends Geometry {
-    constructor(width, height, sx, sy) { super(); width = faoxomvalue(width, 1); height = faoxomvalue(height, 1); sx = Math.max(1, Math.floor(faoxomvalue(sx, 1))); sy = Math.max(1, Math.floor(faoxomvalue(sy, 1))); var p = [], n = [], u = [], ind = []; for (var iy = 0; iy <= sy; iy++) for (var ix = 0; ix <= sx; ix++) { p.push((ix / sx - 0.5) * width, (iy / sy - 0.5) * height, 0); n.push(0, 0, 1); u.push(ix / sx, iy / sy); } for (var y = 0; y < sy; y++) for (var x = 0; x < sx; x++) { var a = y * (sx + 1) + x; var b = a + 1; var c = a + sx + 1; var d = c + 1; ind.push(a, b, d, a, d, c); } this.attributes = faoxomgeometry(p, n, u, ind).attributes; this.index = new Uint16Array(ind); this.computeBoundingBox(); this.computeBoundingSphere(); }
+    constructor(zakna, zaknb, zaknc, zaknd) {
+        super();
+        zakna = faoxomvalue(zakna, 1);
+        zaknb = faoxomvalue(zaknb, 1);
+        zaknc = Math.max(1, Math.floor(faoxomvalue(zaknc, 1)));
+        zaknd = Math.max(1, Math.floor(faoxomvalue(zaknd, 1)));
+        var zakne = [], zaknf = [], zakng = [], zaknh = [];
+        for (var zakni = 0; zakni <= zaknd; zakni++) for (var zaknj = 0; zaknj <= zaknc; zaknj++) {
+            zakne.push((zaknj / zaknc - .5) * zakna, (zakni / zaknd - .5) * zaknb, 0);
+            zaknf.push(0, 0, 1);
+            zakng.push(zaknj / zaknc, zakni / zaknd);
+        }
+        for (var zaknk = 0; zaknk < zaknd; zaknk++) for (var zaknl = 0; zaknl < zaknc; zaknl++) {
+            var zaknm = zaknk * (zaknc + 1) + zaknl;
+            var zaknn = zaknm + 1;
+            var zakno = zaknm + zaknc + 1;
+            var zaknp = zakno + 1;
+            zaknh.push(zaknm, zaknn, zaknp, zaknm, zaknp, zakno);
+        }
+        this.attributes = faoxomgeometry(zakne, zaknf, zakng, zaknh).attributes;
+        this.index = new Uint16Array(zaknh);
+        this.computeBoundingBox();
+        this.computeBoundingSphere();
+    }
 }
 
 export { PlaneGeometry };

@@ -1,6 +1,59 @@
 class GPUCompute {
-    constructor(renderer) { this.renderer = renderer; this.programs = {}; }
-    run(input, body, options) { options = options || {}; var gl = this.renderer.gl; if (!gl || !this.renderer.isWebGL2) return null; var inputSize = Math.max(1, Math.floor(options.inputSize || 4)); var outputSize = Math.max(1, Math.floor(options.outputSize || inputSize)); var count = Math.floor(input.length / inputSize); var key = body + "|" + inputSize + "|" + outputSize; var program = this.programs[key]; if (!program) { var inputType = inputSize === 1 ? "float" : "vec" + inputSize; var outputType = outputSize === 1 ? "float" : "vec" + outputSize; var vertexSource = "#version 300 es\nprecision highp float; in " + inputType + " inputValue; out " + outputType + " result; void main(){" + body + "}"; var vs = this.renderer.compileShader(gl.VERTEX_SHADER, vertexSource); var fs = this.renderer.compileShader(gl.FRAGMENT_SHADER, "#version 300 es\nprecision highp float; void main(){}"); if (!vs || !fs) return null; program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.transformFeedbackVaryings(program, ["result"], gl.SEPARATE_ATTRIBS); gl.linkProgram(program); if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null; program.input = gl.getAttribLocation(program, "inputValue"); this.programs[key] = program; } var inputBuffer = gl.createBuffer(); var outputBuffer = gl.createBuffer(); var vao = gl.createVertexArray(); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, inputBuffer); gl.bufferData(gl.ARRAY_BUFFER, input, gl.STREAM_DRAW); gl.enableVertexAttribArray(program.input); gl.vertexAttribPointer(program.input, inputSize, gl.FLOAT, false, 0, 0); gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, outputBuffer); gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, new Float32Array(count * outputSize), gl.STREAM_DRAW); gl.useProgram(program); this.currentProgram = program; gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, count); gl.endTransformFeedback(); gl.disable(gl.RASTERIZER_DISCARD); var result = new Float32Array(count * outputSize); gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, result); gl.bindVertexArray(null); if (gl.deleteBuffer) { gl.deleteBuffer(inputBuffer); gl.deleteBuffer(outputBuffer); } return result; }
+    constructor(zasua) {
+        this.renderer = zasua;
+        this.programs = {};
+    }
+    run(zasua, zasub, zasuc) {
+        zasuc = zasuc || {};
+        var zasud = this.renderer.gl;
+        if (!zasud || !this.renderer.isWebGL2) return null;
+        var zasue = Math.max(1, Math.floor(zasuc.inputSize || 4));
+        var zasuf = Math.max(1, Math.floor(zasuc.outputSize || zasue));
+        var zasug = Math.floor(zasua.length / zasue);
+        var zasuh = zasub + "|" + zasue + "|" + zasuf;
+        var zasui = this.programs[zasuh];
+        if (!zasui) {
+            var zasuj = zasue === 1 ? "float" : "vec" + zasue;
+            var zasuk = zasuf === 1 ? "float" : "vec" + zasuf;
+            var zasul = "#version 300 es\nprecision highp float; in " + zasuj + " inputValue; out " + zasuk + " result; void main(){" + zasub + "}";
+            var zasum = this.renderer.compileShader(zasud.VERTEX_SHADER, zasul);
+            var zasun = this.renderer.compileShader(zasud.FRAGMENT_SHADER, "#version 300 es\nprecision highp float; void main(){}");
+            if (!zasum || !zasun) return null;
+            zasui = zasud.createProgram();
+            zasud.attachShader(zasui, zasum);
+            zasud.attachShader(zasui, zasun);
+            zasud.transformFeedbackVaryings(zasui, [ "result" ], zasud.SEPARATE_ATTRIBS);
+            zasud.linkProgram(zasui);
+            if (!zasud.getProgramParameter(zasui, zasud.LINK_STATUS)) return null;
+            zasui.input = zasud.getAttribLocation(zasui, "inputValue");
+            this.programs[zasuh] = zasui;
+        }
+        var zasuo = zasud.createBuffer();
+        var zasup = zasud.createBuffer();
+        var zasuq = zasud.createVertexArray();
+        zasud.bindVertexArray(zasuq);
+        zasud.bindBuffer(zasud.ARRAY_BUFFER, zasuo);
+        zasud.bufferData(zasud.ARRAY_BUFFER, zasua, zasud.STREAM_DRAW);
+        zasud.enableVertexAttribArray(zasui.input);
+        zasud.vertexAttribPointer(zasui.input, zasue, zasud.FLOAT, false, 0, 0);
+        zasud.bindBufferBase(zasud.TRANSFORM_FEEDBACK_BUFFER, 0, zasup);
+        zasud.bufferData(zasud.TRANSFORM_FEEDBACK_BUFFER, new Float32Array(zasug * zasuf), zasud.STREAM_DRAW);
+        zasud.useProgram(zasui);
+        this.currentProgram = zasui;
+        zasud.enable(zasud.RASTERIZER_DISCARD);
+        zasud.beginTransformFeedback(zasud.POINTS);
+        zasud.drawArrays(zasud.POINTS, 0, zasug);
+        zasud.endTransformFeedback();
+        zasud.disable(zasud.RASTERIZER_DISCARD);
+        var zasur = new Float32Array(zasug * zasuf);
+        zasud.getBufferSubData(zasud.TRANSFORM_FEEDBACK_BUFFER, 0, zasur);
+        zasud.bindVertexArray(null);
+        if (zasud.deleteBuffer) {
+            zasud.deleteBuffer(zasuo);
+            zasud.deleteBuffer(zasup);
+        }
+        return zasur;
+    }
 }
 
 export { GPUCompute };

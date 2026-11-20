@@ -1,19 +1,19 @@
 import { ExtrudeGeometry } from "./ExtrudeGeometry.js";
 
 class TextGeometry extends ExtrudeGeometry {
-    constructor(text, parameters) {
-        parameters = parameters || {};
-        var font = parameters.font;
-        if (font === undefined) {
+    constructor(zaksa, zaksb) {
+        zaksb = zaksb || {};
+        var zaksc = zaksb.font;
+        if (zaksc === undefined) {
             super();
         } else {
-            var shapes = font.generateShapes(text, parameters.size, parameters.direction);
-            if (parameters.height !== undefined && parameters.depth === undefined) parameters.depth = parameters.height;
-            if (parameters.depth === undefined) parameters.depth = 50;
-            if (parameters.bevelThickness === undefined) parameters.bevelThickness = 10;
-            if (parameters.bevelSize === undefined) parameters.bevelSize = 8;
-            if (parameters.bevelEnabled === undefined) parameters.bevelEnabled = false;
-            super(shapes, parameters);
+            var zaksd = zaksc.generateShapes(zaksa, zaksb.size, zaksb.direction);
+            if (zaksb.height !== undefined && zaksb.depth === undefined) zaksb.depth = zaksb.height;
+            if (zaksb.depth === undefined) zaksb.depth = 50;
+            if (zaksb.bevelThickness === undefined) zaksb.bevelThickness = 10;
+            if (zaksb.bevelSize === undefined) zaksb.bevelSize = 8;
+            if (zaksb.bevelEnabled === undefined) zaksb.bevelEnabled = false;
+            super(zaksd, zaksb);
         }
         this.type = "TextGeometry";
     }

@@ -1,8 +1,8 @@
 class AudioEnvironment {
-    constructor(listener) {
-        this.listener = listener;
-        this.reverbNode = listener && listener.context && listener.context.createConvolver ? listener.context.createConvolver() : null;
-        this.occlusionFilter = listener && listener.context && listener.context.createBiquadFilter ? listener.context.createBiquadFilter() : null;
+    constructor(zabja) {
+        this.listener = zabja;
+        this.reverbNode = zabja && zabja.context && zabja.context.createConvolver ? zabja.context.createConvolver() : null;
+        this.occlusionFilter = zabja && zabja.context && zabja.context.createBiquadFilter ? zabja.context.createBiquadFilter() : null;
         if (this.occlusionFilter) this.occlusionFilter.type = "lowpass";
     }
 }

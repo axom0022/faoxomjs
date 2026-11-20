@@ -1,5 +1,5 @@
-function faoxomexrpredictor(source) {
-    for (var t = 1; t < source.length; t++) source[t] = (source[t - 1] + source[t] - 128) & 255;
+function faoxomexrpredictor(zaeea) {
+    for (var zaeeb = 1; zaeeb < zaeea.length; zaeeb++) zaeea[zaeeb] = zaeea[zaeeb - 1] + zaeea[zaeeb] - 128 & 255;
 }
 
 export { faoxomexrpredictor };

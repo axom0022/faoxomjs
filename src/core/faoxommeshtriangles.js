@@ -1,18 +1,18 @@
 import { faoxomworldpoint } from "./faoxomworldpoint.js";
 
-function faoxommeshtriangles(body) {
-    var vertices = body.shape.vertices || [];
-    var indices = body.shape.indices;
-    var triangles = [];
-    var count = indices && indices.length ? indices.length : vertices.length;
-    for (var i = 0; i + 2 < count; i += 3) {
-        var ia = indices ? indices[i] : i;
-        var ib = indices ? indices[i + 1] : i + 1;
-        var ic = indices ? indices[i + 2] : i + 2;
-        if (!vertices[ia] || !vertices[ib] || !vertices[ic]) continue;
-        triangles.push([faoxomworldpoint(body.position, body.rotation, vertices[ia]), faoxomworldpoint(body.position, body.rotation, vertices[ib]), faoxomworldpoint(body.position, body.rotation, vertices[ic])]);
+function faoxommeshtriangles(zafja) {
+    var zafjb = zafja.shape.vertices || [];
+    var zafjc = zafja.shape.indices;
+    var zafjd = [];
+    var zafje = zafjc && zafjc.length ? zafjc.length : zafjb.length;
+    for (var zafjf = 0; zafjf + 2 < zafje; zafjf += 3) {
+        var zafjg = zafjc ? zafjc[zafjf] : zafjf;
+        var zafjh = zafjc ? zafjc[zafjf + 1] : zafjf + 1;
+        var zafji = zafjc ? zafjc[zafjf + 2] : zafjf + 2;
+        if (!zafjb[zafjg] || !zafjb[zafjh] || !zafjb[zafji]) continue;
+        zafjd.push([ faoxomworldpoint(zafja.position, zafja.rotation, zafjb[zafjg]), faoxomworldpoint(zafja.position, zafja.rotation, zafjb[zafjh]), faoxomworldpoint(zafja.position, zafja.rotation, zafjb[zafji]) ]);
     }
-    return triangles;
+    return zafjd;
 }
 
 export { faoxommeshtriangles };

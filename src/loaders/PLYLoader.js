@@ -1,17 +1,27 @@
 import { FileLoader } from "./FileLoader.js";
+
 import { faoxomdecodeply } from "./faoxomdecodeply.js";
 
 class PLYLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var geometry = self.parse(buffer); if (onLoad) onLoad(geometry); } catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zamra) {
+        this.manager = zamra;
     }
-    parse(data) { return faoxomdecodeply(data); }
+    load(zamra, zamrb, zamrc, zamrd) {
+        var zamre = this;
+        var zamrf = new FileLoader(this.manager);
+        zamrf.setResponseType("arraybuffer");
+        zamrf.load(zamra, function(zamra) {
+            try {
+                var zamrc = zamre.parse(zamra);
+                if (zamrb) zamrb(zamrc);
+            } catch (zamra) {
+                if (zamrd) zamrd(zamra);
+            }
+        }, zamrc, zamrd);
+    }
+    parse(zamra) {
+        return faoxomdecodeply(zamra);
+    }
 }
 
 export { PLYLoader };

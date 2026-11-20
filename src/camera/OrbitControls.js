@@ -1,101 +1,117 @@
 import { Vector2, Vector3, faoxomclamp } from "../math/index.js";
 
 class OrbitControls {
-    constructor(camera, domElement) {
-        this.camera = camera;
-        this.domElement = domElement || (typeof document !== "undefined" ? document.body : null);
+    constructor(zabta, zabtb) {
+        this.camera = zabta;
+        this.domElement = zabtb || (typeof document !== "undefined" ? document.body : null);
         this.target = new Vector3(0, 0, 0);
         this.enabled = true;
         this.enableDamping = true;
-        this.dampingFactor = 0.08;
+        this.dampingFactor = .08;
         this.enableZoom = true;
-        this.zoomSpeed = 1.0;
+        this.zoomSpeed = 1;
         this.enableRotate = true;
-        this.rotateSpeed = 1.0;
+        this.rotateSpeed = 1;
         this.enablePan = true;
-        this.panSpeed = 1.0;
+        this.panSpeed = 1;
         this.autoRotate = false;
-        this.autoRotateSpeed = 2.0;
-        this.minDistance = 0.2;
-        this.maxDistance = 1000;
-        this.minPolarAngle = 0.01;
-        this.maxPolarAngle = Math.PI - 0.01;
-        
-        var offset = new Vector3().subVectors(this.camera.position, this.target);
-        var r = Math.max(0.1, offset.length());
+        this.autoRotateSpeed = 2;
+        this.minDistance = .2;
+        this.maxDistance = 1e3;
+        this.minPolarAngle = .01;
+        this.maxPolarAngle = Math.PI - .01;
+        var zabtc = (new Vector3).subVectors(this.camera.position, this.target);
+        var zabtd = Math.max(.1, zabtc.length());
         this.spherical = {
-            radius: r,
-            theta: Math.atan2(offset.x, offset.z),
-            phi: Math.acos(faoxomclamp(offset.y / r, -1, 1))
+            radius: zabtd,
+            theta: Math.atan2(zabtc.x, zabtc.z),
+            phi: Math.acos(faoxomclamp(zabtc.y / zabtd, -1, 1))
         };
-        this.targetSpherical = { radius: this.spherical.radius, theta: this.spherical.theta, phi: this.spherical.phi };
+        this.targetSpherical = {
+            radius: this.spherical.radius,
+            theta: this.spherical.theta,
+            phi: this.spherical.phi
+        };
         this.isPointerDown = false;
-        this.pointerStart = new Vector2();
+        this.pointerStart = new Vector2;
         this.pointerButton = 0;
         this.initEvents();
     }
     initEvents() {
         if (!this.domElement) return;
-        var self = this;
-        var onPointerDown = function(e) {
-            if (!self.enabled) return;
-            self.isPointerDown = true;
-            self.pointerButton = e.button;
-            self.pointerStart.set(e.clientX, e.clientY);
-            if (self.domElement.setPointerCapture && e.pointerId !== undefined) {
-                try { self.domElement.setPointerCapture(e.pointerId); } catch(err) {}
+        var zabta = this;
+        var zabtb = function(zabtb) {
+            if (!zabta.enabled) return;
+            zabta.isPointerDown = true;
+            zabta.pointerButton = zabtb.button;
+            zabta.pointerStart.set(zabtb.clientX, zabtb.clientY);
+            if (zabta.domElement.setPointerCapture && zabtb.pointerId !== undefined) {
+                try {
+                    zabta.domElement.setPointerCapture(zabtb.pointerId);
+                } catch (zabta) {}
             }
         };
-        var onPointerMove = function(e) {
-            if (!self.enabled || !self.isPointerDown) return;
-            var dx = e.clientX - self.pointerStart.x;
-            var dy = e.clientY - self.pointerStart.y;
-            self.pointerStart.set(e.clientX, e.clientY);
-            if (self.pointerButton === 0 && self.enableRotate) {
-                self.targetSpherical.theta -= (dx * 0.005) * self.rotateSpeed;
-                self.targetSpherical.phi = faoxomclamp(self.targetSpherical.phi + (dy * 0.005) * self.rotateSpeed, self.minPolarAngle, self.maxPolarAngle);
-            } else if ((self.pointerButton === 2 || self.pointerButton === 1) && self.enablePan) {
-                var factor = self.spherical.radius * 0.001 * self.panSpeed;
-                var right = new Vector3(1, 0, 0).applyQuaternion(self.camera.quaternion);
-                var up = new Vector3(0, 1, 0).applyQuaternion(self.camera.quaternion);
-                self.target.addScaledVector(right, -dx * factor);
-                self.target.addScaledVector(up, dy * factor);
+        var zabtc = function(zabtb) {
+            if (!zabta.enabled || !zabta.isPointerDown) return;
+            var zabtc = zabtb.clientX - zabta.pointerStart.x;
+            var zabtd = zabtb.clientY - zabta.pointerStart.y;
+            zabta.pointerStart.set(zabtb.clientX, zabtb.clientY);
+            if (zabta.pointerButton === 0 && zabta.enableRotate) {
+                zabta.targetSpherical.theta -= zabtc * .005 * zabta.rotateSpeed;
+                zabta.targetSpherical.phi = faoxomclamp(zabta.targetSpherical.phi + zabtd * .005 * zabta.rotateSpeed, zabta.minPolarAngle, zabta.maxPolarAngle);
+            } else if ((zabta.pointerButton === 2 || zabta.pointerButton === 1) && zabta.enablePan) {
+                var zabte = zabta.spherical.radius * .001 * zabta.panSpeed;
+                var zabtf = new Vector3(1, 0, 0).applyQuaternion(zabta.camera.quaternion);
+                var zabtg = new Vector3(0, 1, 0).applyQuaternion(zabta.camera.quaternion);
+                zabta.target.addScaledVector(zabtf, -zabtc * zabte);
+                zabta.target.addScaledVector(zabtg, zabtd * zabte);
             }
         };
-        var onPointerUp = function(e) {
-            self.isPointerDown = false;
-            if (self.domElement && self.domElement.releasePointerCapture && e && e.pointerId !== undefined) {
-                try { self.domElement.releasePointerCapture(e.pointerId); } catch(err) {}
+        var zabtd = function(zabtb) {
+            zabta.isPointerDown = false;
+            if (zabta.domElement && zabta.domElement.releasePointerCapture && zabtb && zabtb.pointerId !== undefined) {
+                try {
+                    zabta.domElement.releasePointerCapture(zabtb.pointerId);
+                } catch (zabta) {}
             }
         };
-        var onWheel = function(e) {
-            if (!self.enabled || !self.enableZoom) return;
-            e.preventDefault();
-            var delta = faoxomclamp(e.deltaY, -100, 100);
-            var scale = Math.pow(0.998, delta * self.zoomSpeed);
-            self.targetSpherical.radius = faoxomclamp(self.targetSpherical.radius * scale, self.minDistance, self.maxDistance);
+        var zabte = function(zabtb) {
+            if (!zabta.enabled || !zabta.enableZoom) return;
+            zabtb.preventDefault();
+            var zabtc = faoxomclamp(zabtb.deltaY, -100, 100);
+            var zabtd = Math.pow(.998, zabtc * zabta.zoomSpeed);
+            zabta.targetSpherical.radius = faoxomclamp(zabta.targetSpherical.radius * zabtd, zabta.minDistance, zabta.maxDistance);
         };
-        var onContext = function(e) { e.preventDefault(); };
-
-        this.domElement.addEventListener("pointerdown", onPointerDown);
-        this.domElement.addEventListener("pointermove", onPointerMove);
-        window.addEventListener("pointerup", onPointerUp);
-        window.addEventListener("pointercancel", onPointerUp);
-        this.domElement.addEventListener("wheel", onWheel, { passive: false });
-        this.domElement.addEventListener("contextmenu", onContext);
-        this._handlers = { onPointerDown: onPointerDown, onPointerMove: onPointerMove, onPointerUp: onPointerUp, onWheel: onWheel, onContext: onContext };
+        var zabtf = function(zabta) {
+            zabta.preventDefault();
+        };
+        this.domElement.addEventListener("pointerdown", zabtb);
+        this.domElement.addEventListener("pointermove", zabtc);
+        window.addEventListener("pointerup", zabtd);
+        window.addEventListener("pointercancel", zabtd);
+        this.domElement.addEventListener("wheel", zabte, {
+            passive: false
+        });
+        this.domElement.addEventListener("contextmenu", zabtf);
+        this._handlers = {
+            onPointerDown: zabtb,
+            onPointerMove: zabtc,
+            onPointerUp: zabtd,
+            onWheel: zabte,
+            onContext: zabtf
+        };
     }
-    update(dt) {
+    update(zabta) {
         if (!this.enabled) return;
-        if (this.autoRotate) this.targetSpherical.theta += (this.autoRotateSpeed * (dt || 0.016) * Math.PI) / 60;
-        var damp = this.enableDamping ? this.dampingFactor : 1;
-        this.spherical.radius += (this.targetSpherical.radius - this.spherical.radius) * damp;
-        this.spherical.theta += (this.targetSpherical.theta - this.spherical.theta) * damp;
-        this.spherical.phi += (this.targetSpherical.phi - this.spherical.phi) * damp;
-        var sinPhiRadius = Math.sin(this.spherical.phi) * this.spherical.radius;
-        this.camera.position.x = this.target.x + sinPhiRadius * Math.sin(this.spherical.theta);
+        if (this.autoRotate) this.targetSpherical.theta += this.autoRotateSpeed * (zabta || .016) * Math.PI / 60;
+        var zabtb = this.enableDamping ? this.dampingFactor : 1;
+        this.spherical.radius += (this.targetSpherical.radius - this.spherical.radius) * zabtb;
+        this.spherical.theta += (this.targetSpherical.theta - this.spherical.theta) * zabtb;
+        this.spherical.phi += (this.targetSpherical.phi - this.spherical.phi) * zabtb;
+        var zabtc = Math.sin(this.spherical.phi) * this.spherical.radius;
+        this.camera.position.x = this.target.x + zabtc * Math.sin(this.spherical.theta);
         this.camera.position.y = this.target.y + Math.cos(this.spherical.phi) * this.spherical.radius;
-        this.camera.position.z = this.target.z + sinPhiRadius * Math.cos(this.spherical.theta);
+        this.camera.position.z = this.target.z + zabtc * Math.cos(this.spherical.theta);
         this.camera.lookAt(this.target);
     }
     dispose() {

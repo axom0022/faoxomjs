@@ -1,23 +1,12 @@
-// ShaderDX - shader developer experience (roadmap item 18).
-//
-// * captures shader compile errors from both backends (WebGL info logs,
-//   WebGPU compilationInfo) instead of letting them vanish silently;
-// * maps driver error lines back to the user's original shader source
-//   (the engine injects a preamble before user code, which shifts lines);
-// * dev-mode hot reload for watched ShaderMaterials: polls source strings,
-//   recompiles, and on failure reverts to the last good source so the
-//   scene keeps rendering while the error is shown in the panel;
-// * in-canvas error panel (code-driven DOM overlay, no assets).
-
-var DX_ERROR_LIMIT = 40;
+var zatya = 40;
 
 class ShaderDX {
-    constructor(renderer, options) {
-        options = options || {};
-        this.renderer = renderer || null;
+    constructor(zatya, zatyb) {
+        zatyb = zatyb || {};
+        this.renderer = zatya || null;
         this.enabled = true;
-        this.panel = options.panel !== false && typeof document !== "undefined";
-        this.pollInterval = options.pollInterval === undefined ? 250 : options.pollInterval;
+        this.panel = zatyb.panel !== false && typeof document !== "undefined";
+        this.pollInterval = zatyb.pollInterval === undefined ? 250 : zatyb.pollInterval;
         this.errors = [];
         this.events = [];
         this.watched = [];
@@ -28,264 +17,296 @@ class ShaderDX {
         this._lastPanelSignature = "";
         if (this.renderer) this._attach();
         if (this.pollInterval > 0 && typeof setInterval === "function") {
-            var self = this;
-            this._timer = setInterval(function() { self.update(); }, this.pollInterval);
+            var zatyc = this;
+            this._timer = setInterval(function() {
+                zatyc.update();
+            }, this.pollInterval);
             if (this._timer.unref) this._timer.unref();
         }
     }
-
-    static attach(renderer, options) { return new ShaderDX(renderer, options); }
-
-    // ------------------------------------------------------------------
-    // attachment + error capture
-    // ------------------------------------------------------------------
+    static attach(zatya, zatyb) {
+        return new ShaderDX(zatya, zatyb);
+    }
     _attach() {
-        var self = this;
-        var renderer = this.renderer;
-        if (renderer && renderer.gl && renderer.compileShader && !renderer.__shaderDxPatched) {
-            renderer.__shaderDxPatched = true;
+        var zatyb = this;
+        var zatyc = this.renderer;
+        if (zatyc && zatyc.gl && zatyc.compileShader && !zatyc.__shaderDxPatched) {
+            zatyc.__shaderDxPatched = true;
             this._patched = true;
-            var original = renderer.compileShader.bind(renderer);
-            renderer.compileShader = function(type, source) {
-                var shader = original(type, source);
-                if (!shader) {
-                    var gl = renderer.gl;
-                    var log = "unknown compile error";
-                    if (gl) {
-                        var probe = gl.createShader(type);
-                        gl.shaderSource(probe, source);
-                        gl.compileShader(probe);
-                        log = gl.getShaderInfoLog(probe) || log;
-                        gl.deleteShader(probe);
+            var zatyd = zatyc.compileShader.bind(zatyc);
+            zatyc.compileShader = function(zatya, zatye) {
+                var zatyf = zatyd(zatya, zatye);
+                if (!zatyf) {
+                    var zatyg = zatyc.gl;
+                    var zatyh = "unknown compile error";
+                    if (zatyg) {
+                        var zatyi = zatyg.createShader(zatya);
+                        zatyg.shaderSource(zatyi, zatye);
+                        zatyg.compileShader(zatyi);
+                        zatyh = zatyg.getShaderInfoLog(zatyi) || zatyh;
+                        zatyg.deleteShader(zatyi);
                     }
-                    self._reportWebGLError(type, source, log);
+                    zatyb._reportWebGLError(zatya, zatye, zatyh);
                 }
-                return shader;
+                return zatyf;
             };
         }
-        var device = renderer && renderer.device;
-        if (device && device.createShaderModule && !device.__shaderDxPatched) {
-            device.__shaderDxPatched = true;
+        var zatye = zatyc && zatyc.device;
+        if (zatye && zatye.createShaderModule && !zatye.__shaderDxPatched) {
+            zatye.__shaderDxPatched = true;
             this._patched = true;
-            var originalModule = device.createShaderModule.bind(device);
-            device.createShaderModule = function(descriptor) {
-                var module = originalModule(descriptor);
-                if (module && typeof module.getCompilationInfo === "function") {
-                    module.getCompilationInfo().then(function(info) {
-                        var messages = (info && info.messages) || [];
-                        for (var i = 0; i < messages.length; i++) {
-                            var message = messages[i];
-                            if (message.type === "error") {
-                                self._reportWebGPUError(descriptor && descriptor.code, message.lineNum, message.linePos, message.message);
-                            } else if (message.type === "warning" && self.errors.length < DX_ERROR_LIMIT) {
-                                self._pushError({ backend: "webgpu", kind: "warning", line: message.lineNum, column: message.linePos, text: message.message || "", source: descriptor && descriptor.code });
+            var zatyf = zatye.createShaderModule.bind(zatye);
+            zatye.createShaderModule = function(zatyc) {
+                var zatyd = zatyf(zatyc);
+                if (zatyd && typeof zatyd.getCompilationInfo === "function") {
+                    zatyd.getCompilationInfo().then(function(zatyd) {
+                        var zatye = zatyd && zatyd.messages || [];
+                        for (var zatyf = 0; zatyf < zatye.length; zatyf++) {
+                            var zatyg = zatye[zatyf];
+                            if (zatyg.type === "error") {
+                                zatyb._reportWebGPUError(zatyc && zatyc.code, zatyg.lineNum, zatyg.linePos, zatyg.message);
+                            } else if (zatyg.type === "warning" && zatyb.errors.length < zatya) {
+                                zatyb._pushError({
+                                    backend: "webgpu",
+                                    kind: "warning",
+                                    line: zatyg.lineNum,
+                                    column: zatyg.linePos,
+                                    text: zatyg.message || "",
+                                    source: zatyc && zatyc.code
+                                });
                             }
                         }
-                    }).catch(function() { /* compilation info unavailable */ });
+                    }).catch(function() {});
                 }
-                return module;
+                return zatyd;
             };
         }
         if (!this._patched) {
-            // node / test environments without a live GPU context
             this._patched = false;
         }
     }
-
-    _pushError(error) {
-        error.time = Date.now();
-        this.errors.push(error);
-        if (this.errors.length > DX_ERROR_LIMIT) this.errors.shift();
-        this._logEvent((error.kind || "error") + " [" + error.backend + "]" + (error.line ? " line " + error.line : "") + ": " + String(error.text || "").slice(0, 140));
+    _pushError(zatyb) {
+        zatyb.time = Date.now();
+        this.errors.push(zatyb);
+        if (this.errors.length > zatya) this.errors.shift();
+        this._logEvent((zatyb.kind || "error") + " [" + zatyb.backend + "]" + (zatyb.line ? " line " + zatyb.line : "") + ": " + String(zatyb.text || "").slice(0, 140));
     }
-
-    _reportWebGLError(type, source, log) {
-        var parsed = ShaderDX.parseGLSLLog(log);
-        for (var i = 0; i < parsed.length; i++) {
-            var entry = parsed[i];
-            this._pushError({ backend: "webgl", kind: "error", stage: type === 35633 ? "vertex" : "fragment", line: entry.line, text: entry.text, source: source });
+    _reportWebGLError(zatya, zatyb, zatyc) {
+        var zatyd = ShaderDX.parseGLSLLog(zatyc);
+        for (var zatye = 0; zatye < zatyd.length; zatye++) {
+            var zatyf = zatyd[zatye];
+            this._pushError({
+                backend: "webgl",
+                kind: "error",
+                stage: zatya === 35633 ? "vertex" : "fragment",
+                line: zatyf.line,
+                text: zatyf.text,
+                source: zatyb
+            });
         }
-        if (!parsed.length) this._pushError({ backend: "webgl", kind: "error", stage: type === 35633 ? "vertex" : "fragment", text: log, source: source });
-    }
-
-    _reportWebGPUError(code, line, column, message) {
-        this._pushError({ backend: "webgpu", kind: "error", line: line, column: column, text: message, source: code });
-    }
-
-    // "ERROR: 0:12: 'foo' : undeclared identifier" -> [{line:12, text:...}]
-    static parseGLSLLog(log) {
-        var results = [];
-        var lines = String(log || "").split("\n");
-        for (var i = 0; i < lines.length; i++) {
-            var match = lines[i].match(/ERROR:\s*\d+:(\d+):\s*(.*)/);
-            if (match) results.push({ line: Number(match[1]), text: match[2] });
-        }
-        return results;
-    }
-
-    // ------------------------------------------------------------------
-    // line mapping back to user source
-    // ------------------------------------------------------------------
-    // The engine prepends defines + auto-declared attributes/uniforms before
-    // the user's shader text, so driver line numbers are shifted. If we can
-    // find the user source inside the processed source, report the offset.
-    static mapUserLine(processedSource, userSource, errorLine) {
-        if (!processedSource || !userSource || !errorLine) return { line: errorLine, mapped: false };
-        var anchor = String(userSource).slice(0, 64);
-        if (!anchor.trim()) return { line: errorLine, mapped: false };
-        var at = String(processedSource).indexOf(anchor);
-        if (at < 0) return { line: errorLine, mapped: false };
-        var prefix = processedSource.slice(0, at);
-        var preambleLines = prefix.split("\n").length - 1;
-        return { line: errorLine - preambleLines, mapped: preambleLines > 0 };
-    }
-
-    static sourceLineText(source, line) {
-        if (!source || !line) return null;
-        var lines = String(source).split("\n");
-        return lines[line - 1] !== undefined ? lines[line - 1].trim() : null;
-    }
-
-    // ------------------------------------------------------------------
-    // hot reload
-    // ------------------------------------------------------------------
-    watch(material) {
-        if (!material || material.vertexShader === undefined) return this;
-        for (var i = 0; i < this.watched.length; i++) if (this.watched[i].material === material) return this;
-        this.watched.push({
-            material: material,
-            lastGoodVertex: material.vertexShader,
-            lastGoodFragment: material.fragmentShader,
-            pendingVertex: material.vertexShader,
-            pendingFragment: material.fragmentShader
+        if (!zatyd.length) this._pushError({
+            backend: "webgl",
+            kind: "error",
+            stage: zatya === 35633 ? "vertex" : "fragment",
+            text: zatyc,
+            source: zatyb
         });
-        this._logEvent("watching material " + (material.type || "ShaderMaterial"));
+    }
+    _reportWebGPUError(zatya, zatyb, zatyc, zatyd) {
+        this._pushError({
+            backend: "webgpu",
+            kind: "error",
+            line: zatyb,
+            column: zatyc,
+            text: zatyd,
+            source: zatya
+        });
+    }
+    static parseGLSLLog(zatya) {
+        var zatyb = [];
+        var zatyc = String(zatya || "").split("\n");
+        for (var zatyd = 0; zatyd < zatyc.length; zatyd++) {
+            var zatye = zatyc[zatyd].match(/ERROR:\s*\d+:(\d+):\s*(.*)/);
+            if (zatye) zatyb.push({
+                line: Number(zatye[1]),
+                text: zatye[2]
+            });
+        }
+        return zatyb;
+    }
+    static mapUserLine(zatya, zatyb, zatyc) {
+        if (!zatya || !zatyb || !zatyc) return {
+            line: zatyc,
+            mapped: false
+        };
+        var zatyd = String(zatyb).slice(0, 64);
+        if (!zatyd.trim()) return {
+            line: zatyc,
+            mapped: false
+        };
+        var zatye = String(zatya).indexOf(zatyd);
+        if (zatye < 0) return {
+            line: zatyc,
+            mapped: false
+        };
+        var zatyf = zatya.slice(0, zatye);
+        var zatyg = zatyf.split("\n").length - 1;
+        return {
+            line: zatyc - zatyg,
+            mapped: zatyg > 0
+        };
+    }
+    static sourceLineText(zatya, zatyb) {
+        if (!zatya || !zatyb) return null;
+        var zatyc = String(zatya).split("\n");
+        return zatyc[zatyb - 1] !== undefined ? zatyc[zatyb - 1].trim() : null;
+    }
+    watch(zatya) {
+        if (!zatya || zatya.vertexShader === undefined) return this;
+        for (var zatyb = 0; zatyb < this.watched.length; zatyb++) if (this.watched[zatyb].material === zatya) return this;
+        this.watched.push({
+            material: zatya,
+            lastGoodVertex: zatya.vertexShader,
+            lastGoodFragment: zatya.fragmentShader,
+            pendingVertex: zatya.vertexShader,
+            pendingFragment: zatya.fragmentShader
+        });
+        this._logEvent("watching material " + (zatya.type || "ShaderMaterial"));
         return this;
     }
-
-    unwatch(material) {
-        for (var i = 0; i < this.watched.length; i++) if (this.watched[i].material === material) { this.watched.splice(i, 1); break; }
+    unwatch(zatya) {
+        for (var zatyb = 0; zatyb < this.watched.length; zatyb++) if (this.watched[zatyb].material === zatya) {
+            this.watched.splice(zatyb, 1);
+            break;
+        }
         return this;
     }
-
     update() {
         if (!this.enabled) return this;
-        for (var i = 0; i < this.watched.length; i++) this._updateWatched(this.watched[i]);
+        for (var zatya = 0; zatya < this.watched.length; zatya++) this._updateWatched(this.watched[zatya]);
         this.enrichErrors();
         this._refreshPanel();
         return this;
     }
-
-    _updateWatched(entry) {
-        var material = entry.material;
-        var vertexChanged = material.vertexShader !== entry.pendingVertex;
-        var fragmentChanged = material.fragmentShader !== entry.pendingFragment;
-        if (!vertexChanged && !fragmentChanged) return;
-        entry.pendingVertex = material.vertexShader;
-        entry.pendingFragment = material.fragmentShader;
-        var started = Date.now();
-        // try to compile the new sources through the real renderer path
-        var program = null;
+    _updateWatched(zatya) {
+        var zatyb = zatya.material;
+        var zatyc = zatyb.vertexShader !== zatya.pendingVertex;
+        var zatyd = zatyb.fragmentShader !== zatya.pendingFragment;
+        if (!zatyc && !zatyd) return;
+        zatya.pendingVertex = zatyb.vertexShader;
+        zatya.pendingFragment = zatyb.fragmentShader;
+        var zatye = Date.now();
+        var zatyf = null;
         if (this.renderer && typeof this.renderer.getShaderProgram === "function") {
-            try { program = this.renderer.getShaderProgram(material, null); } catch (error) { program = null; }
+            try {
+                zatyf = this.renderer.getShaderProgram(zatyb, null);
+            } catch (zatya) {
+                zatyf = null;
+            }
         }
-        var elapsed = Date.now() - started;
-        if (program) {
-            entry.lastGoodVertex = material.vertexShader;
-            entry.lastGoodFragment = material.fragmentShader;
-            material.needsUpdate = true;
-            this._logEvent("hot reload ok (" + (vertexChanged ? "vertex" : "") + (vertexChanged && fragmentChanged ? "+" : "") + (fragmentChanged ? "fragment" : "") + ", " + elapsed + "ms)");
+        var zatyg = Date.now() - zatye;
+        if (zatyf) {
+            zatya.lastGoodVertex = zatyb.vertexShader;
+            zatya.lastGoodFragment = zatyb.fragmentShader;
+            zatyb.needsUpdate = true;
+            this._logEvent("hot reload ok (" + (zatyc ? "vertex" : "") + (zatyc && zatyd ? "+" : "") + (zatyd ? "fragment" : "") + ", " + zatyg + "ms)");
         } else if (this.renderer && this.renderer.gl) {
-            // WebGL: compilation failed - revert so the scene keeps rendering
-            material.vertexShader = entry.lastGoodVertex;
-            material.fragmentShader = entry.lastGoodFragment;
-            entry.pendingVertex = entry.lastGoodVertex;
-            entry.pendingFragment = entry.lastGoodFragment;
-            material.needsUpdate = true;
-            this._logEvent("hot reload FAILED - reverted to last good source (" + elapsed + "ms)");
+            zatyb.vertexShader = zatya.lastGoodVertex;
+            zatyb.fragmentShader = zatya.lastGoodFragment;
+            zatya.pendingVertex = zatya.lastGoodVertex;
+            zatya.pendingFragment = zatya.lastGoodFragment;
+            zatyb.needsUpdate = true;
+            this._logEvent("hot reload FAILED - reverted to last good source (" + zatyg + "ms)");
         } else if (this.renderer && this.renderer.device) {
-            // WebGPU: pipeline/module caches are rebuilt lazily on the next
-            // draw; a failed module surfaces through compilationInfo.
             if (this.renderer._shaderModuleCache) this.renderer._shaderModuleCache = {};
             if (this.renderer.pipelineCache) this.renderer.pipelineCache = {};
-            entry.lastGoodVertex = material.vertexShader;
-            entry.lastGoodFragment = material.fragmentShader;
-            this._logEvent("webgpu shader caches invalidated (" + elapsed + "ms)");
+            zatya.lastGoodVertex = zatyb.vertexShader;
+            zatya.lastGoodFragment = zatyb.fragmentShader;
+            this._logEvent("webgpu shader caches invalidated (" + zatyg + "ms)");
         }
     }
-
-    _logEvent(text) {
-        this.events.push({ time: Date.now(), text: text });
+    _logEvent(zatya) {
+        this.events.push({
+            time: Date.now(),
+            text: zatya
+        });
         if (this.events.length > 40) this.events.shift();
     }
-
-    // ------------------------------------------------------------------
-    // in-canvas panel
-    // ------------------------------------------------------------------
     _ensurePanel() {
         if (!this.panel || typeof document === "undefined" || !document.body) return;
         if (this._panelElement) return;
-        var element = document.createElement("div");
-        element.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:520px;max-height:40vh;overflow:auto;background:rgba(12,12,16,0.92);color:#e8e8e8;font:11px/1.45 ui-monospace,Menlo,Consolas,monospace;border:1px solid #3a3a44;border-radius:6px;padding:8px 10px;pointer-events:auto;white-space:pre-wrap;display:none;";
-        var title = document.createElement("div");
-        title.textContent = "ShaderDX";
-        title.style.cssText = "font-weight:bold;color:#ffb454;margin-bottom:4px;";
-        var close = document.createElement("span");
-        close.textContent = " [x]";
-        close.style.cssText = "cursor:pointer;color:#888;";
-        var self = this;
-        close.addEventListener("click", function() { self.hidePanel(); });
-        title.appendChild(close);
-        var list = document.createElement("div");
-        element.appendChild(title);
-        element.appendChild(list);
-        document.body.appendChild(element);
-        this._panelElement = element;
-        this._panelList = list;
+        var zatya = document.createElement("div");
+        zatya.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:520px;max-height:40vh;overflow:auto;background:rgba(12,12,16,0.92);color:#e8e8e8;font:11px/1.45 ui-monospace,Menlo,Consolas,monospace;border:1px solid #3a3a44;border-radius:6px;padding:8px 10px;pointer-events:auto;white-space:pre-wrap;display:none;";
+        var zatyb = document.createElement("div");
+        zatyb.textContent = "ShaderDX";
+        zatyb.style.cssText = "font-weight:bold;color:#ffb454;margin-bottom:4px;";
+        var zatyc = document.createElement("span");
+        zatyc.textContent = " [x]";
+        zatyc.style.cssText = "cursor:pointer;color:#888;";
+        var zatyd = this;
+        zatyc.addEventListener("click", function() {
+            zatyd.hidePanel();
+        });
+        zatyb.appendChild(zatyc);
+        var zatye = document.createElement("div");
+        zatya.appendChild(zatyb);
+        zatya.appendChild(zatye);
+        document.body.appendChild(zatya);
+        this._panelElement = zatya;
+        this._panelList = zatye;
     }
-
-    showPanel() { this._ensurePanel(); if (this._panelElement) this._panelElement.style.display = "block"; return this; }
-    hidePanel() { if (this._panelElement) this._panelElement.style.display = "none"; return this; }
-
+    showPanel() {
+        this._ensurePanel();
+        if (this._panelElement) this._panelElement.style.display = "block";
+        return this;
+    }
+    hidePanel() {
+        if (this._panelElement) this._panelElement.style.display = "none";
+        return this;
+    }
     _refreshPanel() {
         if (!this.panel) return;
         this._ensurePanel();
         if (!this._panelElement) return;
-        var recentErrors = this.errors.filter(function(e) { return Date.now() - e.time < 30000; });
-        var signature = recentErrors.length + ":" + (this.events[this.events.length - 1] ? this.events[this.events.length - 1].time : 0);
-        if (signature === this._lastPanelSignature) return;
-        this._lastPanelSignature = signature;
-        if (!recentErrors.length && !this.events.length) { this._panelElement.style.display = "none"; return; }
-        var text = "";
-        for (var i = Math.max(0, recentErrors.length - 8); i < recentErrors.length; i++) {
-            var error = recentErrors[i];
-            var mapped = error.userLine !== undefined ? error.userLine : error.line;
-            text += (error.kind === "warning" ? "WARN " : "ERROR") + " [" + error.backend + (error.stage ? " " + error.stage : "") + "]"
-                + (mapped ? " line " + mapped : "") + ": " + String(error.text || "").trim().slice(0, 160) + "\n";
-            var lineText = ShaderDX.sourceLineText(error.source, error.line);
-            if (lineText) text += "    -> \"" + lineText.slice(0, 100) + "\"\n";
+        var zatya = this.errors.filter(function(zatya) {
+            return Date.now() - zatya.time < 3e4;
+        });
+        var zatyb = zatya.length + ":" + (this.events[this.events.length - 1] ? this.events[this.events.length - 1].time : 0);
+        if (zatyb === this._lastPanelSignature) return;
+        this._lastPanelSignature = zatyb;
+        if (!zatya.length && !this.events.length) {
+            this._panelElement.style.display = "none";
+            return;
         }
-        for (var j = Math.max(0, this.events.length - 4); j < this.events.length; j++) text += this.events[j].text + "\n";
-        this._panelList.textContent = text;
-        if (recentErrors.length) this._panelElement.style.display = "block";
+        var zatyc = "";
+        for (var zatyd = Math.max(0, zatya.length - 8); zatyd < zatya.length; zatyd++) {
+            var zatye = zatya[zatyd];
+            var zatyf = zatye.userLine !== undefined ? zatye.userLine : zatye.line;
+            zatyc += (zatye.kind === "warning" ? "WARN " : "ERROR") + " [" + zatye.backend + (zatye.stage ? " " + zatye.stage : "") + "]" + (zatyf ? " line " + zatyf : "") + ": " + String(zatye.text || "").trim().slice(0, 160) + "\n";
+            var zatyg = ShaderDX.sourceLineText(zatye.source, zatye.line);
+            if (zatyg) zatyc += '    -> "' + zatyg.slice(0, 100) + '"\n';
+        }
+        for (var zatyh = Math.max(0, this.events.length - 4); zatyh < this.events.length; zatyh++) zatyc += this.events[zatyh].text + "\n";
+        this._panelList.textContent = zatyc;
+        if (zatya.length) this._panelElement.style.display = "block";
     }
-
-    // enrich errors with mapped user lines for watched materials
     enrichErrors() {
-        for (var i = 0; i < this.errors.length; i++) {
-            var error = this.errors[i];
-            if (error.userLine !== undefined || !error.source) continue;
-            for (var w = 0; w < this.watched.length; w++) {
-                var entry = this.watched[w];
-                var userSource = error.stage === "vertex" ? entry.pendingVertex : entry.pendingFragment;
-                if (!userSource) continue;
-                var mapping = ShaderDX.mapUserLine(error.source, userSource, error.line);
-                if (mapping.mapped) { error.userLine = mapping.line; break; }
+        for (var zatya = 0; zatya < this.errors.length; zatya++) {
+            var zatyb = this.errors[zatya];
+            if (zatyb.userLine !== undefined || !zatyb.source) continue;
+            for (var zatyc = 0; zatyc < this.watched.length; zatyc++) {
+                var zatyd = this.watched[zatyc];
+                var zatye = zatyb.stage === "vertex" ? zatyd.pendingVertex : zatyd.pendingFragment;
+                if (!zatye) continue;
+                var zatyf = ShaderDX.mapUserLine(zatyb.source, zatye, zatyb.line);
+                if (zatyf.mapped) {
+                    zatyb.userLine = zatyf.line;
+                    break;
+                }
             }
         }
         return this.errors;
     }
-
     dispose() {
         if (this._timer && typeof clearInterval === "function") clearInterval(this._timer);
         this._timer = null;

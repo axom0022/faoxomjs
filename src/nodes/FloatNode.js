@@ -1,8 +1,13 @@
 import { ShaderNode } from "./ShaderNode.js";
 
 class FloatNode extends ShaderNode {
-    constructor(value) { super("float", "float"); this.value = value || 0.0; }
-    build() { return this.value.toFixed(4); }
+    constructor(zaqqa) {
+        super("float", "float");
+        this.value = zaqqa || 0;
+    }
+    build() {
+        return this.value.toFixed(4);
+    }
 }
 
 export { FloatNode };

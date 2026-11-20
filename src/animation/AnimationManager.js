@@ -1,12 +1,31 @@
 class AnimationManager {
-    constructor() { this.controllers = []; this.speed = 1; }
-    add(controller) { if (this.controllers.indexOf(controller) === -1) this.controllers.push(controller); return controller; }
-    remove(controller) { var i = this.controllers.indexOf(controller); if (i !== -1) this.controllers.splice(i, 1); }
-    update(delta) { for (var i = 0; i < this.controllers.length; i++) this.controllers[i].update(delta * this.speed); }
-    play(target, clip, reset) { for (var i = 0; i < this.controllers.length; i++) if (this.controllers[i].target === target) this.controllers[i].play(clip, reset); }
-    stop(target) { for (var i = 0; i < this.controllers.length; i++) if (!target || this.controllers[i].target === target) this.controllers[i].stop(); }
-    pause(target) { for (var i = 0; i < this.controllers.length; i++) if (!target || this.controllers[i].target === target) this.controllers[i].pause(); }
-    resume(target) { for (var i = 0; i < this.controllers.length; i++) if (!target || this.controllers[i].target === target) this.controllers[i].resume(); }
+    constructor() {
+        this.controllers = [];
+        this.speed = 1;
+    }
+    add(zaaxa) {
+        if (this.controllers.indexOf(zaaxa) === -1) this.controllers.push(zaaxa);
+        return zaaxa;
+    }
+    remove(zaaxa) {
+        var zaaxb = this.controllers.indexOf(zaaxa);
+        if (zaaxb !== -1) this.controllers.splice(zaaxb, 1);
+    }
+    update(zaaxa) {
+        for (var zaaxb = 0; zaaxb < this.controllers.length; zaaxb++) this.controllers[zaaxb].update(zaaxa * this.speed);
+    }
+    play(zaaxa, zaaxb, zaaxc) {
+        for (var zaaxd = 0; zaaxd < this.controllers.length; zaaxd++) if (this.controllers[zaaxd].target === zaaxa) this.controllers[zaaxd].play(zaaxb, zaaxc);
+    }
+    stop(zaaxa) {
+        for (var zaaxb = 0; zaaxb < this.controllers.length; zaaxb++) if (!zaaxa || this.controllers[zaaxb].target === zaaxa) this.controllers[zaaxb].stop();
+    }
+    pause(zaaxa) {
+        for (var zaaxb = 0; zaaxb < this.controllers.length; zaaxb++) if (!zaaxa || this.controllers[zaaxb].target === zaaxa) this.controllers[zaaxb].pause();
+    }
+    resume(zaaxa) {
+        for (var zaaxb = 0; zaaxb < this.controllers.length; zaaxb++) if (!zaaxa || this.controllers[zaaxb].target === zaaxa) this.controllers[zaaxb].resume();
+    }
 }
 
 export { AnimationManager };

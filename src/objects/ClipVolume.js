@@ -1,50 +1,56 @@
 import { Matrix4, Plane } from "../math/index.js";
 
 class ClipVolume {
-    constructor(planes) { this.planes = planes && planes.length ? planes.slice() : [new Plane(), new Plane(), new Plane(), new Plane(), new Plane(), new Plane()]; }
-    setFromProjectionMatrix(matrix) {
-        var e = matrix.elements, p = this.planes;
-        p[0].setComponents(e[3] - e[0], e[7] - e[4], e[11] - e[8], e[15] - e[12]).normalize();
-        p[1].setComponents(e[3] + e[0], e[7] + e[4], e[11] + e[8], e[15] + e[12]).normalize();
-        p[2].setComponents(e[3] - e[1], e[7] - e[5], e[11] - e[9], e[15] - e[13]).normalize();
-        p[3].setComponents(e[3] + e[1], e[7] + e[5], e[11] + e[9], e[15] + e[13]).normalize();
-        p[4].setComponents(e[3] - e[2], e[7] - e[6], e[11] - e[10], e[15] - e[14]).normalize();
-        p[5].setComponents(e[3] + e[2], e[7] + e[6], e[11] + e[10], e[15] + e[14]).normalize();
+    constructor(zarla) {
+        this.planes = zarla && zarla.length ? zarla.slice() : [ new Plane, new Plane, new Plane, new Plane, new Plane, new Plane ];
+    }
+    setFromProjectionMatrix(zarla) {
+        var zarlb = zarla.elements, zarlc = this.planes;
+        zarlc[0].setComponents(zarlb[3] - zarlb[0], zarlb[7] - zarlb[4], zarlb[11] - zarlb[8], zarlb[15] - zarlb[12]).normalize();
+        zarlc[1].setComponents(zarlb[3] + zarlb[0], zarlb[7] + zarlb[4], zarlb[11] + zarlb[8], zarlb[15] + zarlb[12]).normalize();
+        zarlc[2].setComponents(zarlb[3] - zarlb[1], zarlb[7] - zarlb[5], zarlb[11] - zarlb[9], zarlb[15] - zarlb[13]).normalize();
+        zarlc[3].setComponents(zarlb[3] + zarlb[1], zarlb[7] + zarlb[5], zarlb[11] + zarlb[9], zarlb[15] + zarlb[13]).normalize();
+        zarlc[4].setComponents(zarlb[3] - zarlb[2], zarlb[7] - zarlb[6], zarlb[11] - zarlb[10], zarlb[15] - zarlb[14]).normalize();
+        zarlc[5].setComponents(zarlb[3] + zarlb[2], zarlb[7] + zarlb[6], zarlb[11] + zarlb[10], zarlb[15] + zarlb[14]).normalize();
         return this;
     }
-    adoptCamera(camera) {
-        if (!camera) return this;
-        camera.updateMatrixWorld && camera.updateMatrixWorld(true);
-        var view = camera.matrixWorldInverse || camera.matrixWorld.clone().invert();
-        return this.setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, view));
+    adoptCamera(zarla) {
+        if (!zarla) return this;
+        zarla.updateMatrixWorld && zarla.updateMatrixWorld(true);
+        var zarlb = zarla.matrixWorldInverse || zarla.matrixWorld.clone().invert();
+        return this.setFromProjectionMatrix((new Matrix4).multiplyMatrices(zarla.projectionMatrix, zarlb));
     }
-    intersectsBox(box) {
-        if (!box || box.isEmpty()) return false;
-        var p = this.planes;
-        for (var i = 0; i < p.length; i++) {
-            var plane = p[i], n = plane.normal;
-            var px = n.x >= 0 ? box.max.x : box.min.x, py = n.y >= 0 ? box.max.y : box.min.y, pz = n.z >= 0 ? box.max.z : box.min.z;
-            if (n.x * px + n.y * py + n.z * pz + plane.constant < 0) return false;
+    intersectsBox(zarla) {
+        if (!zarla || zarla.isEmpty()) return false;
+        var zarlb = this.planes;
+        for (var zarlc = 0; zarlc < zarlb.length; zarlc++) {
+            var zarld = zarlb[zarlc], zarle = zarld.normal;
+            var zarlf = zarle.x >= 0 ? zarla.max.x : zarla.min.x, zarlg = zarle.y >= 0 ? zarla.max.y : zarla.min.y, zarlh = zarle.z >= 0 ? zarla.max.z : zarla.min.z;
+            if (zarle.x * zarlf + zarle.y * zarlg + zarle.z * zarlh + zarld.constant < 0) return false;
         }
         return true;
     }
-    intersectsSphere(sphere) {
-        if (!sphere) return false;
-        var p = this.planes;
-        for (var i = 0; i < p.length; i++) if (p[i].distanceToPoint(sphere.center) < -sphere.radius) return false;
+    intersectsSphere(zarla) {
+        if (!zarla) return false;
+        var zarlb = this.planes;
+        for (var zarlc = 0; zarlc < zarlb.length; zarlc++) if (zarlb[zarlc].distanceToPoint(zarla.center) < -zarla.radius) return false;
         return true;
     }
-    holdsPoint(point) {
-        if (!point) return false;
-        var p = this.planes;
-        for (var i = 0; i < p.length; i++) if (p[i].distanceToPoint(point) < 0) return false;
+    holdsPoint(zarla) {
+        if (!zarla) return false;
+        var zarlb = this.planes;
+        for (var zarlc = 0; zarlc < zarlb.length; zarlc++) if (zarlb[zarlc].distanceToPoint(zarla) < 0) return false;
         return true;
     }
-    copy(volume) {
-        for (var i = 0; i < this.planes.length; i++) this.planes[i].set(volume.planes[i].normal, volume.planes[i].constant);
+    copy(zarla) {
+        for (var zarlb = 0; zarlb < this.planes.length; zarlb++) this.planes[zarlb].set(zarla.planes[zarlb].normal, zarla.planes[zarlb].constant);
         return this;
     }
-    clone() { return new ClipVolume(this.planes.map(function(plane) { return plane.clone(); })); }
+    clone() {
+        return new ClipVolume(this.planes.map(function(zarla) {
+            return zarla.clone();
+        }));
+    }
 }
 
 export { ClipVolume };

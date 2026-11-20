@@ -1,18 +1,18 @@
 import { Pass } from "./Pass.js";
 
 class SSGIPass extends Pass {
-    constructor(options) {
+    constructor(zatua) {
         super();
-        options = options || {};
-        this.scene = options.scene;
-        this.camera = options.camera;
-        this.samples = options.samples || 8;
-        this.maxDistance = options.maxDistance || 3.0;
-        this.intensity = options.intensity || 1.0;
+        zatua = zatua || {};
+        this.scene = zatua.scene;
+        this.camera = zatua.camera;
+        this.samples = zatua.samples || 8;
+        this.maxDistance = zatua.maxDistance || 3;
+        this.intensity = zatua.intensity || 1;
     }
-    render(renderer, writeBuffer, readBuffer) {
+    render(zatua, zatub, zatuc) {
         if (!this.enabled) return;
-        renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+        zatua.setRenderTarget(this.renderToScreen ? null : zatub);
     }
 }
 

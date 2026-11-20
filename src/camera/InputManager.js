@@ -1,20 +1,184 @@
 class InputManager {
-    constructor(element) { this.element = element || (typeof window !== "undefined" ? window : null); this.keys = {}; this.previousKeys = {}; this.mouse = { x: 0, y: 0, deltaX: 0, deltaY: 0, buttons: 0, wheel: 0 }; this.pointer = { x: 0, y: 0, down: false, locked: false }; this.touches = {}; this.gamepads = []; this.callbacks = {}; this.listeners = []; this.bind(); }
-    bind() { var el = this.element; if (!el || !el.addEventListener) return; var self = this; var listen = function(target, type, fn) { if (!target || !target.addEventListener) return; target.addEventListener(type, fn); self.listeners.push({ target: target, type: type, fn: fn }); }; listen(el, "keydown", function(e) { self.keys[e.code || e.key] = true; self.emit("keydown", e); }); listen(el, "keyup", function(e) { self.keys[e.code || e.key] = false; self.emit("keyup", e); }); listen(el, "mousemove", function(e) { self.mouse.deltaX += e.movementX || 0; self.mouse.deltaY += e.movementY || 0; self.mouse.x = e.clientX || 0; self.mouse.y = e.clientY || 0; self.pointer.x = self.mouse.x; self.pointer.y = self.mouse.y; self.emit("mousemove", e); }); listen(el, "mousedown", function(e) { self.mouse.buttons = e.buttons; self.pointer.down = true; self.emit("mousedown", e); }); listen(el, "mouseup", function(e) { self.mouse.buttons = e.buttons; self.pointer.down = false; self.emit("mouseup", e); }); listen(el, "wheel", function(e) { self.mouse.wheel += e.deltaY || 0; self.emit("wheel", e); }); listen(el, "pointerdown", function(e) { self.pointer.down = true; self.pointer.x = e.clientX || 0; self.pointer.y = e.clientY || 0; self.mouse.buttons = e.buttons || 1; self.emit("pointerdown", e); }); listen(el, "pointerup", function(e) { self.pointer.down = false; self.mouse.buttons = e.buttons || 0; self.emit("pointerup", e); }); listen(el, "pointermove", function(e) { self.pointer.x = e.clientX || 0; self.pointer.y = e.clientY || 0; self.mouse.deltaX += e.movementX || 0; self.mouse.deltaY += e.movementY || 0; self.emit("pointermove", e); }); listen(el, "touchstart", function(e) { self.pointer.down = true; self.touches = e.touches || {}; self.emit("touchstart", e); }); listen(el, "touchmove", function(e) { self.touches = e.touches || {}; self.emit("touchmove", e); }); listen(el, "touchend", function(e) { self.pointer.down = false; self.touches = e.touches || {}; self.emit("touchend", e); }); if (typeof document !== "undefined") listen(document, "pointerlockchange", function() { self.pointer.locked = document.pointerLockElement === el; self.emit("pointerlockchange", self.pointer.locked); }); }
-    on(event, callback) { if (!this.callbacks[event]) this.callbacks[event] = []; this.callbacks[event].push(callback); return this; }
-    off(event, callback) { var a = this.callbacks[event] || []; var i = a.indexOf(callback); if (i !== -1) a.splice(i, 1); return this; }
-    emit(event, value) { var a = this.callbacks[event] || []; for (var i = 0; i < a.length; i++) a[i](value, this); }
-    isKeyDown(key) { return !!this.keys[key]; }
-    setKey(key, value) { this.keys[key] = !!value; return this; }
-    pressKey(key) { this.keys[key] = true; this.emit("keydown", { code: key, synthetic: true }); return this; }
-    releaseKey(key) { this.keys[key] = false; this.emit("keyup", { code: key, synthetic: true }); return this; }
-    setPointerState(down, x, y) { this.pointer.down = !!down; if (x !== undefined) this.pointer.x = x; if (y !== undefined) this.pointer.y = y; return this; }
-    wasKeyPressed(key) { return !!this.keys[key] && !this.previousKeys[key]; }
-    wasKeyReleased(key) { return !this.keys[key] && !!this.previousKeys[key]; }
-    requestPointerLock() { if (this.element && this.element.requestPointerLock) this.element.requestPointerLock(); return this; }
-    exitPointerLock() { if (typeof document !== "undefined" && document.exitPointerLock) document.exitPointerLock(); return this; }
-    update() { this.previousKeys = {}; for (var key in this.keys) this.previousKeys[key] = this.keys[key]; this.mouse.deltaX = 0; this.mouse.deltaY = 0; this.mouse.wheel = 0; if (typeof navigator !== "undefined" && typeof navigator.getGamepads === "function") this.gamepads = Array.prototype.slice.call(navigator.getGamepads() || []); }
-    destroy() { for (var i = 0; i < this.listeners.length; i++) { var item = this.listeners[i]; if (item.target && item.target.removeEventListener) item.target.removeEventListener(item.type, item.fn); } this.listeners = []; this.callbacks = {}; }
+    constructor(zabra) {
+        this.element = zabra || (typeof window !== "undefined" ? window : null);
+        this.keys = {};
+        this.previousKeys = {};
+        this.mouse = {
+            x: 0,
+            y: 0,
+            deltaX: 0,
+            deltaY: 0,
+            buttons: 0,
+            wheel: 0
+        };
+        this.pointer = {
+            x: 0,
+            y: 0,
+            down: false,
+            locked: false
+        };
+        this.touches = {};
+        this.gamepads = [];
+        this.callbacks = {};
+        this.listeners = [];
+        this.bind();
+    }
+    bind() {
+        var zabra = this.element;
+        if (!zabra || !zabra.addEventListener) return;
+        var zabrb = this;
+        var zabrc = function(zabra, zabrc, zabrd) {
+            if (!zabra || !zabra.addEventListener) return;
+            zabra.addEventListener(zabrc, zabrd);
+            zabrb.listeners.push({
+                target: zabra,
+                type: zabrc,
+                fn: zabrd
+            });
+        };
+        zabrc(zabra, "keydown", function(zabra) {
+            zabrb.keys[zabra.code || zabra.key] = true;
+            zabrb.emit("keydown", zabra);
+        });
+        zabrc(zabra, "keyup", function(zabra) {
+            zabrb.keys[zabra.code || zabra.key] = false;
+            zabrb.emit("keyup", zabra);
+        });
+        zabrc(zabra, "mousemove", function(zabra) {
+            zabrb.mouse.deltaX += zabra.movementX || 0;
+            zabrb.mouse.deltaY += zabra.movementY || 0;
+            zabrb.mouse.x = zabra.clientX || 0;
+            zabrb.mouse.y = zabra.clientY || 0;
+            zabrb.pointer.x = zabrb.mouse.x;
+            zabrb.pointer.y = zabrb.mouse.y;
+            zabrb.emit("mousemove", zabra);
+        });
+        zabrc(zabra, "mousedown", function(zabra) {
+            zabrb.mouse.buttons = zabra.buttons;
+            zabrb.pointer.down = true;
+            zabrb.emit("mousedown", zabra);
+        });
+        zabrc(zabra, "mouseup", function(zabra) {
+            zabrb.mouse.buttons = zabra.buttons;
+            zabrb.pointer.down = false;
+            zabrb.emit("mouseup", zabra);
+        });
+        zabrc(zabra, "wheel", function(zabra) {
+            zabrb.mouse.wheel += zabra.deltaY || 0;
+            zabrb.emit("wheel", zabra);
+        });
+        zabrc(zabra, "pointerdown", function(zabra) {
+            zabrb.pointer.down = true;
+            zabrb.pointer.x = zabra.clientX || 0;
+            zabrb.pointer.y = zabra.clientY || 0;
+            zabrb.mouse.buttons = zabra.buttons || 1;
+            zabrb.emit("pointerdown", zabra);
+        });
+        zabrc(zabra, "pointerup", function(zabra) {
+            zabrb.pointer.down = false;
+            zabrb.mouse.buttons = zabra.buttons || 0;
+            zabrb.emit("pointerup", zabra);
+        });
+        zabrc(zabra, "pointermove", function(zabra) {
+            zabrb.pointer.x = zabra.clientX || 0;
+            zabrb.pointer.y = zabra.clientY || 0;
+            zabrb.mouse.deltaX += zabra.movementX || 0;
+            zabrb.mouse.deltaY += zabra.movementY || 0;
+            zabrb.emit("pointermove", zabra);
+        });
+        zabrc(zabra, "touchstart", function(zabra) {
+            zabrb.pointer.down = true;
+            zabrb.touches = zabra.touches || {};
+            zabrb.emit("touchstart", zabra);
+        });
+        zabrc(zabra, "touchmove", function(zabra) {
+            zabrb.touches = zabra.touches || {};
+            zabrb.emit("touchmove", zabra);
+        });
+        zabrc(zabra, "touchend", function(zabra) {
+            zabrb.pointer.down = false;
+            zabrb.touches = zabra.touches || {};
+            zabrb.emit("touchend", zabra);
+        });
+        if (typeof document !== "undefined") zabrc(document, "pointerlockchange", function() {
+            zabrb.pointer.locked = document.pointerLockElement === zabra;
+            zabrb.emit("pointerlockchange", zabrb.pointer.locked);
+        });
+    }
+    on(zabra, zabrb) {
+        if (!this.callbacks[zabra]) this.callbacks[zabra] = [];
+        this.callbacks[zabra].push(zabrb);
+        return this;
+    }
+    off(zabra, zabrb) {
+        var zabrc = this.callbacks[zabra] || [];
+        var zabrd = zabrc.indexOf(zabrb);
+        if (zabrd !== -1) zabrc.splice(zabrd, 1);
+        return this;
+    }
+    emit(zabra, zabrb) {
+        var zabrc = this.callbacks[zabra] || [];
+        for (var zabrd = 0; zabrd < zabrc.length; zabrd++) zabrc[zabrd](zabrb, this);
+    }
+    isKeyDown(zabra) {
+        return !!this.keys[zabra];
+    }
+    setKey(zabra, zabrb) {
+        this.keys[zabra] = !!zabrb;
+        return this;
+    }
+    pressKey(zabra) {
+        this.keys[zabra] = true;
+        this.emit("keydown", {
+            code: zabra,
+            synthetic: true
+        });
+        return this;
+    }
+    releaseKey(zabra) {
+        this.keys[zabra] = false;
+        this.emit("keyup", {
+            code: zabra,
+            synthetic: true
+        });
+        return this;
+    }
+    setPointerState(zabra, zabrb, zabrc) {
+        this.pointer.down = !!zabra;
+        if (zabrb !== undefined) this.pointer.x = zabrb;
+        if (zabrc !== undefined) this.pointer.y = zabrc;
+        return this;
+    }
+    wasKeyPressed(zabra) {
+        return !!this.keys[zabra] && !this.previousKeys[zabra];
+    }
+    wasKeyReleased(zabra) {
+        return !this.keys[zabra] && !!this.previousKeys[zabra];
+    }
+    requestPointerLock() {
+        if (this.element && this.element.requestPointerLock) this.element.requestPointerLock();
+        return this;
+    }
+    exitPointerLock() {
+        if (typeof document !== "undefined" && document.exitPointerLock) document.exitPointerLock();
+        return this;
+    }
+    update() {
+        this.previousKeys = {};
+        for (var zabra in this.keys) this.previousKeys[zabra] = this.keys[zabra];
+        this.mouse.deltaX = 0;
+        this.mouse.deltaY = 0;
+        this.mouse.wheel = 0;
+        if (typeof navigator !== "undefined" && typeof navigator.getGamepads === "function") this.gamepads = Array.prototype.slice.call(navigator.getGamepads() || []);
+    }
+    destroy() {
+        for (var zabra = 0; zabra < this.listeners.length; zabra++) {
+            var zabrb = this.listeners[zabra];
+            if (zabrb.target && zabrb.target.removeEventListener) zabrb.target.removeEventListener(zabrb.type, zabrb.fn);
+        }
+        this.listeners = [];
+        this.callbacks = {};
+    }
 }
 
 export { InputManager };

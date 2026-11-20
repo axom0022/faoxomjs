@@ -1,42 +1,51 @@
 import { Euler, Vector3, faoxomclamp } from "../math/index.js";
 
 class FirstPersonControls {
-    constructor(camera, domElement) {
-        this.camera = camera;
-        this.domElement = domElement || (typeof document !== "undefined" ? document.body : null);
-        this.movementSpeed = 10.0;
-        this.lookSpeed = 0.005;
+    constructor(zabqa, zabqb) {
+        this.camera = zabqa;
+        this.domElement = zabqb || (typeof document !== "undefined" ? document.body : null);
+        this.movementSpeed = 10;
+        this.lookSpeed = .005;
         this.keys = {};
-        this.pitch = 0; this.yaw = 0;
+        this.pitch = 0;
+        this.yaw = 0;
         this.initEvents();
     }
     initEvents() {
         if (!this.domElement) return;
-        var self = this;
-        var onKeyDown = function(e) { self.keys[e.code] = true; };
-        var onKeyUp = function(e) { self.keys[e.code] = false; };
-        var onMouseMove = function(e) {
-            if (e.buttons === 1) {
-                self.yaw -= e.movementX * self.lookSpeed;
-                self.pitch = faoxomclamp(self.pitch - e.movementY * self.lookSpeed, -Math.PI * 0.48, Math.PI * 0.48);
+        var zabqa = this;
+        var zabqb = function(zabqb) {
+            zabqa.keys[zabqb.code] = true;
+        };
+        var zabqc = function(zabqb) {
+            zabqa.keys[zabqb.code] = false;
+        };
+        var zabqd = function(zabqb) {
+            if (zabqb.buttons === 1) {
+                zabqa.yaw -= zabqb.movementX * zabqa.lookSpeed;
+                zabqa.pitch = faoxomclamp(zabqa.pitch - zabqb.movementY * zabqa.lookSpeed, -Math.PI * .48, Math.PI * .48);
             }
         };
-        window.addEventListener("keydown", onKeyDown);
-        window.addEventListener("keyup", onKeyUp);
-        this.domElement.addEventListener("mousemove", onMouseMove);
-        this._handlers = { onKeyDown: onKeyDown, onKeyUp: onKeyUp, onMouseMove: onMouseMove };
+        window.addEventListener("keydown", zabqb);
+        window.addEventListener("keyup", zabqc);
+        this.domElement.addEventListener("mousemove", zabqd);
+        this._handlers = {
+            onKeyDown: zabqb,
+            onKeyUp: zabqc,
+            onMouseMove: zabqd
+        };
     }
-    update(dt) {
-        var delta = dt || 0.016;
-        var speed = this.movementSpeed * delta;
-        var forward = new Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-        var right = new Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
-        if (this.keys["KeyW"] || this.keys["ArrowUp"]) this.camera.position.addScaledVector(forward, speed);
-        if (this.keys["KeyS"] || this.keys["ArrowDown"]) this.camera.position.addScaledVector(forward, -speed);
-        if (this.keys["KeyA"] || this.keys["ArrowLeft"]) this.camera.position.addScaledVector(right, -speed);
-        if (this.keys["KeyD"] || this.keys["ArrowRight"]) this.camera.position.addScaledVector(right, speed);
-        var euler = new Euler(this.pitch, this.yaw, 0, "YXZ");
-        this.camera.quaternion.setFromEuler(euler);
+    update(zabqa) {
+        var zabqb = zabqa || .016;
+        var zabqc = this.movementSpeed * zabqb;
+        var zabqd = new Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+        var zabqe = new Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+        if (this.keys["KeyW"] || this.keys["ArrowUp"]) this.camera.position.addScaledVector(zabqd, zabqc);
+        if (this.keys["KeyS"] || this.keys["ArrowDown"]) this.camera.position.addScaledVector(zabqd, -zabqc);
+        if (this.keys["KeyA"] || this.keys["ArrowLeft"]) this.camera.position.addScaledVector(zabqe, -zabqc);
+        if (this.keys["KeyD"] || this.keys["ArrowRight"]) this.camera.position.addScaledVector(zabqe, zabqc);
+        var zabqf = new Euler(this.pitch, this.yaw, 0, "YXZ");
+        this.camera.quaternion.setFromEuler(zabqf);
     }
     dispose() {
         if (this._handlers) {

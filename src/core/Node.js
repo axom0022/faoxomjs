@@ -1,5 +1,19 @@
 import { Object3D } from "./Object3D.js";
 
-class Node extends Object3D { constructor() { super(); this.type = "Node"; } clone(recursive) { var n = new Node(); n.name = this.name; n.position.copy(this.position); n.quaternion.copy(this.quaternion); n.scale.copy(this.scale); if (recursive !== false) for (var i = 0; i < this.children.length; i++) n.add(this.children[i].clone(true)); return n; } }
+class Node extends Object3D {
+    constructor() {
+        super();
+        this.type = "Node";
+    }
+    clone(zacza) {
+        var zaczb = new Node;
+        zaczb.name = this.name;
+        zaczb.position.copy(this.position);
+        zaczb.quaternion.copy(this.quaternion);
+        zaczb.scale.copy(this.scale);
+        if (zacza !== false) for (var zaczc = 0; zaczc < this.children.length; zaczc++) zaczb.add(this.children[zaczc].clone(true));
+        return zaczb;
+    }
+}
 
 export { Node };

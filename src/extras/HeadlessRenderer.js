@@ -1,45 +1,46 @@
-// HeadlessRenderer - deterministic offscreen WebGPU rendering without a
-// canvas (roadmap item 38). Renders a scene into an offscreen texture, reads
-// the pixels back, and produces PNG bytes / deterministic pixel fingerprints
-// for CI golden-image comparison. Works anywhere navigator.gpu exists
-// (Node 22+ with Dawn, browsers, workers). The underlying WebGPURenderer is
-// driven through its render-target override, so every engine feature
-// (shadows, instancing, materials) runs identically to the on-screen path.
-
 import { PerspectiveCamera } from "../camera/index.js";
+
 import { WebGPURenderer } from "../renderers/WebGPURenderer.js";
+
 import { WebGPUResourceManager } from "../renderers/WebGPUResourceManager.js";
+
 import { ResourceLedger } from "../renderers/ResourceLedger.js";
+
 import { FaoxLoader } from "./Faox.js";
+
 import { PNGCodec } from "./PNGCodec.js";
 
 class HeadlessRenderer {
-    constructor(options) {
-        options = options || {};
-        this.options = options;
-        this.width = Math.max(1, Math.floor(options.width || 256));
-        this.height = Math.max(1, Math.floor(options.height || 256));
-        this.format = options.format || "rgba8unorm";
-        this.clearColor = options.clearColor || 0x000000;
-        this.adapter = options.adapter || null;
-        this.device = options.device || null;
-        this.ownsDevice = !options.device;
-        this.ledger = options.ledger ? (options.ledger instanceof ResourceLedger ? options.ledger : new ResourceLedger({ label: "headless" })) : null;
+    constructor(zahsa) {
+        zahsa = zahsa || {};
+        this.options = zahsa;
+        this.width = Math.max(1, Math.floor(zahsa.width || 256));
+        this.height = Math.max(1, Math.floor(zahsa.height || 256));
+        this.format = zahsa.format || "rgba8unorm";
+        this.clearColor = zahsa.clearColor || 0;
+        this.adapter = zahsa.adapter || null;
+        this.device = zahsa.device || null;
+        this.ownsDevice = !zahsa.device;
+        this.ledger = zahsa.ledger ? zahsa.ledger instanceof ResourceLedger ? zahsa.ledger : new ResourceLedger({
+            label: "headless"
+        }) : null;
         this.renderer = null;
         this.targetTexture = null;
         this.targetView = null;
         this.lastPixels = null;
-        this.stats = { frames: 0, readbacks: 0, renders: 0 };
+        this.stats = {
+            frames: 0,
+            readbacks: 0,
+            renders: 0
+        };
         this.initialized = false;
         this._loader = null;
     }
-
-    static async create(options) {
-        var instance = new HeadlessRenderer(options);
-        await instance.init();
-        return instance;
+    static async create(zahsa) {
+        var zahsb = new HeadlessRenderer(zahsa);
+        await zahsb.init();
+        return zahsb;
     }
-
     async init() {
         if (this.initialized) return this;
         if (typeof navigator === "undefined" || !navigator.gpu) throw new Error("HeadlessRenderer requires WebGPU - use Node 22+ (Dawn) or a browser");
@@ -51,109 +52,119 @@ class HeadlessRenderer {
             this.ownsDevice = true;
         }
         this.targetTexture = this.device.createTexture({
-            size: [this.width, this.height, 1],
+            size: [ this.width, this.height, 1 ],
             format: this.format,
-            usage: typeof GPUTextureUsage !== "undefined" ? GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC : 0x22
+            usage: typeof GPUTextureUsage !== "undefined" ? GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC : 34
         });
         this.targetView = this.targetTexture.createView();
-        var renderer = new WebGPURenderer({ clearColor: this.clearColor, pixelRatio: 1 });
-        renderer.adapter = this.adapter;
-        renderer.device = this.device;
-        renderer.format = this.format;
-        renderer.resourceManager = new WebGPUResourceManager(this.device);
-        renderer.initialized = true;
-        renderer.resize(this.width, this.height);
-        renderer._targetView = this.targetView;
-        renderer._targetDepthView = renderer.depthView;
-        this.renderer = renderer;
+        var zahsa = new WebGPURenderer({
+            clearColor: this.clearColor,
+            pixelRatio: 1
+        });
+        zahsa.adapter = this.adapter;
+        zahsa.device = this.device;
+        zahsa.format = this.format;
+        zahsa.resourceManager = new WebGPUResourceManager(this.device);
+        zahsa.initialized = true;
+        zahsa.resize(this.width, this.height);
+        zahsa._targetView = this.targetView;
+        zahsa._targetDepthView = zahsa.depthView;
+        this.renderer = zahsa;
         this.initialized = true;
         return this;
     }
-
-    render(scene, camera) {
+    render(zahsa, zahsb) {
         if (!this.initialized) throw new Error("HeadlessRenderer: not initialized");
-        if (!camera) camera = this.defaultCamera(scene);
-        this.renderer.render(scene, camera);
+        if (!zahsb) zahsb = this.defaultCamera(zahsa);
+        this.renderer.render(zahsa, zahsb);
         this.stats.renders++;
         this.stats.frames++;
         return this;
     }
-
-    // Synthesizes a camera looking at the origin (or a provided target).
-    defaultCamera(scene, options) {
-        options = options || {};
-        var aspect = this.width / this.height;
-        var camera = new PerspectiveCamera(options.fov || 50, aspect, options.near !== undefined ? options.near : 0.1, options.far !== undefined ? options.far : 1000);
-        var position = options.position || [0, 0, 5];
-        camera.position.set(position[0], position[1], position[2]);
-        var target = options.target || [0, 0, 0];
-        camera.lookAt(target[0], target[1], target[2]);
-        camera.updateMatrixWorld(true);
-        return camera;
+    defaultCamera(zahsa, zahsb) {
+        zahsb = zahsb || {};
+        var zahsc = this.width / this.height;
+        var zahsd = new PerspectiveCamera(zahsb.fov || 50, zahsc, zahsb.near !== undefined ? zahsb.near : .1, zahsb.far !== undefined ? zahsb.far : 1e3);
+        var zahse = zahsb.position || [ 0, 0, 5 ];
+        zahsd.position.set(zahse[0], zahse[1], zahse[2]);
+        var zahsf = zahsb.target || [ 0, 0, 0 ];
+        zahsd.lookAt(zahsf[0], zahsf[1], zahsf[2]);
+        zahsd.updateMatrixWorld(true);
+        return zahsd;
     }
-
-    // Renders once and returns the raw RGBA pixels of the offscreen target.
-    async renderAndRead(scene, camera) {
-        this.render(scene, camera);
+    async renderAndRead(zahsa, zahsb) {
+        this.render(zahsa, zahsb);
         return this.readPixels();
     }
-
     async readPixels() {
         if (!this.initialized) throw new Error("HeadlessRenderer: not initialized");
-        var bytesPerRow = Math.ceil(this.width * 4 / 256) * 256;
-        var staging = this.device.createBuffer({ size: bytesPerRow * this.height, usage: 0x1 | 0x8 }); // MAP_READ | COPY_DST
-        var encoder = this.device.createCommandEncoder();
-        encoder.copyTextureToBuffer({ texture: this.targetTexture }, { buffer: staging, bytesPerRow: bytesPerRow, rowsPerImage: this.height }, [this.width, this.height, 1]);
-        this.device.queue.submit([encoder.finish()]);
-        await staging.mapAsync(0x1); // READ
-        var mapped = new Uint8Array(staging.getMappedRange());
-        var out = new Uint8Array(this.width * this.height * 4);
-        for (var row = 0; row < this.height; row++) {
-            var source = row * bytesPerRow;
-            out.set(mapped.subarray(source, source + this.width * 4), row * this.width * 4);
+        var zahsa = Math.ceil(this.width * 4 / 256) * 256;
+        var zahsb = this.device.createBuffer({
+            size: zahsa * this.height,
+            usage: 1 | 8
+        });
+        var zahsc = this.device.createCommandEncoder();
+        zahsc.copyTextureToBuffer({
+            texture: this.targetTexture
+        }, {
+            buffer: zahsb,
+            bytesPerRow: zahsa,
+            rowsPerImage: this.height
+        }, [ this.width, this.height, 1 ]);
+        this.device.queue.submit([ zahsc.finish() ]);
+        await zahsb.mapAsync(1);
+        var zahsd = new Uint8Array(zahsb.getMappedRange());
+        var zahse = new Uint8Array(this.width * this.height * 4);
+        for (var zahsf = 0; zahsf < this.height; zahsf++) {
+            var zahsg = zahsf * zahsa;
+            zahse.set(zahsd.subarray(zahsg, zahsg + this.width * 4), zahsf * this.width * 4);
         }
-        staging.unmap();
-        staging.destroy();
-        this.lastPixels = out;
+        zahsb.unmap();
+        zahsb.destroy();
+        this.lastPixels = zahse;
         this.stats.readbacks++;
-        return out;
+        return zahse;
     }
-
-    async renderToPNG(scene, camera) {
-        var pixels = await this.renderAndRead(scene, camera);
-        return PNGCodec.encode(this.width, this.height, pixels);
+    async renderToPNG(zahsa, zahsb) {
+        var zahsc = await this.renderAndRead(zahsa, zahsb);
+        return PNGCodec.encode(this.width, this.height, zahsc);
     }
-
-    pixelHash(rgba) {
-        return PNGCodec.hashPixels(rgba || this.lastPixels);
+    pixelHash(zahsa) {
+        return PNGCodec.hashPixels(zahsa || this.lastPixels);
     }
-
-    async renderAndHash(scene, camera) {
-        var pixels = await this.renderAndRead(scene, camera);
-        return this.pixelHash(pixels);
+    async renderAndHash(zahsa, zahsb) {
+        var zahsc = await this.renderAndRead(zahsa, zahsb);
+        return this.pixelHash(zahsc);
     }
-
-    // Loads a .faox scene container (ArrayBuffer/Uint8Array in, or a URL).
-    async loadScene(source) {
-        if (!this._loader) this._loader = new FaoxLoader();
-        if (typeof source === "string") return this._loader.load(source);
-        var bytes = source instanceof Uint8Array ? source : new Uint8Array(source.buffer || source);
-        return this._loader.parse(bytes);
+    async loadScene(zahsa) {
+        if (!this._loader) this._loader = new FaoxLoader;
+        if (typeof zahsa === "string") return this._loader.load(zahsa);
+        var zahsb = zahsa instanceof Uint8Array ? zahsa : new Uint8Array(zahsa.buffer || zahsa);
+        return this._loader.parse(zahsb);
     }
-
     snapshot() {
-        return { width: this.width, height: this.height, format: this.format, frames: this.stats.frames, readbacks: this.stats.readbacks, ledger: this.ledger ? this.ledger.snapshot() : null };
+        return {
+            width: this.width,
+            height: this.height,
+            format: this.format,
+            frames: this.stats.frames,
+            readbacks: this.stats.readbacks,
+            ledger: this.ledger ? this.ledger.snapshot() : null
+        };
     }
-
     dispose() {
-        var safeDestroy = function(resource) { try { if (resource && typeof resource.destroy === "function") resource.destroy(); } catch (error) { /* already gone */ } };
+        var zahsa = function(zahsa) {
+            try {
+                if (zahsa && typeof zahsa.destroy === "function") zahsa.destroy();
+            } catch (zahsa) {}
+        };
         if (this.renderer) {
             this.renderer._targetView = null;
             this.renderer._targetDepthView = null;
             if (typeof this.renderer.invalidateGpuState === "function") this.renderer.invalidateGpuState();
             this.renderer = null;
         }
-        safeDestroy(this.targetTexture);
+        zahsa(this.targetTexture);
         this.targetTexture = null;
         this.targetView = null;
         if (this.ledger) this.ledger.dispose();

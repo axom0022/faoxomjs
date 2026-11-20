@@ -2,15 +2,15 @@ class WebXRPlaneDetector {
     constructor() {
         this.planes = [];
     }
-    update(frame, refSpace) {
-        if (!frame || !frame.detectedPlanes) return;
+    update(zajra, zajrb) {
+        if (!zajra || !zajra.detectedPlanes) return;
         this.planes = [];
-        frame.detectedPlanes.forEach(function(plane) {
+        zajra.detectedPlanes.forEach(function(zajra) {
             this.planes.push({
-                planeSpace: plane.planeSpace,
-                polygon: plane.polygon,
-                orientation: plane.orientation,
-                lastChangedTime: plane.lastChangedTime
+                planeSpace: zajra.planeSpace,
+                polygon: zajra.polygon,
+                orientation: zajra.orientation,
+                lastChangedTime: zajra.lastChangedTime
             });
         }.bind(this));
     }

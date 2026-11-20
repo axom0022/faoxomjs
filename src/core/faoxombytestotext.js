@@ -1,3 +1,7 @@
-function faoxombytestotext(bytes, start) { var text = "", first = start || 0; for (var i = first; i < bytes.length; i += 8192) text += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, bytes.length))); return text; }
+function faoxombytestotext(zadra, zadrb) {
+    var zadrc = "", zadrd = zadrb || 0;
+    for (var zadre = zadrd; zadre < zadra.length; zadre += 8192) zadrc += String.fromCharCode.apply(null, zadra.subarray(zadre, Math.min(zadre + 8192, zadra.length)));
+    return zadrc;
+}
 
 export { faoxombytestotext };

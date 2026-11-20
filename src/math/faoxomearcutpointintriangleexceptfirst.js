@@ -1,7 +1,7 @@
 import { faoxomearcutpointintriangle } from "./faoxomearcutpointintriangle.js";
 
-function faoxomearcutpointintriangleexceptfirst(ax, ay, bx, by, cx, cy, px, py) {
-    return !(ax === px && ay === py) && faoxomearcutpointintriangle(ax, ay, bx, by, cx, cy, px, py);
+function faoxomearcutpointintriangleexceptfirst(zapza, zapzb, zapzc, zapzd, zapze, zapzf, zapzg, zapzh) {
+    return !(zapza === zapzg && zapzb === zapzh) && faoxomearcutpointintriangle(zapza, zapzb, zapzc, zapzd, zapze, zapzf, zapzg, zapzh);
 }
 
 export { faoxomearcutpointintriangleexceptfirst };

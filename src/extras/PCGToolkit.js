@@ -1,489 +1,538 @@
 import { Color } from "../math/index.js";
+
 import { Matrix4 } from "../math/index.js";
+
 import { faoxomclamp, faoxomvalue } from "../math/index.js";
+
 import { Mesh } from "../objects/index.js";
+
 import { InstancedMesh } from "../objects/index.js";
+
 import { StandardMaterial } from "../materials/index.js";
+
 import { faoxomgeometry } from "../geometries/index.js";
 
 class PCGRandom {
-    constructor(seed) {
-        this.seed = seed === undefined ? 1 : seed | 0;
+    constructor(zaifa) {
+        this.seed = zaifa === undefined ? 1 : zaifa | 0;
         this.state = this.seed;
         this.spare = null;
     }
     next() {
-        this.state = (this.state + 0x6D2B79F5) | 0;
-        var t = this.state;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        this.state = this.state + 1831565813 | 0;
+        var zaifa = this.state;
+        zaifa = Math.imul(zaifa ^ zaifa >>> 15, zaifa | 1);
+        zaifa ^= zaifa + Math.imul(zaifa ^ zaifa >>> 7, zaifa | 61);
+        return ((zaifa ^ zaifa >>> 14) >>> 0) / 4294967296;
     }
-    range(min, max) {
-        return min + (max - min) * this.next();
+    range(zaifa, zaifb) {
+        return zaifa + (zaifb - zaifa) * this.next();
     }
-    int(min, max) {
-        return min + Math.floor(this.next() * (max - min + 1));
+    int(zaifa, zaifb) {
+        return zaifa + Math.floor(this.next() * (zaifb - zaifa + 1));
     }
-    chance(probability) {
-        return this.next() < probability;
+    chance(zaifa) {
+        return this.next() < zaifa;
     }
-    pick(list) {
-        return list[Math.floor(this.next() * list.length)];
+    pick(zaifa) {
+        return zaifa[Math.floor(this.next() * zaifa.length)];
     }
-    gauss(mu, sigma) {
+    gauss(zaifa, zaifb) {
         if (this.spare !== null) {
-            var v = this.spare;
+            var zaifc = this.spare;
             this.spare = null;
-            return mu + sigma * v;
+            return zaifa + zaifb * zaifc;
         }
-        var u = 0, w = 0, s = 0;
+        var zaifd = 0, zaife = 0, zaiff = 0;
         do {
-            u = this.next() * 2 - 1;
-            w = this.next() * 2 - 1;
-            s = u * u + w * w;
-        } while (s >= 1 || s === 0);
-        var m = Math.sqrt(-2 * Math.log(s) / s);
-        this.spare = w * m;
-        return mu + sigma * u * m;
+            zaifd = this.next() * 2 - 1;
+            zaife = this.next() * 2 - 1;
+            zaiff = zaifd * zaifd + zaife * zaife;
+        } while (zaiff >= 1 || zaiff === 0);
+        var zaifg = Math.sqrt(-2 * Math.log(zaiff) / zaiff);
+        this.spare = zaife * zaifg;
+        return zaifa + zaifb * zaifd * zaifg;
     }
-    shuffle(list) {
-        for (var i = list.length - 1; i > 0; i--) {
-            var j = Math.floor(this.next() * (i + 1));
-            var tmp = list[i];
-            list[i] = list[j];
-            list[j] = tmp;
+    shuffle(zaifa) {
+        for (var zaifb = zaifa.length - 1; zaifb > 0; zaifb--) {
+            var zaifc = Math.floor(this.next() * (zaifb + 1));
+            var zaifd = zaifa[zaifb];
+            zaifa[zaifb] = zaifa[zaifc];
+            zaifa[zaifc] = zaifd;
         }
-        return list;
+        return zaifa;
     }
 }
 
 class PCGNoise {
-    constructor(seed) {
-        this.seed = seed === undefined ? 1 : seed | 0;
+    constructor(zaifa) {
+        this.seed = zaifa === undefined ? 1 : zaifa | 0;
     }
-    hash2(ix, iy) {
-        var h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(this.seed, 2246822519)) | 0;
-        h = Math.imul(h ^ (h >>> 13), 1274126177);
-        h ^= h >>> 16;
-        return (h >>> 0) / 4294967296;
+    hash2(zaifa, zaifb) {
+        var zaifc = Math.imul(zaifa, 374761393) + Math.imul(zaifb, 668265263) + Math.imul(this.seed, 2246822519) | 0;
+        zaifc = Math.imul(zaifc ^ zaifc >>> 13, 1274126177);
+        zaifc ^= zaifc >>> 16;
+        return (zaifc >>> 0) / 4294967296;
     }
-    value2(x, y) {
-        var ix = Math.floor(x), iy = Math.floor(y);
-        var fx = x - ix, fy = y - iy;
-        var ux = fx * fx * fx * (fx * (fx * 6 - 15) + 10);
-        var uy = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
-        var a = this.hash2(ix, iy);
-        var b = this.hash2(ix + 1, iy);
-        var c = this.hash2(ix, iy + 1);
-        var d = this.hash2(ix + 1, iy + 1);
-        var ab = a + (b - a) * ux;
-        var cd = c + (d - c) * ux;
-        return ab + (cd - ab) * uy;
+    value2(zaifa, zaifb) {
+        var zaifc = Math.floor(zaifa), zaifd = Math.floor(zaifb);
+        var zaife = zaifa - zaifc, zaiff = zaifb - zaifd;
+        var zaifg = zaife * zaife * zaife * (zaife * (zaife * 6 - 15) + 10);
+        var zaifh = zaiff * zaiff * zaiff * (zaiff * (zaiff * 6 - 15) + 10);
+        var zaifi = this.hash2(zaifc, zaifd);
+        var zaifj = this.hash2(zaifc + 1, zaifd);
+        var zaifk = this.hash2(zaifc, zaifd + 1);
+        var zaifl = this.hash2(zaifc + 1, zaifd + 1);
+        var zaifm = zaifi + (zaifj - zaifi) * zaifg;
+        var zaifn = zaifk + (zaifl - zaifk) * zaifg;
+        return zaifm + (zaifn - zaifm) * zaifh;
     }
-    fbm2(x, y, options) {
-        options = options || {};
-        var octaves = options.octaves === undefined ? 4 : Math.max(1, options.octaves | 0);
-        var lacunarity = options.lacunarity === undefined ? 2 : options.lacunarity;
-        var gain = options.gain === undefined ? 0.5 : options.gain;
-        var ridge = !!options.ridge;
-        var warp = options.warp === undefined ? 0 : options.warp;
-        var xx = x, yy = y;
-        if (warp !== 0) {
-            xx = x + warp * (this.value2(x + 5.2, y + 1.3) - 0.5);
-            yy = y + warp * (this.value2(x - 3.7, y + 9.1) - 0.5);
+    fbm2(zaifa, zaifb, zaifc) {
+        zaifc = zaifc || {};
+        var zaifd = zaifc.octaves === undefined ? 4 : Math.max(1, zaifc.octaves | 0);
+        var zaife = zaifc.lacunarity === undefined ? 2 : zaifc.lacunarity;
+        var zaiff = zaifc.gain === undefined ? .5 : zaifc.gain;
+        var zaifg = !!zaifc.ridge;
+        var zaifh = zaifc.warp === undefined ? 0 : zaifc.warp;
+        var zaifi = zaifa, zaifj = zaifb;
+        if (zaifh !== 0) {
+            zaifi = zaifa + zaifh * (this.value2(zaifa + 5.2, zaifb + 1.3) - .5);
+            zaifj = zaifb + zaifh * (this.value2(zaifa - 3.7, zaifb + 9.1) - .5);
         }
-        var sum = 0, amp = 1, norm = 0, fx = xx, fy = yy;
-        for (var o = 0; o < octaves; o++) {
-            var v = this.value2(fx, fy);
-            if (ridge) v = 1 - Math.abs(2 * v - 1);
-            sum += v * amp;
-            norm += amp;
-            amp *= gain;
-            fx *= lacunarity;
-            fy *= lacunarity;
+        var zaifk = 0, zaifl = 1, zaifm = 0, zaifn = zaifi, zaifo = zaifj;
+        for (var zaifp = 0; zaifp < zaifd; zaifp++) {
+            var zaifq = this.value2(zaifn, zaifo);
+            if (zaifg) zaifq = 1 - Math.abs(2 * zaifq - 1);
+            zaifk += zaifq * zaifl;
+            zaifm += zaifl;
+            zaifl *= zaiff;
+            zaifn *= zaife;
+            zaifo *= zaife;
         }
-        return sum / norm;
+        return zaifk / zaifm;
     }
 }
 
 class PCGTerrain {
-    constructor(options) {
-        options = options || {};
-        this.seed = faoxomvalue(options.seed, 1);
-        this.width = faoxomvalue(options.width, 100);
-        this.depth = faoxomvalue(options.depth, 100);
-        this.segmentsX = Math.max(1, faoxomvalue(options.segmentsX, 64) | 0);
-        this.segmentsZ = Math.max(1, faoxomvalue(options.segmentsZ, 64) | 0);
-        this.height = faoxomvalue(options.height, 10);
-        this.frequency = faoxomvalue(options.frequency, 4);
-        this.octaves = faoxomvalue(options.octaves, 5);
-        this.lacunarity = faoxomvalue(options.lacunarity, 2);
-        this.gain = faoxomvalue(options.gain, 0.5);
-        this.ridge = !!options.ridge;
-        this.warp = faoxomvalue(options.warp, 0);
-        this.flats = options.flats || [];
-        this.zones = options.zones || [];
+    constructor(zaifa) {
+        zaifa = zaifa || {};
+        this.seed = faoxomvalue(zaifa.seed, 1);
+        this.width = faoxomvalue(zaifa.width, 100);
+        this.depth = faoxomvalue(zaifa.depth, 100);
+        this.segmentsX = Math.max(1, faoxomvalue(zaifa.segmentsX, 64) | 0);
+        this.segmentsZ = Math.max(1, faoxomvalue(zaifa.segmentsZ, 64) | 0);
+        this.height = faoxomvalue(zaifa.height, 10);
+        this.frequency = faoxomvalue(zaifa.frequency, 4);
+        this.octaves = faoxomvalue(zaifa.octaves, 5);
+        this.lacunarity = faoxomvalue(zaifa.lacunarity, 2);
+        this.gain = faoxomvalue(zaifa.gain, .5);
+        this.ridge = !!zaifa.ridge;
+        this.warp = faoxomvalue(zaifa.warp, 0);
+        this.flats = zaifa.flats || [];
+        this.zones = zaifa.zones || [];
         this.noise = new PCGNoise(this.seed);
-        var sx = this.segmentsX, sz = this.segmentsZ;
-        var nx = sx + 1, nz = sz + 1;
-        this.heights = new Float32Array(nx * nz);
-        for (var iz = 0; iz < nz; iz++) {
-            for (var ix = 0; ix < nx; ix++) {
-                var lx = (ix / sx - 0.5) * this.width;
-                var lz = (iz / sz - 0.5) * this.depth;
-                var c = this.noise.fbm2((ix / sx) * this.frequency, (iz / sz) * this.frequency, { octaves: this.octaves, lacunarity: this.lacunarity, gain: this.gain, ridge: this.ridge, warp: this.warp });
-                var h = c * this.height;
-                for (var f = 0; f < this.flats.length; f++) {
-                    var flat = this.flats[f];
-                    if (!flat || !(flat.radius > 0)) continue;
-                    var d = Math.sqrt((lx - flat.x) * (lx - flat.x) + (lz - flat.z) * (lz - flat.z));
-                    if (d >= flat.radius) continue;
-                    var inner = flat.radius * (1 - faoxomvalue(flat.falloff, 0.25));
-                    var w = faoxomclamp((d - inner) / Math.max(flat.radius - inner, 1e-9), 0, 1);
-                    w = w * w * (3 - 2 * w);
-                    h = flat.height + (h - flat.height) * w;
+        var zaifb = this.segmentsX, zaifc = this.segmentsZ;
+        var zaifd = zaifb + 1, zaife = zaifc + 1;
+        this.heights = new Float32Array(zaifd * zaife);
+        for (var zaiff = 0; zaiff < zaife; zaiff++) {
+            for (var zaifg = 0; zaifg < zaifd; zaifg++) {
+                var zaifh = (zaifg / zaifb - .5) * this.width;
+                var zaifi = (zaiff / zaifc - .5) * this.depth;
+                var zaifj = this.noise.fbm2(zaifg / zaifb * this.frequency, zaiff / zaifc * this.frequency, {
+                    octaves: this.octaves,
+                    lacunarity: this.lacunarity,
+                    gain: this.gain,
+                    ridge: this.ridge,
+                    warp: this.warp
+                });
+                var zaifk = zaifj * this.height;
+                for (var zaifl = 0; zaifl < this.flats.length; zaifl++) {
+                    var zaifm = this.flats[zaifl];
+                    if (!zaifm || !(zaifm.radius > 0)) continue;
+                    var zaifn = Math.sqrt((zaifh - zaifm.x) * (zaifh - zaifm.x) + (zaifi - zaifm.z) * (zaifi - zaifm.z));
+                    if (zaifn >= zaifm.radius) continue;
+                    var zaifo = zaifm.radius * (1 - faoxomvalue(zaifm.falloff, .25));
+                    var zaifp = faoxomclamp((zaifn - zaifo) / Math.max(zaifm.radius - zaifo, 1e-9), 0, 1);
+                    zaifp = zaifp * zaifp * (3 - 2 * zaifp);
+                    zaifk = zaifm.height + (zaifk - zaifm.height) * zaifp;
                 }
-                this.heights[iz * nx + ix] = h;
+                this.heights[zaiff * zaifd + zaifg] = zaifk;
             }
         }
-        var dx = this.width / sx, dz = this.depth / sz;
-        this.normals = new Float32Array(nx * nz * 3);
-        this.slopes = new Float32Array(nx * nz);
-        for (var z2 = 0; z2 < nz; z2++) {
-            for (var x2 = 0; x2 < nx; x2++) {
-                var xl = this.heights[z2 * nx + Math.max(x2 - 1, 0)];
-                var xr = this.heights[z2 * nx + Math.min(x2 + 1, sx)];
-                var zb = this.heights[Math.max(z2 - 1, 0) * nx + x2];
-                var zt = this.heights[Math.min(z2 + 1, sz) * nx + x2];
-                var stepx = (x2 === 0 || x2 === sx) ? dx : 2 * dx;
-                var stepz = (z2 === 0 || z2 === sz) ? dz : 2 * dz;
-                var gx = (xr - xl) / stepx;
-                var gz = (zt - zb) / stepz;
-                var l = Math.sqrt(gx * gx + gz * gz + 1);
-                this.normals[(z2 * nx + x2) * 3] = -gx / l;
-                this.normals[(z2 * nx + x2) * 3 + 1] = 1 / l;
-                this.normals[(z2 * nx + x2) * 3 + 2] = -gz / l;
-                this.slopes[z2 * nx + x2] = Math.acos(faoxomclamp(1 / l, -1, 1));
+        var zaifq = this.width / zaifb, zaifr = this.depth / zaifc;
+        this.normals = new Float32Array(zaifd * zaife * 3);
+        this.slopes = new Float32Array(zaifd * zaife);
+        for (var zaifs = 0; zaifs < zaife; zaifs++) {
+            for (var zaift = 0; zaift < zaifd; zaift++) {
+                var zaifu = this.heights[zaifs * zaifd + Math.max(zaift - 1, 0)];
+                var zaifv = this.heights[zaifs * zaifd + Math.min(zaift + 1, zaifb)];
+                var zaifw = this.heights[Math.max(zaifs - 1, 0) * zaifd + zaift];
+                var zaifx = this.heights[Math.min(zaifs + 1, zaifc) * zaifd + zaift];
+                var zaify = zaift === 0 || zaift === zaifb ? zaifq : 2 * zaifq;
+                var zaifz = zaifs === 0 || zaifs === zaifc ? zaifr : 2 * zaifr;
+                var zaifaa = (zaifv - zaifu) / zaify;
+                var zaifab = (zaifx - zaifw) / zaifz;
+                var zaifac = Math.sqrt(zaifaa * zaifaa + zaifab * zaifab + 1);
+                this.normals[(zaifs * zaifd + zaift) * 3] = -zaifaa / zaifac;
+                this.normals[(zaifs * zaifd + zaift) * 3 + 1] = 1 / zaifac;
+                this.normals[(zaifs * zaifd + zaift) * 3 + 2] = -zaifab / zaifac;
+                this.slopes[zaifs * zaifd + zaift] = Math.acos(faoxomclamp(1 / zaifac, -1, 1));
             }
         }
-        this.zoneIndices = new Int16Array(nx * nz);
-        this.colors = new Float32Array(nx * nz * 3);
-        for (var z3 = 0; z3 < nz; z3++) {
-            for (var x3 = 0; x3 < nx; x3++) {
-                var i = z3 * nx + x3;
-                var zi = this.zoneIndexFor(this.heights[i], this.slopes[i]);
-                this.zoneIndices[i] = zi;
-                var col = this.zoneColor(zi);
-                this.colors[i * 3] = col[0];
-                this.colors[i * 3 + 1] = col[1];
-                this.colors[i * 3 + 2] = col[2];
+        this.zoneIndices = new Int16Array(zaifd * zaife);
+        this.colors = new Float32Array(zaifd * zaife * 3);
+        for (var zaifad = 0; zaifad < zaife; zaifad++) {
+            for (var zaifae = 0; zaifae < zaifd; zaifae++) {
+                var zaifaf = zaifad * zaifd + zaifae;
+                var zaifag = this.zoneIndexFor(this.heights[zaifaf], this.slopes[zaifaf]);
+                this.zoneIndices[zaifaf] = zaifag;
+                var zaifah = this.zoneColor(zaifag);
+                this.colors[zaifaf * 3] = zaifah[0];
+                this.colors[zaifaf * 3 + 1] = zaifah[1];
+                this.colors[zaifaf * 3 + 2] = zaifah[2];
             }
         }
     }
-    zoneIndexFor(h, slope) {
-        for (var i = 0; i < this.zones.length; i++) {
-            var z = this.zones[i];
-            var minh = z.minHeight === undefined ? -Infinity : z.minHeight;
-            var maxh = z.maxHeight === undefined ? Infinity : z.maxHeight;
-            var maxs = z.maxSlope === undefined ? Infinity : z.maxSlope;
-            if (h >= minh && h <= maxh && slope <= maxs) return i;
+    zoneIndexFor(zaifa, zaifb) {
+        for (var zaifc = 0; zaifc < this.zones.length; zaifc++) {
+            var zaifd = this.zones[zaifc];
+            var zaife = zaifd.minHeight === undefined ? -Infinity : zaifd.minHeight;
+            var zaiff = zaifd.maxHeight === undefined ? Infinity : zaifd.maxHeight;
+            var zaifg = zaifd.maxSlope === undefined ? Infinity : zaifd.maxSlope;
+            if (zaifa >= zaife && zaifa <= zaiff && zaifb <= zaifg) return zaifc;
         }
         return -1;
     }
-    zoneColor(zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= this.zones.length) return [1, 1, 1];
-        var c = this.zones[zoneIndex].color;
-        if (c === undefined) return [1, 1, 1];
-        if (typeof c === "number") {
-            var col = new Color(c);
-            return [col.r, col.g, col.b];
+    zoneColor(zaifa) {
+        if (zaifa < 0 || zaifa >= this.zones.length) return [ 1, 1, 1 ];
+        var zaifb = this.zones[zaifa].color;
+        if (zaifb === undefined) return [ 1, 1, 1 ];
+        if (typeof zaifb === "number") {
+            var zaifc = new Color(zaifb);
+            return [ zaifc.r, zaifc.g, zaifc.b ];
         }
-        if (c && c.r !== undefined) return [c.r, c.g === undefined ? c.r : c.g, c.b === undefined ? c.r : c.b];
-        if (c && c.length >= 3) return [c[0], c[1], c[2]];
-        return [1, 1, 1];
+        if (zaifb && zaifb.r !== undefined) return [ zaifb.r, zaifb.g === undefined ? zaifb.r : zaifb.g, zaifb.b === undefined ? zaifb.r : zaifb.b ];
+        if (zaifb && zaifb.length >= 3) return [ zaifb[0], zaifb[1], zaifb[2] ];
+        return [ 1, 1, 1 ];
     }
-    zoneIndexByName(name) {
-        for (var i = 0; i < this.zones.length; i++) if (this.zones[i].name === name) return i;
+    zoneIndexByName(zaifa) {
+        for (var zaifb = 0; zaifb < this.zones.length; zaifb++) if (this.zones[zaifb].name === zaifa) return zaifb;
         return -1;
     }
-    gridX(wx) {
-        return faoxomclamp(wx / this.width + 0.5, 0, 1) * this.segmentsX;
+    gridX(zaifa) {
+        return faoxomclamp(zaifa / this.width + .5, 0, 1) * this.segmentsX;
     }
-    gridZ(wz) {
-        return faoxomclamp(wz / this.depth + 0.5, 0, 1) * this.segmentsZ;
+    gridZ(zaifa) {
+        return faoxomclamp(zaifa / this.depth + .5, 0, 1) * this.segmentsZ;
     }
-    bilinear(array, fx, fz) {
-        var nx = this.segmentsX + 1;
-        var x0 = Math.min(this.segmentsX, Math.floor(fx));
-        var z0 = Math.min(this.segmentsZ, Math.floor(fz));
-        var x1 = Math.min(this.segmentsX, x0 + 1);
-        var z1 = Math.min(this.segmentsZ, z0 + 1);
-        var tx = fx - x0;
-        var tz = fz - z0;
-        var a = array[z0 * nx + x0];
-        var b = array[z0 * nx + x1];
-        var c = array[z1 * nx + x0];
-        var d = array[z1 * nx + x1];
-        var ab = a + (b - a) * tx;
-        var cd = c + (d - c) * tx;
-        return ab + (cd - ab) * tz;
+    bilinear(zaifa, zaifb, zaifc) {
+        var zaifd = this.segmentsX + 1;
+        var zaife = Math.min(this.segmentsX, Math.floor(zaifb));
+        var zaiff = Math.min(this.segmentsZ, Math.floor(zaifc));
+        var zaifg = Math.min(this.segmentsX, zaife + 1);
+        var zaifh = Math.min(this.segmentsZ, zaiff + 1);
+        var zaifi = zaifb - zaife;
+        var zaifj = zaifc - zaiff;
+        var zaifk = zaifa[zaiff * zaifd + zaife];
+        var zaifl = zaifa[zaiff * zaifd + zaifg];
+        var zaifm = zaifa[zaifh * zaifd + zaife];
+        var zaifn = zaifa[zaifh * zaifd + zaifg];
+        var zaifo = zaifk + (zaifl - zaifk) * zaifi;
+        var zaifp = zaifm + (zaifn - zaifm) * zaifi;
+        return zaifo + (zaifp - zaifo) * zaifj;
     }
-    heightAt(wx, wz) {
-        return this.bilinear(this.heights, this.gridX(wx), this.gridZ(wz));
+    heightAt(zaifa, zaifb) {
+        return this.bilinear(this.heights, this.gridX(zaifa), this.gridZ(zaifb));
     }
-    slopeAt(wx, wz) {
-        return this.bilinear(this.slopes, this.gridX(wx), this.gridZ(wz));
+    slopeAt(zaifa, zaifb) {
+        return this.bilinear(this.slopes, this.gridX(zaifa), this.gridZ(zaifb));
     }
-    zoneAt(wx, wz) {
-        var ix = Math.round(this.gridX(wx));
-        var iz = Math.round(this.gridZ(wz));
-        ix = faoxomclamp(ix, 0, this.segmentsX);
-        iz = faoxomclamp(iz, 0, this.segmentsZ);
-        return this.zoneIndices[iz * (this.segmentsX + 1) + ix];
+    zoneAt(zaifa, zaifb) {
+        var zaifc = Math.round(this.gridX(zaifa));
+        var zaifd = Math.round(this.gridZ(zaifb));
+        zaifc = faoxomclamp(zaifc, 0, this.segmentsX);
+        zaifd = faoxomclamp(zaifd, 0, this.segmentsZ);
+        return this.zoneIndices[zaifd * (this.segmentsX + 1) + zaifc];
     }
-    toMesh(material) {
-        var sx = this.segmentsX, sz = this.segmentsZ;
-        var nx = sx + 1;
-        var p = [], n = [], u = [], ind = [];
-        for (var iz = 0; iz <= sz; iz++) {
-            for (var ix = 0; ix <= sx; ix++) {
-                var i = iz * nx + ix;
-                p.push((ix / sx - 0.5) * this.width, this.heights[i], (iz / sz - 0.5) * this.depth);
-                n.push(this.normals[i * 3], this.normals[i * 3 + 1], this.normals[i * 3 + 2]);
-                u.push(ix / sx, iz / sz);
+    toMesh(zaifa) {
+        var zaifb = this.segmentsX, zaifc = this.segmentsZ;
+        var zaifd = zaifb + 1;
+        var zaife = [], zaiff = [], zaifg = [], zaifh = [];
+        for (var zaifi = 0; zaifi <= zaifc; zaifi++) {
+            for (var zaifj = 0; zaifj <= zaifb; zaifj++) {
+                var zaifk = zaifi * zaifd + zaifj;
+                zaife.push((zaifj / zaifb - .5) * this.width, this.heights[zaifk], (zaifi / zaifc - .5) * this.depth);
+                zaiff.push(this.normals[zaifk * 3], this.normals[zaifk * 3 + 1], this.normals[zaifk * 3 + 2]);
+                zaifg.push(zaifj / zaifb, zaifi / zaifc);
             }
         }
-        for (var zz = 0; zz < sz; zz++) {
-            for (var xx = 0; xx < sx; xx++) {
-                var a = zz * nx + xx;
-                var b = a + 1;
-                var c = a + nx;
-                var d = c + 1;
-                ind.push(a, c, b, b, c, d);
+        for (var zaifl = 0; zaifl < zaifc; zaifl++) {
+            for (var zaifm = 0; zaifm < zaifb; zaifm++) {
+                var zaifn = zaifl * zaifd + zaifm;
+                var zaifo = zaifn + 1;
+                var zaifp = zaifn + zaifd;
+                var zaifq = zaifp + 1;
+                zaifh.push(zaifn, zaifp, zaifo, zaifo, zaifp, zaifq);
             }
         }
-        var g = faoxomgeometry(p, n, u, ind);
-        g.setAttribute("color", this.colors, 3);
-        return new Mesh(g, material || new StandardMaterial());
+        var zaifr = faoxomgeometry(zaife, zaiff, zaifg, zaifh);
+        zaifr.setAttribute("color", this.colors, 3);
+        return new Mesh(zaifr, zaifa || new StandardMaterial);
     }
 }
 
 class PCGScatter {
-    constructor(source) {
-        this.source = source;
+    constructor(zaifa) {
+        this.source = zaifa;
         this.transforms = [];
-        if (source && source.bounds) {
-            this.bounds = source.bounds;
-        } else if (source && source.width !== undefined && source.depth !== undefined) {
-            this.bounds = { minX: -source.width * 0.5, maxX: source.width * 0.5, minZ: -source.depth * 0.5, maxZ: source.depth * 0.5 };
+        if (zaifa && zaifa.bounds) {
+            this.bounds = zaifa.bounds;
+        } else if (zaifa && zaifa.width !== undefined && zaifa.depth !== undefined) {
+            this.bounds = {
+                minX: -zaifa.width * .5,
+                maxX: zaifa.width * .5,
+                minZ: -zaifa.depth * .5,
+                maxZ: zaifa.depth * .5
+            };
         } else {
-            this.bounds = { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
+            this.bounds = {
+                minX: -50,
+                maxX: 50,
+                minZ: -50,
+                maxZ: 50
+            };
         }
     }
-    satisfies(x, z, rules) {
-        var h = this.source.heightAt(x, z);
-        var slope = this.source.slopeAt(x, z);
-        var zone = this.source.zoneAt ? this.source.zoneAt(x, z) : 0;
-        var minh = rules.minHeight === undefined ? -Infinity : rules.minHeight;
-        var maxh = rules.maxHeight === undefined ? Infinity : rules.maxHeight;
-        var mins = rules.minSlope === undefined ? 0 : rules.minSlope;
-        var maxs = rules.maxSlope === undefined ? Infinity : rules.maxSlope;
-        if (h < minh || h > maxh) return false;
-        if (slope < mins || slope > maxs) return false;
-        if (rules.zones && rules.zones.length && rules.zones.indexOf(zone) < 0) return false;
+    satisfies(zaifa, zaifb, zaifc) {
+        var zaifd = this.source.heightAt(zaifa, zaifb);
+        var zaife = this.source.slopeAt(zaifa, zaifb);
+        var zaiff = this.source.zoneAt ? this.source.zoneAt(zaifa, zaifb) : 0;
+        var zaifg = zaifc.minHeight === undefined ? -Infinity : zaifc.minHeight;
+        var zaifh = zaifc.maxHeight === undefined ? Infinity : zaifc.maxHeight;
+        var zaifi = zaifc.minSlope === undefined ? 0 : zaifc.minSlope;
+        var zaifj = zaifc.maxSlope === undefined ? Infinity : zaifc.maxSlope;
+        if (zaifd < zaifg || zaifd > zaifh) return false;
+        if (zaife < zaifi || zaife > zaifj) return false;
+        if (zaifc.zones && zaifc.zones.length && zaifc.zones.indexOf(zaiff) < 0) return false;
         return true;
     }
-    scatter(rules) {
-        rules = rules || {};
-        var count = Math.max(0, faoxomvalue(rules.count, 16) | 0);
-        var mode = rules.mode === "poisson" ? "poisson" : "jitter";
-        var rng = new PCGRandom(faoxomvalue(rules.seed, 1));
-        var rotation = rules.rotation !== false;
-        var scaleMin = faoxomvalue(rules.scaleMin, 1);
-        var scaleMax = rules.scaleMax === undefined ? scaleMin : rules.scaleMax;
-        var yOffset = faoxomvalue(rules.yOffset, 0);
+    scatter(zaifa) {
+        zaifa = zaifa || {};
+        var zaifb = Math.max(0, faoxomvalue(zaifa.count, 16) | 0);
+        var zaifc = zaifa.mode === "poisson" ? "poisson" : "jitter";
+        var zaifd = new PCGRandom(faoxomvalue(zaifa.seed, 1));
+        var zaife = zaifa.rotation !== false;
+        var zaiff = faoxomvalue(zaifa.scaleMin, 1);
+        var zaifg = zaifa.scaleMax === undefined ? zaiff : zaifa.scaleMax;
+        var zaifh = faoxomvalue(zaifa.yOffset, 0);
         this.transforms = [];
-        var self = this;
-        function push(x, z) {
-            var h = self.source.heightAt(x, z) + yOffset;
-            var rot = rotation ? rng.range(0, Math.PI * 2) : 0;
-            var sc = rng.range(scaleMin, scaleMax);
-            self.transforms.push({ position: [x, h, z], rotationY: rot, scale: sc });
+        var zaifi = this;
+        function zaifj(zaifa, zaifb) {
+            var zaifc = zaifi.source.heightAt(zaifa, zaifb) + zaifh;
+            var zaifj = zaife ? zaifd.range(0, Math.PI * 2) : 0;
+            var zaifk = zaifd.range(zaiff, zaifg);
+            zaifi.transforms.push({
+                position: [ zaifa, zaifc, zaifb ],
+                rotationY: zaifj,
+                scale: zaifk
+            });
         }
-        if (mode === "jitter") {
-            var maxAttempts = faoxomvalue(rules.maxAttempts, count * 30);
-            var attempts = 0;
-            while (this.transforms.length < count && attempts < maxAttempts) {
-                attempts++;
-                var x = rng.range(this.bounds.minX, this.bounds.maxX);
-                var z = rng.range(this.bounds.minZ, this.bounds.maxZ);
-                if (!this.satisfies(x, z, rules)) continue;
-                push(x, z);
+        if (zaifc === "jitter") {
+            var zaifk = faoxomvalue(zaifa.maxAttempts, zaifb * 30);
+            var zaifl = 0;
+            while (this.transforms.length < zaifb && zaifl < zaifk) {
+                zaifl++;
+                var zaifm = zaifd.range(this.bounds.minX, this.bounds.maxX);
+                var zaifn = zaifd.range(this.bounds.minZ, this.bounds.maxZ);
+                if (!this.satisfies(zaifm, zaifn, zaifa)) continue;
+                zaifj(zaifm, zaifn);
             }
         } else {
-            var radius = Math.max(0.0001, faoxomvalue(rules.radius, 1));
-            var cell = radius / 1.4142135623730951;
-            var gw = Math.max(1, Math.ceil((this.bounds.maxX - this.bounds.minX) / cell));
-            var gh = Math.max(1, Math.ceil((this.bounds.maxZ - this.bounds.minZ) / cell));
-            var grid = new Int32Array(gw * gh).fill(-1);
-            var points = [];
-            var active = [];
-            var tries = faoxomvalue(rules.tries, 30);
-            var startAttempts = 0;
-            while (points.length === 0 && startAttempts < faoxomvalue(rules.maxAttempts, 100)) {
-                startAttempts++;
-                var sx = rng.range(this.bounds.minX, this.bounds.maxX);
-                var sz = rng.range(this.bounds.minZ, this.bounds.maxZ);
-                if (!this.satisfies(sx, sz, rules)) continue;
-                points.push([sx, sz]);
-                grid[Math.min(gh - 1, Math.floor((sz - this.bounds.minZ) / cell)) * gw + Math.min(gw - 1, Math.floor((sx - this.bounds.minX) / cell))] = 0;
-                active.push(0);
+            var zaifo = Math.max(1e-4, faoxomvalue(zaifa.radius, 1));
+            var zaifp = zaifo / 1.4142135623730951;
+            var zaifq = Math.max(1, Math.ceil((this.bounds.maxX - this.bounds.minX) / zaifp));
+            var zaifr = Math.max(1, Math.ceil((this.bounds.maxZ - this.bounds.minZ) / zaifp));
+            var zaifs = new Int32Array(zaifq * zaifr).fill(-1);
+            var zaift = [];
+            var zaifu = [];
+            var zaifv = faoxomvalue(zaifa.tries, 30);
+            var zaifw = 0;
+            while (zaift.length === 0 && zaifw < faoxomvalue(zaifa.maxAttempts, 100)) {
+                zaifw++;
+                var zaifx = zaifd.range(this.bounds.minX, this.bounds.maxX);
+                var zaify = zaifd.range(this.bounds.minZ, this.bounds.maxZ);
+                if (!this.satisfies(zaifx, zaify, zaifa)) continue;
+                zaift.push([ zaifx, zaify ]);
+                zaifs[Math.min(zaifr - 1, Math.floor((zaify - this.bounds.minZ) / zaifp)) * zaifq + Math.min(zaifq - 1, Math.floor((zaifx - this.bounds.minX) / zaifp))] = 0;
+                zaifu.push(0);
             }
-            while (active.length > 0 && points.length < count) {
-                var ai = rng.int(0, active.length - 1);
-                var base = points[active[ai]];
-                var placed = false;
-                for (var t = 0; t < tries && points.length < count; t++) {
-                    var ang = rng.range(0, Math.PI * 2);
-                    var dist = rng.range(radius, 2 * radius);
-                    var cx = base[0] + Math.cos(ang) * dist;
-                    var cz = base[1] + Math.sin(ang) * dist;
-                    if (cx < this.bounds.minX || cx > this.bounds.maxX || cz < this.bounds.minZ || cz > this.bounds.maxZ) continue;
-                    if (!this.satisfies(cx, cz, rules)) continue;
-                    var gx = Math.min(gw - 1, Math.floor((cx - this.bounds.minX) / cell));
-                    var gz = Math.min(gh - 1, Math.floor((cz - this.bounds.minZ) / cell));
-                    var ok = true;
-                    for (var oz = Math.max(0, gz - 2); oz <= Math.min(gh - 1, gz + 2) && ok; oz++) {
-                        for (var ox = Math.max(0, gx - 2); ox <= Math.min(gw - 1, gx + 2); ox++) {
-                            var pi = grid[oz * gw + ox];
-                            if (pi < 0) continue;
-                            var dx = points[pi][0] - cx;
-                            var dz = points[pi][1] - cz;
-                            if (dx * dx + dz * dz < radius * radius) { ok = false; break; }
+            while (zaifu.length > 0 && zaift.length < zaifb) {
+                var zaifz = zaifd.int(0, zaifu.length - 1);
+                var zaifaa = zaift[zaifu[zaifz]];
+                var zaifab = false;
+                for (var zaifac = 0; zaifac < zaifv && zaift.length < zaifb; zaifac++) {
+                    var zaifad = zaifd.range(0, Math.PI * 2);
+                    var zaifae = zaifd.range(zaifo, 2 * zaifo);
+                    var zaifaf = zaifaa[0] + Math.cos(zaifad) * zaifae;
+                    var zaifag = zaifaa[1] + Math.sin(zaifad) * zaifae;
+                    if (zaifaf < this.bounds.minX || zaifaf > this.bounds.maxX || zaifag < this.bounds.minZ || zaifag > this.bounds.maxZ) continue;
+                    if (!this.satisfies(zaifaf, zaifag, zaifa)) continue;
+                    var zaifah = Math.min(zaifq - 1, Math.floor((zaifaf - this.bounds.minX) / zaifp));
+                    var zaifai = Math.min(zaifr - 1, Math.floor((zaifag - this.bounds.minZ) / zaifp));
+                    var zaifaj = true;
+                    for (var zaifak = Math.max(0, zaifai - 2); zaifak <= Math.min(zaifr - 1, zaifai + 2) && zaifaj; zaifak++) {
+                        for (var zaifal = Math.max(0, zaifah - 2); zaifal <= Math.min(zaifq - 1, zaifah + 2); zaifal++) {
+                            var zaifam = zaifs[zaifak * zaifq + zaifal];
+                            if (zaifam < 0) continue;
+                            var zaifan = zaift[zaifam][0] - zaifaf;
+                            var zaifao = zaift[zaifam][1] - zaifag;
+                            if (zaifan * zaifan + zaifao * zaifao < zaifo * zaifo) {
+                                zaifaj = false;
+                                break;
+                            }
                         }
                     }
-                    if (!ok) continue;
-                    points.push([cx, cz]);
-                    grid[gz * gw + gx] = points.length - 1;
-                    active.push(points.length - 1);
-                    placed = true;
+                    if (!zaifaj) continue;
+                    zaift.push([ zaifaf, zaifag ]);
+                    zaifs[zaifai * zaifq + zaifah] = zaift.length - 1;
+                    zaifu.push(zaift.length - 1);
+                    zaifab = true;
                 }
-                if (!placed) {
-                    active[ai] = active[active.length - 1];
-                    active.pop();
+                if (!zaifab) {
+                    zaifu[zaifz] = zaifu[zaifu.length - 1];
+                    zaifu.pop();
                 }
             }
-            for (var pI = 0; pI < points.length; pI++) push(points[pI][0], points[pI][1]);
+            for (var zaifap = 0; zaifap < zaift.length; zaifap++) zaifj(zaift[zaifap][0], zaift[zaifap][1]);
         }
         return this.transforms;
     }
     matrices() {
-        var out = [];
-        var t = new Matrix4(), r = new Matrix4(), s = new Matrix4(), m = new Matrix4();
-        for (var i = 0; i < this.transforms.length; i++) {
-            var tr = this.transforms[i];
-            t.makeTranslation(tr.position[0], tr.position[1], tr.position[2]);
-            r.makeRotationY(tr.rotationY);
-            s.makeScale(tr.scale, tr.scale, tr.scale);
-            m.multiplyMatrices(t, r).multiply(s);
-            out.push(m.clone());
-            m.identity();
+        var zaifa = [];
+        var zaifb = new Matrix4, zaifc = new Matrix4, zaifd = new Matrix4, zaife = new Matrix4;
+        for (var zaiff = 0; zaiff < this.transforms.length; zaiff++) {
+            var zaifg = this.transforms[zaiff];
+            zaifb.makeTranslation(zaifg.position[0], zaifg.position[1], zaifg.position[2]);
+            zaifc.makeRotationY(zaifg.rotationY);
+            zaifd.makeScale(zaifg.scale, zaifg.scale, zaifg.scale);
+            zaife.multiplyMatrices(zaifb, zaifc).multiply(zaifd);
+            zaifa.push(zaife.clone());
+            zaife.identity();
         }
-        return out;
+        return zaifa;
     }
-    toInstancedMesh(geometry, material) {
-        var mesh = new InstancedMesh(geometry, material, this.transforms.length);
-        var mats = this.matrices();
-        for (var i = 0; i < mats.length; i++) mesh.setMatrixAt(i, mats[i]);
-        return mesh;
+    toInstancedMesh(zaifa, zaifb) {
+        var zaifc = new InstancedMesh(zaifa, zaifb, this.transforms.length);
+        var zaifd = this.matrices();
+        for (var zaife = 0; zaife < zaifd.length; zaife++) zaifc.setMatrixAt(zaife, zaifd[zaife]);
+        return zaifc;
     }
 }
 
 class PCGDungeon {
-    constructor(options) {
-        options = options || {};
-        this.seed = faoxomvalue(options.seed, 1);
-        this.cols = Math.max(8, faoxomvalue(options.cols, 48) | 0);
-        this.rows = Math.max(8, faoxomvalue(options.rows, 48) | 0);
-        this.attempts = Math.max(1, faoxomvalue(options.attempts, 12) | 0);
-        this.roomMin = Math.max(2, faoxomvalue(options.roomMin, 4) | 0);
-        this.roomMax = Math.max(this.roomMin, faoxomvalue(options.roomMax, 9) | 0);
+    constructor(zaifa) {
+        zaifa = zaifa || {};
+        this.seed = faoxomvalue(zaifa.seed, 1);
+        this.cols = Math.max(8, faoxomvalue(zaifa.cols, 48) | 0);
+        this.rows = Math.max(8, faoxomvalue(zaifa.rows, 48) | 0);
+        this.attempts = Math.max(1, faoxomvalue(zaifa.attempts, 12) | 0);
+        this.roomMin = Math.max(2, faoxomvalue(zaifa.roomMin, 4) | 0);
+        this.roomMax = Math.max(this.roomMin, faoxomvalue(zaifa.roomMax, 9) | 0);
         this.rooms = [];
         this.corridors = [];
         this.doors = [];
         this.tiles = new Uint8Array(this.cols * this.rows);
         this.generate();
     }
-    tileAt(x, z) {
-        if (x < 0 || z < 0 || x >= this.cols || z >= this.rows) return 0;
-        return this.tiles[z * this.cols + x];
+    tileAt(zaifa, zaifb) {
+        if (zaifa < 0 || zaifb < 0 || zaifa >= this.cols || zaifb >= this.rows) return 0;
+        return this.tiles[zaifb * this.cols + zaifa];
     }
-    carveRect(x, z, w, h) {
-        for (var iz = z; iz < z + h; iz++) {
-            for (var ix = x; ix < x + w; ix++) {
-                if (ix >= 0 && iz >= 0 && ix < this.cols && iz < this.rows) this.tiles[iz * this.cols + ix] = 1;
+    carveRect(zaifa, zaifb, zaifc, zaifd) {
+        for (var zaife = zaifb; zaife < zaifb + zaifd; zaife++) {
+            for (var zaiff = zaifa; zaiff < zaifa + zaifc; zaiff++) {
+                if (zaiff >= 0 && zaife >= 0 && zaiff < this.cols && zaife < this.rows) this.tiles[zaife * this.cols + zaiff] = 1;
             }
         }
     }
-    carveLine(x1, z1, x2, z2) {
-        var x = x1;
-        var z = z1;
-        var stepX = x2 >= x1 ? 1 : -1;
-        var stepZ = z2 >= z1 ? 1 : -1;
-        while (x !== x2) {
-            x += stepX;
-            if (x >= 0 && z >= 0 && x < this.cols && z < this.rows) this.tiles[z * this.cols + x] = 1;
+    carveLine(zaifa, zaifb, zaifc, zaifd) {
+        var zaife = zaifa;
+        var zaiff = zaifb;
+        var zaifg = zaifc >= zaifa ? 1 : -1;
+        var zaifh = zaifd >= zaifb ? 1 : -1;
+        while (zaife !== zaifc) {
+            zaife += zaifg;
+            if (zaife >= 0 && zaiff >= 0 && zaife < this.cols && zaiff < this.rows) this.tiles[zaiff * this.cols + zaife] = 1;
         }
-        while (z !== z2) {
-            z += stepZ;
-            if (x >= 0 && z >= 0 && x < this.cols && z < this.rows) this.tiles[z * this.cols + x] = 1;
+        while (zaiff !== zaifd) {
+            zaiff += zaifh;
+            if (zaife >= 0 && zaiff >= 0 && zaife < this.cols && zaiff < this.rows) this.tiles[zaiff * this.cols + zaife] = 1;
         }
     }
     generate() {
-        var rng = new PCGRandom(this.seed);
-        var maxRoom = Math.min(this.roomMax, Math.min(this.cols, this.rows) - 3);
-        if (maxRoom < this.roomMin) maxRoom = this.roomMin;
-        for (var a = 0; a < this.attempts; a++) {
-            var w = rng.int(this.roomMin, maxRoom);
-            var h = rng.int(this.roomMin, maxRoom);
-            var x = rng.int(1, Math.max(1, this.cols - w - 2));
-            var z = rng.int(1, Math.max(1, this.rows - h - 2));
-            var overlap = false;
-            for (var r = 0; r < this.rooms.length; r++) {
-                var rr = this.rooms[r];
-                if (x < rr.x + rr.w + 1 && x + w + 1 > rr.x && z < rr.z + rr.h + 1 && z + h + 1 > rr.z) { overlap = true; break; }
+        var zaifa = new PCGRandom(this.seed);
+        var zaifb = Math.min(this.roomMax, Math.min(this.cols, this.rows) - 3);
+        if (zaifb < this.roomMin) zaifb = this.roomMin;
+        for (var zaifc = 0; zaifc < this.attempts; zaifc++) {
+            var zaifd = zaifa.int(this.roomMin, zaifb);
+            var zaife = zaifa.int(this.roomMin, zaifb);
+            var zaiff = zaifa.int(1, Math.max(1, this.cols - zaifd - 2));
+            var zaifg = zaifa.int(1, Math.max(1, this.rows - zaife - 2));
+            var zaifh = false;
+            for (var zaifi = 0; zaifi < this.rooms.length; zaifi++) {
+                var zaifj = this.rooms[zaifi];
+                if (zaiff < zaifj.x + zaifj.w + 1 && zaiff + zaifd + 1 > zaifj.x && zaifg < zaifj.z + zaifj.h + 1 && zaifg + zaife + 1 > zaifj.z) {
+                    zaifh = true;
+                    break;
+                }
             }
-            if (overlap) continue;
-            this.rooms.push({ x: x, z: z, w: w, h: h, cx: x + Math.floor(w / 2), cz: z + Math.floor(h / 2) });
-            this.carveRect(x, z, w, h);
+            if (zaifh) continue;
+            this.rooms.push({
+                x: zaiff,
+                z: zaifg,
+                w: zaifd,
+                h: zaife,
+                cx: zaiff + Math.floor(zaifd / 2),
+                cz: zaifg + Math.floor(zaife / 2)
+            });
+            this.carveRect(zaiff, zaifg, zaifd, zaife);
         }
-        for (var i = 1; i < this.rooms.length; i++) {
-            var from = this.rooms[i - 1];
-            var to = this.rooms[i];
-            var horizFirst = rng.chance(0.5);
-            if (horizFirst) {
-                this.carveLine(from.cx, from.cz, to.cx, from.cz);
-                this.carveLine(to.cx, from.cz, to.cx, to.cz);
+        for (var zaifk = 1; zaifk < this.rooms.length; zaifk++) {
+            var zaifl = this.rooms[zaifk - 1];
+            var zaifm = this.rooms[zaifk];
+            var zaifn = zaifa.chance(.5);
+            if (zaifn) {
+                this.carveLine(zaifl.cx, zaifl.cz, zaifm.cx, zaifl.cz);
+                this.carveLine(zaifm.cx, zaifl.cz, zaifm.cx, zaifm.cz);
             } else {
-                this.carveLine(from.cx, from.cz, from.cx, to.cz);
-                this.carveLine(from.cx, to.cz, to.cx, to.cz);
+                this.carveLine(zaifl.cx, zaifl.cz, zaifl.cx, zaifm.cz);
+                this.carveLine(zaifl.cx, zaifm.cz, zaifm.cx, zaifm.cz);
             }
-            this.corridors.push({ x1: from.cx, z1: from.cz, x2: to.cx, z2: to.cz, order: horizFirst ? "hz" : "vh" });
+            this.corridors.push({
+                x1: zaifl.cx,
+                z1: zaifl.cz,
+                x2: zaifm.cx,
+                z2: zaifm.cz,
+                order: zaifn ? "hz" : "vh"
+            });
         }
-        for (var ri = 0; ri < this.rooms.length; ri++) {
-            var room = this.rooms[ri];
-            for (var pz = room.z - 1; pz <= room.z + room.h; pz++) {
-                for (var px = room.x - 1; px <= room.x + room.w; px++) {
-                    var onRing = px === room.x - 1 || px === room.x + room.w || pz === room.z - 1 || pz === room.z + room.h;
-                    if (!onRing) continue;
-                    if (this.tileAt(px, pz) !== 1) continue;
-                    var adjacent = false;
-                    if (px >= room.x && px < room.x + room.w && pz === room.z - 1 && this.tileAt(px, room.z) === 1) adjacent = true;
-                    if (px >= room.x && px < room.x + room.w && pz === room.z + room.h && this.tileAt(px, room.z + room.h - 1) === 1) adjacent = true;
-                    if (pz >= room.z && pz < room.z + room.h && px === room.x - 1 && this.tileAt(room.x, pz) === 1) adjacent = true;
-                    if (pz >= room.z && pz < room.z + room.h && px === room.x + room.w && this.tileAt(room.x + room.w - 1, pz) === 1) adjacent = true;
-                    if (adjacent) this.doors.push({ x: px, z: pz, room: ri });
+        for (var zaifo = 0; zaifo < this.rooms.length; zaifo++) {
+            var zaifp = this.rooms[zaifo];
+            for (var zaifq = zaifp.z - 1; zaifq <= zaifp.z + zaifp.h; zaifq++) {
+                for (var zaifr = zaifp.x - 1; zaifr <= zaifp.x + zaifp.w; zaifr++) {
+                    var zaifs = zaifr === zaifp.x - 1 || zaifr === zaifp.x + zaifp.w || zaifq === zaifp.z - 1 || zaifq === zaifp.z + zaifp.h;
+                    if (!zaifs) continue;
+                    if (this.tileAt(zaifr, zaifq) !== 1) continue;
+                    var zaift = false;
+                    if (zaifr >= zaifp.x && zaifr < zaifp.x + zaifp.w && zaifq === zaifp.z - 1 && this.tileAt(zaifr, zaifp.z) === 1) zaift = true;
+                    if (zaifr >= zaifp.x && zaifr < zaifp.x + zaifp.w && zaifq === zaifp.z + zaifp.h && this.tileAt(zaifr, zaifp.z + zaifp.h - 1) === 1) zaift = true;
+                    if (zaifq >= zaifp.z && zaifq < zaifp.z + zaifp.h && zaifr === zaifp.x - 1 && this.tileAt(zaifp.x, zaifq) === 1) zaift = true;
+                    if (zaifq >= zaifp.z && zaifq < zaifp.z + zaifp.h && zaifr === zaifp.x + zaifp.w && this.tileAt(zaifp.x + zaifp.w - 1, zaifq) === 1) zaift = true;
+                    if (zaift) this.doors.push({
+                        x: zaifr,
+                        z: zaifq,
+                        room: zaifo
+                    });
                 }
             }
         }
@@ -491,138 +540,163 @@ class PCGDungeon {
     }
     connected() {
         if (this.rooms.length === 0) return true;
-        var start = this.rooms[0];
-        var visited = new Uint8Array(this.cols * this.rows);
-        var queue = [start.cz * this.cols + start.cx];
-        visited[queue[0]] = 1;
-        var head = 0;
-        while (head < queue.length) {
-            var i = queue[head++];
-            var x = i % this.cols;
-            var z = (i - x) / this.cols;
-            var neighbors = [i - 1, i + 1, i - this.cols, i + this.cols];
-            if (x === 0) neighbors[0] = -1;
-            if (x === this.cols - 1) neighbors[1] = -1;
-            if (z === 0) neighbors[2] = -1;
-            if (z === this.rows - 1) neighbors[3] = -1;
-            for (var n = 0; n < 4; n++) {
-                var j = neighbors[n];
-                if (j < 0 || visited[j] || this.tiles[j] !== 1) continue;
-                visited[j] = 1;
-                queue.push(j);
+        var zaifa = this.rooms[0];
+        var zaifb = new Uint8Array(this.cols * this.rows);
+        var zaifc = [ zaifa.cz * this.cols + zaifa.cx ];
+        zaifb[zaifc[0]] = 1;
+        var zaifd = 0;
+        while (zaifd < zaifc.length) {
+            var zaife = zaifc[zaifd++];
+            var zaiff = zaife % this.cols;
+            var zaifg = (zaife - zaiff) / this.cols;
+            var zaifh = [ zaife - 1, zaife + 1, zaife - this.cols, zaife + this.cols ];
+            if (zaiff === 0) zaifh[0] = -1;
+            if (zaiff === this.cols - 1) zaifh[1] = -1;
+            if (zaifg === 0) zaifh[2] = -1;
+            if (zaifg === this.rows - 1) zaifh[3] = -1;
+            for (var zaifi = 0; zaifi < 4; zaifi++) {
+                var zaifj = zaifh[zaifi];
+                if (zaifj < 0 || zaifb[zaifj] || this.tiles[zaifj] !== 1) continue;
+                zaifb[zaifj] = 1;
+                zaifc.push(zaifj);
             }
         }
-        for (var r = 0; r < this.rooms.length; r++) {
-            if (!visited[this.rooms[r].cz * this.cols + this.rooms[r].cx]) return false;
+        for (var zaifk = 0; zaifk < this.rooms.length; zaifk++) {
+            if (!zaifb[this.rooms[zaifk].cz * this.cols + this.rooms[zaifk].cx]) return false;
         }
         return true;
     }
-    toMeshes(options) {
-        options = options || {};
-        var tile = faoxomvalue(options.tile, 1);
-        var wallHeight = faoxomvalue(options.wallHeight, 2.5);
-        var originX = faoxomvalue(options.originX, 0);
-        var originZ = faoxomvalue(options.originZ, 0);
-        function wx(x) { return originX + (x - 0.5) * tile; }
-        function wz(z) { return originZ + (z - 0.5) * tile; }
-        var fp = [], fn = [], fu = [], fi = [];
-        var wp = [], wn = [], wu = [], wi = [];
-        var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-        for (var z = 0; z < this.rows; z++) {
-            for (var x = 0; x < this.cols; x++) {
-                if (this.tiles[z * this.cols + x] === 1) {
-                    var fb = fp.length / 3;
-                    fp.push(wx(x) - tile * 0.5, 0, wz(z) - tile * 0.5);
-                    fp.push(wx(x) + tile * 0.5, 0, wz(z) - tile * 0.5);
-                    fp.push(wx(x) - tile * 0.5, 0, wz(z) + tile * 0.5);
-                    fp.push(wx(x) + tile * 0.5, 0, wz(z) + tile * 0.5);
-                    fn.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
-                    fu.push(0, 0, 1, 0, 1, 0, 0, 1, 1, 1);
-                    fi.push(fb, fb + 2, fb + 1, fb + 1, fb + 2, fb + 3);
+    toMeshes(zaifa) {
+        zaifa = zaifa || {};
+        var zaifb = faoxomvalue(zaifa.tile, 1);
+        var zaifc = faoxomvalue(zaifa.wallHeight, 2.5);
+        var zaifd = faoxomvalue(zaifa.originX, 0);
+        var zaife = faoxomvalue(zaifa.originZ, 0);
+        function zaiff(zaifa) {
+            return zaifd + (zaifa - .5) * zaifb;
+        }
+        function zaifg(zaifa) {
+            return zaife + (zaifa - .5) * zaifb;
+        }
+        var zaifh = [], zaifi = [], zaifj = [], zaifk = [];
+        var zaifl = [], zaifm = [], zaifn = [], zaifo = [];
+        var zaifp = [ [ 1, 0 ], [ -1, 0 ], [ 0, 1 ], [ 0, -1 ] ];
+        for (var zaifq = 0; zaifq < this.rows; zaifq++) {
+            for (var zaifr = 0; zaifr < this.cols; zaifr++) {
+                if (this.tiles[zaifq * this.cols + zaifr] === 1) {
+                    var zaifs = zaifh.length / 3;
+                    zaifh.push(zaiff(zaifr) - zaifb * .5, 0, zaifg(zaifq) - zaifb * .5);
+                    zaifh.push(zaiff(zaifr) + zaifb * .5, 0, zaifg(zaifq) - zaifb * .5);
+                    zaifh.push(zaiff(zaifr) - zaifb * .5, 0, zaifg(zaifq) + zaifb * .5);
+                    zaifh.push(zaiff(zaifr) + zaifb * .5, 0, zaifg(zaifq) + zaifb * .5);
+                    zaifi.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
+                    zaifj.push(0, 0, 1, 0, 1, 0, 0, 1, 1, 1);
+                    zaifk.push(zaifs, zaifs + 2, zaifs + 1, zaifs + 1, zaifs + 2, zaifs + 3);
                 } else {
-                    for (var d = 0; d < 4; d++) {
-                        var nx2 = x + dirs[d][0];
-                        var nz2 = z + dirs[d][1];
-                        if (this.tileAt(nx2, nz2) !== 1) continue;
-                        var wb = wp.length / 3;
-                        var x0 = wx(x) - tile * 0.5;
-                        var x1 = wx(x) + tile * 0.5;
-                        var z0 = wz(z) - tile * 0.5;
-                        var z1 = wz(z) + tile * 0.5;
-                        var quad = null;
-                        if (dirs[d][0] === 1) quad = [[x1, 0, z0], [x1, 0, z1], [x1, wallHeight, z0], [x1, wallHeight, z1], [1, 0, 0]];
-                        else if (dirs[d][0] === -1) quad = [[x0, 0, z1], [x0, 0, z0], [x0, wallHeight, z1], [x0, wallHeight, z0], [-1, 0, 0]];
-                        else if (dirs[d][1] === 1) quad = [[x1, 0, z1], [x0, 0, z1], [x1, wallHeight, z1], [x0, wallHeight, z1], [0, 0, 1]];
-                        else quad = [[x0, 0, z0], [x1, 0, z0], [x0, wallHeight, z0], [x1, wallHeight, z0], [0, 0, -1]];
-                        for (var v = 0; v < 4; v++) {
-                            wp.push(quad[v][0], quad[v][1], quad[v][2]);
-                            wn.push(quad[4][0], quad[4][1], quad[4][2]);
+                    for (var zaift = 0; zaift < 4; zaift++) {
+                        var zaifu = zaifr + zaifp[zaift][0];
+                        var zaifv = zaifq + zaifp[zaift][1];
+                        if (this.tileAt(zaifu, zaifv) !== 1) continue;
+                        var zaifw = zaifl.length / 3;
+                        var zaifx = zaiff(zaifr) - zaifb * .5;
+                        var zaify = zaiff(zaifr) + zaifb * .5;
+                        var zaifz = zaifg(zaifq) - zaifb * .5;
+                        var zaifaa = zaifg(zaifq) + zaifb * .5;
+                        var zaifab = null;
+                        if (zaifp[zaift][0] === 1) zaifab = [ [ zaify, 0, zaifz ], [ zaify, 0, zaifaa ], [ zaify, zaifc, zaifz ], [ zaify, zaifc, zaifaa ], [ 1, 0, 0 ] ]; else if (zaifp[zaift][0] === -1) zaifab = [ [ zaifx, 0, zaifaa ], [ zaifx, 0, zaifz ], [ zaifx, zaifc, zaifaa ], [ zaifx, zaifc, zaifz ], [ -1, 0, 0 ] ]; else if (zaifp[zaift][1] === 1) zaifab = [ [ zaify, 0, zaifaa ], [ zaifx, 0, zaifaa ], [ zaify, zaifc, zaifaa ], [ zaifx, zaifc, zaifaa ], [ 0, 0, 1 ] ]; else zaifab = [ [ zaifx, 0, zaifz ], [ zaify, 0, zaifz ], [ zaifx, zaifc, zaifz ], [ zaify, zaifc, zaifz ], [ 0, 0, -1 ] ];
+                        for (var zaifac = 0; zaifac < 4; zaifac++) {
+                            zaifl.push(zaifab[zaifac][0], zaifab[zaifac][1], zaifab[zaifac][2]);
+                            zaifm.push(zaifab[4][0], zaifab[4][1], zaifab[4][2]);
                         }
-                        wu.push(0, 0, 1, 0, 1, 1, 1, 1);
-                        wi.push(wb, wb + 2, wb + 1, wb + 1, wb + 2, wb + 3);
+                        zaifn.push(0, 0, 1, 0, 1, 1, 1, 1);
+                        zaifo.push(zaifw, zaifw + 2, zaifw + 1, zaifw + 1, zaifw + 2, zaifw + 3);
                     }
                 }
             }
         }
-        var floorMesh = new Mesh(faoxomgeometry(fp, fn, fu, fi), options.floorMaterial || new StandardMaterial());
-        var wallMesh = new Mesh(faoxomgeometry(wp, wn, wu, wi), options.wallMaterial || new StandardMaterial());
-        return { floor: floorMesh, walls: wallMesh, floorTriangles: fi.length / 3, wallTriangles: wi.length / 3 };
+        var zaifad = new Mesh(faoxomgeometry(zaifh, zaifi, zaifj, zaifk), zaifa.floorMaterial || new StandardMaterial);
+        var zaifae = new Mesh(faoxomgeometry(zaifl, zaifm, zaifn, zaifo), zaifa.wallMaterial || new StandardMaterial);
+        return {
+            floor: zaifad,
+            walls: zaifae,
+            floorTriangles: zaifk.length / 3,
+            wallTriangles: zaifo.length / 3
+        };
     }
 }
 
 class PCGGrammar {
     constructor() {}
-    expand(axiom, rules, iterations) {
-        var s = String(axiom === undefined ? "" : axiom);
-        rules = rules || {};
-        var n = Math.max(0, faoxomvalue(iterations, 0) | 0);
-        for (var i = 0; i < n; i++) {
-            var out = "";
-            for (var c = 0; c < s.length; c++) {
-                var ch = s.charAt(c);
-                var r = rules[ch];
-                out += r === undefined ? ch : r;
+    expand(zaifa, zaifb, zaifc) {
+        var zaifd = String(zaifa === undefined ? "" : zaifa);
+        zaifb = zaifb || {};
+        var zaife = Math.max(0, faoxomvalue(zaifc, 0) | 0);
+        for (var zaiff = 0; zaiff < zaife; zaiff++) {
+            var zaifg = "";
+            for (var zaifh = 0; zaifh < zaifd.length; zaifh++) {
+                var zaifi = zaifd.charAt(zaifh);
+                var zaifj = zaifb[zaifi];
+                zaifg += zaifj === undefined ? zaifi : zaifj;
             }
-            s = out;
+            zaifd = zaifg;
         }
-        return s;
+        return zaifd;
     }
-    turtle(str, options) {
-        options = options || {};
-        var step = faoxomvalue(options.step, 1);
-        var angle = faoxomvalue(options.angle, Math.PI / 2);
-        var x = faoxomvalue(options.x, 0);
-        var z = faoxomvalue(options.z, 0);
-        var dir = faoxomvalue(options.dir, 0);
-        var stack = [];
-        var segments = [];
-        var transforms = [];
-        var s = String(str === undefined ? "" : str);
-        for (var i = 0; i < s.length; i++) {
-            var ch = s.charAt(i);
-            if (ch === "F") {
-                var nx = x + Math.cos(dir) * step;
-                var nz = z + Math.sin(dir) * step;
-                segments.push({ from: [x, z], to: [nx, nz] });
-                transforms.push({ position: [(x + nx) * 0.5, 0, (z + nz) * 0.5], rotationY: -dir, scale: 1 });
-                x = nx;
-                z = nz;
-            } else if (ch === "+") {
-                dir += angle;
-            } else if (ch === "-") {
-                dir -= angle;
-            } else if (ch === "[") {
-                stack.push({ x: x, z: z, dir: dir });
-            } else if (ch === "]") {
-                var st = stack.pop();
-                if (st) {
-                    x = st.x;
-                    z = st.z;
-                    dir = st.dir;
+    turtle(zaifa, zaifb) {
+        zaifb = zaifb || {};
+        var zaifc = faoxomvalue(zaifb.step, 1);
+        var zaifd = faoxomvalue(zaifb.angle, Math.PI / 2);
+        var zaife = faoxomvalue(zaifb.x, 0);
+        var zaiff = faoxomvalue(zaifb.z, 0);
+        var zaifg = faoxomvalue(zaifb.dir, 0);
+        var zaifh = [];
+        var zaifi = [];
+        var zaifj = [];
+        var zaifk = String(zaifa === undefined ? "" : zaifa);
+        for (var zaifl = 0; zaifl < zaifk.length; zaifl++) {
+            var zaifm = zaifk.charAt(zaifl);
+            if (zaifm === "F") {
+                var zaifn = zaife + Math.cos(zaifg) * zaifc;
+                var zaifo = zaiff + Math.sin(zaifg) * zaifc;
+                zaifi.push({
+                    from: [ zaife, zaiff ],
+                    to: [ zaifn, zaifo ]
+                });
+                zaifj.push({
+                    position: [ (zaife + zaifn) * .5, 0, (zaiff + zaifo) * .5 ],
+                    rotationY: -zaifg,
+                    scale: 1
+                });
+                zaife = zaifn;
+                zaiff = zaifo;
+            } else if (zaifm === "+") {
+                zaifg += zaifd;
+            } else if (zaifm === "-") {
+                zaifg -= zaifd;
+            } else if (zaifm === "[") {
+                zaifh.push({
+                    x: zaife,
+                    z: zaiff,
+                    dir: zaifg
+                });
+            } else if (zaifm === "]") {
+                var zaifp = zaifh.pop();
+                if (zaifp) {
+                    zaife = zaifp.x;
+                    zaiff = zaifp.z;
+                    zaifg = zaifp.dir;
                 }
             }
         }
-        return { segments: segments, transforms: transforms, end: { x: x, z: z, dir: dir } };
+        return {
+            segments: zaifi,
+            transforms: zaifj,
+            end: {
+                x: zaife,
+                z: zaiff,
+                dir: zaifg
+            }
+        };
     }
 }
 

@@ -1,11 +1,17 @@
-function faoxomexrrledecompress(data) {
-    var out = [], p = 0;
-    while (p < data.length) {
-        var l = data[p] > 127 ? data[p] - 256 : data[p]; p++;
-        if (l < 0) { var count = -l; for (var i = 0; i < count && p < data.length; i++) out.push(data[p++]); }
-        else { var value = p < data.length ? data[p++] : 0; for (var j = 0; j < l + 1; j++) out.push(value); }
+function faoxomexrrledecompress(zaefa) {
+    var zaefb = [], zaefc = 0;
+    while (zaefc < zaefa.length) {
+        var zaefd = zaefa[zaefc] > 127 ? zaefa[zaefc] - 256 : zaefa[zaefc];
+        zaefc++;
+        if (zaefd < 0) {
+            var zaefe = -zaefd;
+            for (var zaeff = 0; zaeff < zaefe && zaefc < zaefa.length; zaeff++) zaefb.push(zaefa[zaefc++]);
+        } else {
+            var zaefg = zaefc < zaefa.length ? zaefa[zaefc++] : 0;
+            for (var zaefh = 0; zaefh < zaefd + 1; zaefh++) zaefb.push(zaefg);
+        }
     }
-    return new Uint8Array(out);
+    return new Uint8Array(zaefb);
 }
 
 export { faoxomexrrledecompress };

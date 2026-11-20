@@ -1,15 +1,26 @@
 import { LightClusterGrid } from "./LightClusterGrid.js";
 
 class ClusteredLightingManager {
-    constructor(renderer, options) {
-        this.renderer = renderer;
-        this.grid = new LightClusterGrid(options);
+    constructor(zalja, zaljb) {
+        this.renderer = zalja;
+        this.grid = new LightClusterGrid(zaljb);
         this.lights = [];
         this.enabled = true;
     }
-    addLight(light) { if (this.lights.indexOf(light) === -1) this.lights.push(light); return this; }
-    removeLight(light) { var idx = this.lights.indexOf(light); if (idx !== -1) this.lights.splice(idx, 1); return this; }
-    update(camera) { if (!this.enabled) return this; this.grid.update(camera, this.lights); return this; }
+    addLight(zalja) {
+        if (this.lights.indexOf(zalja) === -1) this.lights.push(zalja);
+        return this;
+    }
+    removeLight(zalja) {
+        var zaljb = this.lights.indexOf(zalja);
+        if (zaljb !== -1) this.lights.splice(zaljb, 1);
+        return this;
+    }
+    update(zalja) {
+        if (!this.enabled) return this;
+        this.grid.update(zalja, this.lights);
+        return this;
+    }
     getShaderChunk() {
         return {
             uniforms: "uniform usampler2D uClusterGrid; uniform sampler2D uLightData; uniform int uLightCount;",

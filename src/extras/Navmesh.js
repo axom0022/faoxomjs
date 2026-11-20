@@ -1,14 +1,112 @@
 import { faoxompointintriangle } from "../core/index.js";
+
 import { Vector3 } from "../math/index.js";
 
 class Navmesh {
-    constructor(geometry, options) { this.vertices = []; this.triangles = []; this.adjacency = []; this.cache = {}; this.build(geometry, options); }
-    build(geometry) { if (!geometry) return this; var a = geometry.getAttribute ? geometry.getAttribute("position") : null; if (!a) return this; for (var i = 0; i < a.array.length; i += a.itemSize) this.vertices.push(new Vector3(a.array[i], a.array[i + 1], a.array[i + 2])); var index = geometry.index; var count = index ? index.length : this.vertices.length; for (var j = 0; j < count; j += 3) this.triangles.push([index ? index[j] : j, index ? index[j + 1] : j + 1, index ? index[j + 2] : j + 2]); this.buildAdjacency(); return this; }
-    buildAdjacency() { this.adjacency = this.triangles.map(function() { return []; }); var edges = {}; for (var i = 0; i < this.triangles.length; i++) { var triangle = this.triangles[i]; for (var e = 0; e < 3; e++) { var a = triangle[e]; var b = triangle[(e + 1) % 3]; var key = a < b ? a + ":" + b : b + ":" + a; if (!edges[key]) edges[key] = []; edges[key].push(i); } } for (var key in edges) { var list = edges[key]; for (var j = 0; j < list.length; j++) for (var k = j + 1; k < list.length; k++) { var first = list[j]; var second = list[k]; if (this.adjacency[first].indexOf(second) === -1) this.adjacency[first].push(second); if (this.adjacency[second].indexOf(first) === -1) this.adjacency[second].push(first); } } return this; }
-    triangleCenter(index) { var t = this.triangles[index]; return new Vector3().add(this.vertices[t[0]]).add(this.vertices[t[1]]).add(this.vertices[t[2]]).multiplyScalar(1 / 3); }
-    locateTriangle(point) { for (var i = 0; i < this.triangles.length; i++) { var t = this.triangles[i]; if (faoxompointintriangle(point, this.vertices[t[0]], this.vertices[t[1]], this.vertices[t[2]])) return i; } return -1; }
-    findPath(start, end) { var startIndex = this.locateTriangle(start); var endIndex = this.locateTriangle(end); if (startIndex < 0 || endIndex < 0) return []; if (startIndex === endIndex) return [start.clone(), end.clone()]; var open = [startIndex]; var came = {}; var g = {}; var f = {}; g[startIndex] = 0; f[startIndex] = this.triangleCenter(startIndex).distanceTo(this.triangleCenter(endIndex)); while (open.length) { open.sort(function(a, b) { return f[a] - f[b]; }); var current = open.shift(); if (current === endIndex) { var ids = [current]; while (came[current] !== undefined) { current = came[current]; ids.unshift(current); } var path = [start.clone()]; for (var k = 1; k < ids.length; k++) path.push(this.triangleCenter(ids[k])); path.push(end.clone()); return this.smoothPath(path); } for (var n = 0; n < this.adjacency[current].length; n++) { var neighbor = this.adjacency[current][n]; var score = g[current] + this.triangleCenter(current).distanceTo(this.triangleCenter(neighbor)); if (g[neighbor] === undefined || score < g[neighbor]) { came[neighbor] = current; g[neighbor] = score; f[neighbor] = score + this.triangleCenter(neighbor).distanceTo(this.triangleCenter(endIndex)); if (open.indexOf(neighbor) === -1) open.push(neighbor); } } } return []; }
-    smoothPath(path) { if (path.length <= 2) return path; var out = [path[0]]; for (var i = 1; i < path.length - 1; i++) { if (path[i - 1].distanceTo(path[i + 1]) > path[i - 1].distanceTo(path[i]) + path[i].distanceTo(path[i + 1]) - 0.001) out.push(path[i]); } out.push(path[path.length - 1]); return out; }
+    constructor(zaiba, zaibb) {
+        this.vertices = [];
+        this.triangles = [];
+        this.adjacency = [];
+        this.cache = {};
+        this.build(zaiba, zaibb);
+    }
+    build(zaiba) {
+        if (!zaiba) return this;
+        var zaibb = zaiba.getAttribute ? zaiba.getAttribute("position") : null;
+        if (!zaibb) return this;
+        for (var zaibc = 0; zaibc < zaibb.array.length; zaibc += zaibb.itemSize) this.vertices.push(new Vector3(zaibb.array[zaibc], zaibb.array[zaibc + 1], zaibb.array[zaibc + 2]));
+        var zaibd = zaiba.index;
+        var zaibe = zaibd ? zaibd.length : this.vertices.length;
+        for (var zaibf = 0; zaibf < zaibe; zaibf += 3) this.triangles.push([ zaibd ? zaibd[zaibf] : zaibf, zaibd ? zaibd[zaibf + 1] : zaibf + 1, zaibd ? zaibd[zaibf + 2] : zaibf + 2 ]);
+        this.buildAdjacency();
+        return this;
+    }
+    buildAdjacency() {
+        this.adjacency = this.triangles.map(function() {
+            return [];
+        });
+        var zaiba = {};
+        for (var zaibb = 0; zaibb < this.triangles.length; zaibb++) {
+            var zaibc = this.triangles[zaibb];
+            for (var zaibd = 0; zaibd < 3; zaibd++) {
+                var zaibe = zaibc[zaibd];
+                var zaibf = zaibc[(zaibd + 1) % 3];
+                var zaibg = zaibe < zaibf ? zaibe + ":" + zaibf : zaibf + ":" + zaibe;
+                if (!zaiba[zaibg]) zaiba[zaibg] = [];
+                zaiba[zaibg].push(zaibb);
+            }
+        }
+        for (var zaibg in zaiba) {
+            var zaibh = zaiba[zaibg];
+            for (var zaibi = 0; zaibi < zaibh.length; zaibi++) for (var zaibj = zaibi + 1; zaibj < zaibh.length; zaibj++) {
+                var zaibk = zaibh[zaibi];
+                var zaibl = zaibh[zaibj];
+                if (this.adjacency[zaibk].indexOf(zaibl) === -1) this.adjacency[zaibk].push(zaibl);
+                if (this.adjacency[zaibl].indexOf(zaibk) === -1) this.adjacency[zaibl].push(zaibk);
+            }
+        }
+        return this;
+    }
+    triangleCenter(zaiba) {
+        var zaibb = this.triangles[zaiba];
+        return (new Vector3).add(this.vertices[zaibb[0]]).add(this.vertices[zaibb[1]]).add(this.vertices[zaibb[2]]).multiplyScalar(1 / 3);
+    }
+    locateTriangle(zaiba) {
+        for (var zaibb = 0; zaibb < this.triangles.length; zaibb++) {
+            var zaibc = this.triangles[zaibb];
+            if (faoxompointintriangle(zaiba, this.vertices[zaibc[0]], this.vertices[zaibc[1]], this.vertices[zaibc[2]])) return zaibb;
+        }
+        return -1;
+    }
+    findPath(zaiba, zaibb) {
+        var zaibc = this.locateTriangle(zaiba);
+        var zaibd = this.locateTriangle(zaibb);
+        if (zaibc < 0 || zaibd < 0) return [];
+        if (zaibc === zaibd) return [ zaiba.clone(), zaibb.clone() ];
+        var zaibe = [ zaibc ];
+        var zaibf = {};
+        var zaibg = {};
+        var zaibh = {};
+        zaibg[zaibc] = 0;
+        zaibh[zaibc] = this.triangleCenter(zaibc).distanceTo(this.triangleCenter(zaibd));
+        while (zaibe.length) {
+            zaibe.sort(function(zaiba, zaibb) {
+                return zaibh[zaiba] - zaibh[zaibb];
+            });
+            var zaibi = zaibe.shift();
+            if (zaibi === zaibd) {
+                var zaibj = [ zaibi ];
+                while (zaibf[zaibi] !== undefined) {
+                    zaibi = zaibf[zaibi];
+                    zaibj.unshift(zaibi);
+                }
+                var zaibk = [ zaiba.clone() ];
+                for (var zaibl = 1; zaibl < zaibj.length; zaibl++) zaibk.push(this.triangleCenter(zaibj[zaibl]));
+                zaibk.push(zaibb.clone());
+                return this.smoothPath(zaibk);
+            }
+            for (var zaibm = 0; zaibm < this.adjacency[zaibi].length; zaibm++) {
+                var zaibn = this.adjacency[zaibi][zaibm];
+                var zaibo = zaibg[zaibi] + this.triangleCenter(zaibi).distanceTo(this.triangleCenter(zaibn));
+                if (zaibg[zaibn] === undefined || zaibo < zaibg[zaibn]) {
+                    zaibf[zaibn] = zaibi;
+                    zaibg[zaibn] = zaibo;
+                    zaibh[zaibn] = zaibo + this.triangleCenter(zaibn).distanceTo(this.triangleCenter(zaibd));
+                    if (zaibe.indexOf(zaibn) === -1) zaibe.push(zaibn);
+                }
+            }
+        }
+        return [];
+    }
+    smoothPath(zaiba) {
+        if (zaiba.length <= 2) return zaiba;
+        var zaibb = [ zaiba[0] ];
+        for (var zaibc = 1; zaibc < zaiba.length - 1; zaibc++) {
+            if (zaiba[zaibc - 1].distanceTo(zaiba[zaibc + 1]) > zaiba[zaibc - 1].distanceTo(zaiba[zaibc]) + zaiba[zaibc].distanceTo(zaiba[zaibc + 1]) - .001) zaibb.push(zaiba[zaibc]);
+        }
+        zaibb.push(zaiba[zaiba.length - 1]);
+        return zaibb;
+    }
 }
 
 export { Navmesh };

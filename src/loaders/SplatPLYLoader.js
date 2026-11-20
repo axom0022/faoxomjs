@@ -1,127 +1,174 @@
 import { FileLoader } from "./FileLoader.js";
 
-var SH_C0 = 0.28209479177387814;
+var zamza = .28209479177387814;
 
-function parseHeaderLines(bytes) {
-    var lines = [], cursor = 0, headerEnd = -1;
-    while (cursor < bytes.length && headerEnd < 0) {
-        var lineEnd = cursor;
-        while (lineEnd < bytes.length && bytes[lineEnd] !== 10) lineEnd++;
-        var line = "";
-        for (var i = cursor; i < lineEnd; i++) line += String.fromCharCode(bytes[i]);
-        line = line.trim();
-        lines.push(line);
-        cursor = lineEnd + 1;
-        if (line === "end_header") headerEnd = cursor;
+function zamzb(zamza) {
+    var zamzb = [], zamzc = 0, zamzd = -1;
+    while (zamzc < zamza.length && zamzd < 0) {
+        var zamze = zamzc;
+        while (zamze < zamza.length && zamza[zamze] !== 10) zamze++;
+        var zamzf = "";
+        for (var zamzg = zamzc; zamzg < zamze; zamzg++) zamzf += String.fromCharCode(zamza[zamzg]);
+        zamzf = zamzf.trim();
+        zamzb.push(zamzf);
+        zamzc = zamze + 1;
+        if (zamzf === "end_header") zamzd = zamzc;
     }
-    if (headerEnd < 0) throw new Error("Invalid PLY file: missing end_header");
-    return { lines: lines, headerEnd: headerEnd };
+    if (zamzd < 0) throw new Error("Invalid PLY file: missing end_header");
+    return {
+        lines: zamzb,
+        headerEnd: zamzd
+    };
 }
 
-function decodeSplatPly(data) {
-    var bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-    if (bytes.length < 3 || bytes[0] !== 112 || bytes[1] !== 108 || bytes[2] !== 121) throw new Error("Invalid PLY file");
-    var header = parseHeaderLines(bytes);
-    var format = "", elements = [], current = null;
-    for (var h = 0; h < header.lines.length; h++) {
-        var parts = header.lines[h].split(/\s+/);
-        if (parts[0] === "format" && parts.length > 1) format = parts[1];
-        else if (parts[0] === "element" && parts.length > 2) { current = { name: parts[1], count: parseInt(parts[2], 10) || 0, properties: [] }; elements.push(current); }
-        else if (parts[0] === "property" && current && parts.length > 2 && parts[1] !== "list") current.properties.push({ name: parts[2], type: parts[1] });
+function zamzc(zamzc) {
+    var zamzd = zamzc instanceof Uint8Array ? zamzc : new Uint8Array(zamzc);
+    if (zamzd.length < 3 || zamzd[0] !== 112 || zamzd[1] !== 108 || zamzd[2] !== 121) throw new Error("Invalid PLY file");
+    var zamze = zamzb(zamzd);
+    var zamzf = "", zamzg = [], zamzh = null;
+    for (var zamzi = 0; zamzi < zamze.lines.length; zamzi++) {
+        var zamzj = zamze.lines[zamzi].split(/\s+/);
+        if (zamzj[0] === "format" && zamzj.length > 1) zamzf = zamzj[1]; else if (zamzj[0] === "element" && zamzj.length > 2) {
+            zamzh = {
+                name: zamzj[1],
+                count: parseInt(zamzj[2], 10) || 0,
+                properties: []
+            };
+            zamzg.push(zamzh);
+        } else if (zamzj[0] === "property" && zamzh && zamzj.length > 2 && zamzj[1] !== "list") zamzh.properties.push({
+            name: zamzj[2],
+            type: zamzj[1]
+        });
     }
-    if (format !== "ascii" && format !== "binary_little_endian") throw new Error("Gaussian splat PLY supports ascii and binary_little_endian formats, got: " + format);
-    var vertex = null;
-    for (var e = 0; e < elements.length; e++) if (elements[e].name === "vertex") vertex = elements[e];
-    if (!vertex || !vertex.count) throw new Error("Gaussian splat PLY requires a vertex element with a positive count");
-    var index = {}, required = ["x", "y", "z", "scale_0", "scale_1", "scale_2", "rot_0", "rot_1", "rot_2", "rot_3", "opacity"];
-    for (var p = 0; p < vertex.properties.length; p++) index[vertex.properties[p].name] = vertex.properties[p];
-    for (var r = 0; r < required.length; r++) if (!index[required[r]]) throw new Error("Gaussian splat PLY missing required property: " + required[r]);
-    var restCount = 0;
-    while (index["f_rest_" + restCount]) restCount++;
-    for (var rc = 0; rc < restCount; rc++) if (index["f_rest_" + rc].type !== index.x.type) throw new Error("Gaussian splat PLY f_rest properties must match the position type");
-    var degree = 0;
-    if (restCount === 9) degree = 1;
-    else if (restCount === 27) degree = 2;
-    else if (restCount === 45) degree = 3;
-    else if (restCount !== 0) throw new Error("Gaussian splat PLY has an unsupported f_rest count: " + restCount);
-    var hasDc = !!(index.f_dc_0 && index.f_dc_1 && index.f_dc_2);
-    var count = vertex.count;
-    var positions = new Float32Array(count * 3);
-    var scales = new Float32Array(count * 3);
-    var rotations = new Float32Array(count * 4);
-    var colors = new Float32Array(count * 4);
-    var dim = degree * degree + 2 * degree;
-    var sh = degree > 0 ? { degree: degree, coefficients: new Float32Array(count * dim * 3) } : null;
-    var sigmoid = function(v) { return 1 / (1 + Math.exp(-v)); };
-    if (format === "ascii") {
-        var body = "";
-        for (var b = header.headerEnd; b < bytes.length; b++) body += String.fromCharCode(bytes[b]);
-        var tokens = body.trim().length ? body.trim().split(/\s+/) : [];
-        var expected = vertex.properties.length;
-        if (tokens.length < expected * count) throw new Error("Gaussian splat PLY ascii body is truncated");
-        var colIndex = {};
-        for (var pi = 0; pi < vertex.properties.length; pi++) colIndex[vertex.properties[pi].name] = pi;
-        for (var i = 0; i < count; i++) {
-            var base = i * expected;
-            positions[i * 3] = parseFloat(tokens[base + colIndex.x]);
-            positions[i * 3 + 1] = parseFloat(tokens[base + colIndex.y]);
-            positions[i * 3 + 2] = parseFloat(tokens[base + colIndex.z]);
-            scales[i * 3] = Math.exp(parseFloat(tokens[base + colIndex.scale_0]));
-            scales[i * 3 + 1] = Math.exp(parseFloat(tokens[base + colIndex.scale_1]));
-            scales[i * 3 + 2] = Math.exp(parseFloat(tokens[base + colIndex.scale_2]));
-            var qw = parseFloat(tokens[base + colIndex.rot_0]), qx = parseFloat(tokens[base + colIndex.rot_1]), qy = parseFloat(tokens[base + colIndex.rot_2]), qz = parseFloat(tokens[base + colIndex.rot_3]);
-            var qn = Math.sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
-            rotations[i * 4] = qx / qn; rotations[i * 4 + 1] = qy / qn; rotations[i * 4 + 2] = qz / qn; rotations[i * 4 + 3] = qw / qn;
-            var dc0 = hasDc ? parseFloat(tokens[base + colIndex.f_dc_0]) : 0, dc1 = hasDc ? parseFloat(tokens[base + colIndex.f_dc_1]) : 0, dc2 = hasDc ? parseFloat(tokens[base + colIndex.f_dc_2]) : 0;
-            colors[i * 4] = 0.5 + SH_C0 * dc0; colors[i * 4 + 1] = 0.5 + SH_C0 * dc1; colors[i * 4 + 2] = 0.5 + SH_C0 * dc2;
-            colors[i * 4 + 3] = sigmoid(parseFloat(tokens[base + colIndex.opacity]));
-            for (var c = 0; c < restCount; c++) sh.coefficients[i * dim * 3 + c] = parseFloat(tokens[base + colIndex["f_rest_" + c]]);
+    if (zamzf !== "ascii" && zamzf !== "binary_little_endian") throw new Error("Gaussian splat PLY supports ascii and binary_little_endian formats, got: " + zamzf);
+    var zamzk = null;
+    for (var zamzl = 0; zamzl < zamzg.length; zamzl++) if (zamzg[zamzl].name === "vertex") zamzk = zamzg[zamzl];
+    if (!zamzk || !zamzk.count) throw new Error("Gaussian splat PLY requires a vertex element with a positive count");
+    var zamzm = {}, zamzn = [ "x", "y", "z", "scale_0", "scale_1", "scale_2", "rot_0", "rot_1", "rot_2", "rot_3", "opacity" ];
+    for (var zamzo = 0; zamzo < zamzk.properties.length; zamzo++) zamzm[zamzk.properties[zamzo].name] = zamzk.properties[zamzo];
+    for (var zamzp = 0; zamzp < zamzn.length; zamzp++) if (!zamzm[zamzn[zamzp]]) throw new Error("Gaussian splat PLY missing required property: " + zamzn[zamzp]);
+    var zamzq = 0;
+    while (zamzm["f_rest_" + zamzq]) zamzq++;
+    for (var zamzr = 0; zamzr < zamzq; zamzr++) if (zamzm["f_rest_" + zamzr].type !== zamzm.x.type) throw new Error("Gaussian splat PLY f_rest properties must match the position type");
+    var zamzs = 0;
+    if (zamzq === 9) zamzs = 1; else if (zamzq === 27) zamzs = 2; else if (zamzq === 45) zamzs = 3; else if (zamzq !== 0) throw new Error("Gaussian splat PLY has an unsupported f_rest count: " + zamzq);
+    var zamzt = !!(zamzm.f_dc_0 && zamzm.f_dc_1 && zamzm.f_dc_2);
+    var zamzu = zamzk.count;
+    var zamzv = new Float32Array(zamzu * 3);
+    var zamzw = new Float32Array(zamzu * 3);
+    var zamzx = new Float32Array(zamzu * 4);
+    var zamzy = new Float32Array(zamzu * 4);
+    var zamzz = zamzs * zamzs + 2 * zamzs;
+    var zamzaa = zamzs > 0 ? {
+        degree: zamzs,
+        coefficients: new Float32Array(zamzu * zamzz * 3)
+    } : null;
+    var zamzab = function(zamza) {
+        return 1 / (1 + Math.exp(-zamza));
+    };
+    if (zamzf === "ascii") {
+        var zamzac = "";
+        for (var zamzad = zamze.headerEnd; zamzad < zamzd.length; zamzad++) zamzac += String.fromCharCode(zamzd[zamzad]);
+        var zamzae = zamzac.trim().length ? zamzac.trim().split(/\s+/) : [];
+        var zamzaf = zamzk.properties.length;
+        if (zamzae.length < zamzaf * zamzu) throw new Error("Gaussian splat PLY ascii body is truncated");
+        var zamzag = {};
+        for (var zamzah = 0; zamzah < zamzk.properties.length; zamzah++) zamzag[zamzk.properties[zamzah].name] = zamzah;
+        for (var zamzai = 0; zamzai < zamzu; zamzai++) {
+            var zamzaj = zamzai * zamzaf;
+            zamzv[zamzai * 3] = parseFloat(zamzae[zamzaj + zamzag.x]);
+            zamzv[zamzai * 3 + 1] = parseFloat(zamzae[zamzaj + zamzag.y]);
+            zamzv[zamzai * 3 + 2] = parseFloat(zamzae[zamzaj + zamzag.z]);
+            zamzw[zamzai * 3] = Math.exp(parseFloat(zamzae[zamzaj + zamzag.scale_0]));
+            zamzw[zamzai * 3 + 1] = Math.exp(parseFloat(zamzae[zamzaj + zamzag.scale_1]));
+            zamzw[zamzai * 3 + 2] = Math.exp(parseFloat(zamzae[zamzaj + zamzag.scale_2]));
+            var zamzak = parseFloat(zamzae[zamzaj + zamzag.rot_0]), zamzal = parseFloat(zamzae[zamzaj + zamzag.rot_1]), zamzam = parseFloat(zamzae[zamzaj + zamzag.rot_2]), zamzan = parseFloat(zamzae[zamzaj + zamzag.rot_3]);
+            var zamzao = Math.sqrt(zamzak * zamzak + zamzal * zamzal + zamzam * zamzam + zamzan * zamzan);
+            zamzx[zamzai * 4] = zamzal / zamzao;
+            zamzx[zamzai * 4 + 1] = zamzam / zamzao;
+            zamzx[zamzai * 4 + 2] = zamzan / zamzao;
+            zamzx[zamzai * 4 + 3] = zamzak / zamzao;
+            var zamzap = zamzt ? parseFloat(zamzae[zamzaj + zamzag.f_dc_0]) : 0, zamzaq = zamzt ? parseFloat(zamzae[zamzaj + zamzag.f_dc_1]) : 0, zamzar = zamzt ? parseFloat(zamzae[zamzaj + zamzag.f_dc_2]) : 0;
+            zamzy[zamzai * 4] = .5 + zamza * zamzap;
+            zamzy[zamzai * 4 + 1] = .5 + zamza * zamzaq;
+            zamzy[zamzai * 4 + 2] = .5 + zamza * zamzar;
+            zamzy[zamzai * 4 + 3] = zamzab(parseFloat(zamzae[zamzaj + zamzag.opacity]));
+            for (var zamzas = 0; zamzas < zamzq; zamzas++) zamzaa.coefficients[zamzai * zamzz * 3 + zamzas] = parseFloat(zamzae[zamzaj + zamzag["f_rest_" + zamzas]]);
         }
     } else {
-        var typeSize = { float: 4, float32: 4, double: 8, float64: 8 };
-        var offsets = {}, stride = 0, types = {};
-        for (var p2 = 0; p2 < vertex.properties.length; p2++) {
-            var prop = vertex.properties[p2];
-            var size = typeSize[prop.type];
-            if (!size) throw new Error("Gaussian splat PLY property type must be float or double, got: " + prop.type);
-            offsets[prop.name] = stride; types[prop.name] = prop.type; stride += size;
-        }
-        var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        var needed = header.headerEnd + stride * count;
-        if (bytes.length < needed) throw new Error("Gaussian splat PLY binary body is truncated");
-        var read = function(row, name) {
-            var at = header.headerEnd + row * stride + offsets[name];
-            return types[name] === "double" ? view.getFloat64(at, true) : view.getFloat32(at, true);
+        var zamzat = {
+            float: 4,
+            float32: 4,
+            double: 8,
+            float64: 8
         };
-        for (var i2 = 0; i2 < count; i2++) {
-            positions[i2 * 3] = read(i2, "x"); positions[i2 * 3 + 1] = read(i2, "y"); positions[i2 * 3 + 2] = read(i2, "z");
-            scales[i2 * 3] = Math.exp(read(i2, "scale_0")); scales[i2 * 3 + 1] = Math.exp(read(i2, "scale_1")); scales[i2 * 3 + 2] = Math.exp(read(i2, "scale_2"));
-            var qw2 = read(i2, "rot_0"), qx2 = read(i2, "rot_1"), qy2 = read(i2, "rot_2"), qz2 = read(i2, "rot_3");
-            var qn2 = Math.sqrt(qw2 * qw2 + qx2 * qx2 + qy2 * qy2 + qz2 * qz2);
-            rotations[i2 * 4] = qx2 / qn2; rotations[i2 * 4 + 1] = qy2 / qn2; rotations[i2 * 4 + 2] = qz2 / qn2; rotations[i2 * 4 + 3] = qw2 / qn2;
-            colors[i2 * 4] = 0.5 + SH_C0 * (hasDc ? read(i2, "f_dc_0") : 0);
-            colors[i2 * 4 + 1] = 0.5 + SH_C0 * (hasDc ? read(i2, "f_dc_1") : 0);
-            colors[i2 * 4 + 2] = 0.5 + SH_C0 * (hasDc ? read(i2, "f_dc_2") : 0);
-            colors[i2 * 4 + 3] = sigmoid(read(i2, "opacity"));
-            for (var c2 = 0; c2 < restCount; c2++) sh.coefficients[i2 * dim * 3 + c2] = read(i2, "f_rest_" + c2);
+        var zamzau = {}, zamzav = 0, zamzaw = {};
+        for (var zamzax = 0; zamzax < zamzk.properties.length; zamzax++) {
+            var zamzay = zamzk.properties[zamzax];
+            var zamzaz = zamzat[zamzay.type];
+            if (!zamzaz) throw new Error("Gaussian splat PLY property type must be float or double, got: " + zamzay.type);
+            zamzau[zamzay.name] = zamzav;
+            zamzaw[zamzay.name] = zamzay.type;
+            zamzav += zamzaz;
+        }
+        var zamzba = new DataView(zamzd.buffer, zamzd.byteOffset, zamzd.byteLength);
+        var zamzbb = zamze.headerEnd + zamzav * zamzu;
+        if (zamzd.length < zamzbb) throw new Error("Gaussian splat PLY binary body is truncated");
+        var zamzbc = function(zamza, zamzb) {
+            var zamzc = zamze.headerEnd + zamza * zamzav + zamzau[zamzb];
+            return zamzaw[zamzb] === "double" ? zamzba.getFloat64(zamzc, true) : zamzba.getFloat32(zamzc, true);
+        };
+        for (var zamzbd = 0; zamzbd < zamzu; zamzbd++) {
+            zamzv[zamzbd * 3] = zamzbc(zamzbd, "x");
+            zamzv[zamzbd * 3 + 1] = zamzbc(zamzbd, "y");
+            zamzv[zamzbd * 3 + 2] = zamzbc(zamzbd, "z");
+            zamzw[zamzbd * 3] = Math.exp(zamzbc(zamzbd, "scale_0"));
+            zamzw[zamzbd * 3 + 1] = Math.exp(zamzbc(zamzbd, "scale_1"));
+            zamzw[zamzbd * 3 + 2] = Math.exp(zamzbc(zamzbd, "scale_2"));
+            var zamzbe = zamzbc(zamzbd, "rot_0"), zamzbf = zamzbc(zamzbd, "rot_1"), zamzbg = zamzbc(zamzbd, "rot_2"), zamzbh = zamzbc(zamzbd, "rot_3");
+            var zamzbi = Math.sqrt(zamzbe * zamzbe + zamzbf * zamzbf + zamzbg * zamzbg + zamzbh * zamzbh);
+            zamzx[zamzbd * 4] = zamzbf / zamzbi;
+            zamzx[zamzbd * 4 + 1] = zamzbg / zamzbi;
+            zamzx[zamzbd * 4 + 2] = zamzbh / zamzbi;
+            zamzx[zamzbd * 4 + 3] = zamzbe / zamzbi;
+            zamzy[zamzbd * 4] = .5 + zamza * (zamzt ? zamzbc(zamzbd, "f_dc_0") : 0);
+            zamzy[zamzbd * 4 + 1] = .5 + zamza * (zamzt ? zamzbc(zamzbd, "f_dc_1") : 0);
+            zamzy[zamzbd * 4 + 2] = .5 + zamza * (zamzt ? zamzbc(zamzbd, "f_dc_2") : 0);
+            zamzy[zamzbd * 4 + 3] = zamzab(zamzbc(zamzbd, "opacity"));
+            for (var zamzbj = 0; zamzbj < zamzq; zamzbj++) zamzaa.coefficients[zamzbd * zamzz * 3 + zamzbj] = zamzbc(zamzbd, "f_rest_" + zamzbj);
         }
     }
-    return { count: count, positions: positions, scales: scales, rotations: rotations, colors: colors, sh: sh };
+    return {
+        count: zamzu,
+        positions: zamzv,
+        scales: zamzw,
+        rotations: zamzx,
+        colors: zamzy,
+        sh: zamzaa
+    };
 }
 
 class SplatPLYLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var data = self.parse(buffer); if (onLoad) onLoad(data); }
-            catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zamza) {
+        this.manager = zamza;
+    }
+    load(zamza, zamzb, zamzc, zamzd) {
+        var zamze = this;
+        var zamzf = new FileLoader(this.manager);
+        zamzf.setResponseType("arraybuffer");
+        zamzf.load(zamza, function(zamza) {
+            try {
+                var zamzc = zamze.parse(zamza);
+                if (zamzb) zamzb(zamzc);
+            } catch (zamza) {
+                if (zamzd) zamzd(zamza);
+            }
+        }, zamzc, zamzd);
         return this;
     }
-    parse(data) { return decodeSplatPly(data); }
+    parse(zamza) {
+        return zamzc(zamza);
+    }
 }
 
 export { SplatPLYLoader };

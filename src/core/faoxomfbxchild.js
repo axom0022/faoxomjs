@@ -1,5 +1,8 @@
 import { faoxomfbxchildren } from "./faoxomfbxchildren.js";
 
-function faoxomfbxchild(node, name) { var list = faoxomfbxchildren(node, name); return list.length ? list[0] : null; }
+function faoxomfbxchild(zaeha, zaehb) {
+    var zaehc = faoxomfbxchildren(zaeha, zaehb);
+    return zaehc.length ? zaehc[0] : null;
+}
 
 export { faoxomfbxchild };

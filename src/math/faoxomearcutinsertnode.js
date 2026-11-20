@@ -1,17 +1,17 @@
 import { faoxomearcutcreatenode } from "./faoxomearcutcreatenode.js";
 
-function faoxomearcutinsertnode(i, x, y, last) {
-    var p = faoxomearcutcreatenode(i, x, y);
-    if (!last) {
-        p.prev = p;
-        p.next = p;
+function faoxomearcutinsertnode(zapna, zapnb, zapnc, zapnd) {
+    var zapne = faoxomearcutcreatenode(zapna, zapnb, zapnc);
+    if (!zapnd) {
+        zapne.prev = zapne;
+        zapne.next = zapne;
     } else {
-        p.next = last.next;
-        p.prev = last;
-        last.next.prev = p;
-        last.next = p;
+        zapne.next = zapnd.next;
+        zapne.prev = zapnd;
+        zapnd.next.prev = zapne;
+        zapnd.next = zapne;
     }
-    return p;
+    return zapne;
 }
 
 export { faoxomearcutinsertnode };

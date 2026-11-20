@@ -1,4 +1,5 @@
 import { Object3D } from "../core/index.js";
+
 import { Vector3 } from "../math/index.js";
 
 class ContinuousLOD extends Object3D {
@@ -8,24 +9,32 @@ class ContinuousLOD extends Object3D {
         this.levels = [];
         this.activeLevel = 0;
     }
-    addLevel(object, screenSpaceError) {
-        this.levels.push({ object: object, error: screenSpaceError || 0 });
-        this.levels.sort(function(a, b) { return a.error - b.error; });
-        this.add(object);
+    addLevel(zagta, zagtb) {
+        this.levels.push({
+            object: zagta,
+            error: zagtb || 0
+        });
+        this.levels.sort(function(zagta, zagtb) {
+            return zagta.error - zagtb.error;
+        });
+        this.add(zagta);
         return this;
     }
-    update(camera, viewportHeight) {
-        var h = viewportHeight || 720;
-        var dist = this.getWorldPosition(new Vector3()).distanceTo(camera.getWorldPosition(new Vector3()));
-        var fov = (camera.fov || 50) * Math.PI / 180;
-        var sse = (1.0 * h) / (2.0 * Math.max(0.1, dist) * Math.tan(fov / 2.0));
-        var chosen = 0;
-        for (var i = this.levels.length - 1; i >= 0; i--) {
-            if (sse >= this.levels[i].error) { chosen = i; break; }
+    update(zagta, zagtb) {
+        var zagtc = zagtb || 720;
+        var zagtd = this.getWorldPosition(new Vector3).distanceTo(zagta.getWorldPosition(new Vector3));
+        var zagte = (zagta.fov || 50) * Math.PI / 180;
+        var zagtf = 1 * zagtc / (2 * Math.max(.1, zagtd) * Math.tan(zagte / 2));
+        var zagtg = 0;
+        for (var zagth = this.levels.length - 1; zagth >= 0; zagth--) {
+            if (zagtf >= this.levels[zagth].error) {
+                zagtg = zagth;
+                break;
+            }
         }
-        this.activeLevel = chosen;
-        for (var l = 0; l < this.levels.length; l++) {
-            this.levels[l].object.visible = (l === chosen);
+        this.activeLevel = zagtg;
+        for (var zagti = 0; zagti < this.levels.length; zagti++) {
+            this.levels[zagti].object.visible = zagti === zagtg;
         }
     }
 }

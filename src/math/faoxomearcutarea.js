@@ -1,3 +1,5 @@
-function faoxomearcutarea(p, q, r) { return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y); }
+function faoxomearcutarea(zapca, zapcb, zapcc) {
+    return (zapcb.y - zapca.y) * (zapcc.x - zapcb.x) - (zapcb.x - zapca.x) * (zapcc.y - zapcb.y);
+}
 
 export { faoxomearcutarea };

@@ -1,44 +1,35 @@
-// FaoxomJS React binding (roadmap item 41).
-// Peer dependency: react (16.8+). No JSX, no build step required.
-//
-//   import { FaoxomScene } from "faoxomjs/bindings/react";
-//   <FaoxomScene src="/scenes/office.faox" cameraPosition="0,2,6" orbit onLoad={...} />
-
 import React from "react";
 
-var ATTRIBUTE_PROPS = ["src", "background", "cameraFov", "cameraPosition", "cameraTarget", "orbit", "ambient", "sun", "post", "backend", "width", "height"];
+var zaaba = [ "src", "background", "cameraFov", "cameraPosition", "cameraTarget", "orbit", "ambient", "sun", "post", "backend", "width", "height" ];
 
-function toAttributeName(propName) {
-    return propName.replace(/([A-Z])/g, function (match) { return "-" + match.toLowerCase(); });
+function zaabb(zaaba) {
+    return zaaba.replace(/([A-Z])/g, function(zaaba) {
+        return "-" + zaaba.toLowerCase();
+    });
 }
 
-export function FaoxomScene(props) {
-    props = props || {};
-    var attributes = {};
-    for (var i = 0; i < ATTRIBUTE_PROPS.length; i++) {
-        var name = ATTRIBUTE_PROPS[i];
-        if (props[name] !== undefined && props[name] !== null) attributes[toAttributeName(name)] = String(props[name]);
+export function FaoxomScene(zaabc) {
+    zaabc = zaabc || {};
+    var zaabd = {};
+    for (var zaabe = 0; zaabe < zaaba.length; zaabe++) {
+        var zaabf = zaaba[zaabe];
+        if (zaabc[zaabf] !== undefined && zaabc[zaabf] !== null) zaabd[zaabb(zaabf)] = String(zaabc[zaabf]);
     }
-    if (props.className) attributes.class = props.className;
-    if (props.style) attributes.style = props.style;
-
-    var handleEvent = function (domEvent) {
-        return function () {
-            var handler = props[domEvent];
-            if (typeof handler === "function") handler.apply(null, arguments);
+    if (zaabc.className) zaabd.class = zaabc.className;
+    if (zaabc.style) zaabd.style = zaabc.style;
+    var zaabg = function(zaaba) {
+        return function() {
+            var zaabb = zaabc[zaaba];
+            if (typeof zaabb === "function") zaabb.apply(null, arguments);
         };
     };
-    var ref = props.elementRef || null;
-
-    return React.createElement(
-        "faoxom-scene",
-        Object.assign({}, attributes, {
-            ref: ref,
-            onReady: handleEvent("onReady"),
-            onLoad: handleEvent("onLoad"),
-            onError: handleEvent("onError")
-        })
-    );
+    var zaabh = zaabc.elementRef || null;
+    return React.createElement("faoxom-scene", Object.assign({}, zaabd, {
+        ref: zaabh,
+        onReady: zaabg("onReady"),
+        onLoad: zaabg("onLoad"),
+        onError: zaabg("onError")
+    }));
 }
 
 export default FaoxomScene;

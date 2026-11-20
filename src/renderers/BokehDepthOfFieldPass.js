@@ -1,26 +1,26 @@
 import { Pass } from "./Pass.js";
 
 class BokehDepthOfFieldPass extends Pass {
-    constructor(scene, camera, options) {
+    constructor(zasha, zashb, zashc) {
         super();
-        options = options || {};
-        this.scene = scene;
-        this.camera = camera;
-        this.focusDistance = options.focusDistance || 5.0;
-        this.focalLength = options.focalLength || 50.0;
-        this.fStop = options.fStop || 2.8;
-        this.maxBlur = options.maxBlur || 1.0;
+        zashc = zashc || {};
+        this.scene = zasha;
+        this.camera = zashb;
+        this.focusDistance = zashc.focusDistance || 5;
+        this.focalLength = zashc.focalLength || 50;
+        this.fStop = zashc.fStop || 2.8;
+        this.maxBlur = zashc.maxBlur || 1;
     }
-    computeCoC(depth) {
-        var s1 = this.focusDistance;
-        var f = this.focalLength * 0.001;
-        var A = f / this.fStop;
-        var s2 = Math.max(0.001, depth);
-        return Math.abs(A * (f * (s2 - s1)) / (s2 * (s1 - f)));
+    computeCoC(zasha) {
+        var zashb = this.focusDistance;
+        var zashc = this.focalLength * .001;
+        var zashd = zashc / this.fStop;
+        var zashe = Math.max(.001, zasha);
+        return Math.abs(zashd * (zashc * (zashe - zashb)) / (zashe * (zashb - zashc)));
     }
-    render(renderer, writeBuffer, readBuffer) {
+    render(zasha, zashb, zashc) {
         if (!this.enabled) return;
-        renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+        zasha.setRenderTarget(this.renderToScreen ? null : zashb);
     }
 }
 

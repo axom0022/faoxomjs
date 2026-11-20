@@ -1,364 +1,336 @@
 import { Matrix4 } from "../math/index.js";
+
 import { Geometry } from "../geometries/Geometry.js";
+
 import { MeshletSet } from "./MeshletSet.js";
 
-const fxomvgswgsl = `struct fxparams {
-    viewpos: vec4<f32>,
-    planes: array<vec4<f32>, 6>,
-    misc: vec4<f32>,
-    misc2: vec4<f32>,
-};
-struct fxcluster {
-    a: vec4<f32>,
-    b: vec4<f32>,
-    c: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> params: fxparams;
-@group(0) @binding(1) var<storage, read> clusters: array<fxcluster>;
-@group(0) @binding(2) var<storage, read_write> sel: array<u32>;
-@group(0) @binding(3) var<storage, read_write> flags: array<atomic<u32>>;
-@group(0) @binding(4) var<storage, read> resident: array<u32>;
-fn fxscreenerr(i: u32) -> f32 {
-    let c = clusters[i];
-    var d = length(params.viewpos.xyz - c.a.xyz) - c.a.w;
-    if (d < 0.001) { d = 0.001; }
-    return c.c.x * params.viewpos.w / d;
-}
-fn fxvisible(i: u32) -> u32 {
-    let c = clusters[i];
-    var vis = 1u;
-    if (params.misc.y > 0.5 && c.c.w > 0.5) {
-        var u = params.viewpos.xyz - c.a.xyz;
-        var r = length(u);
-        if (r < 0.000001) {
-            u = vec3<f32>(0.0, 1.0, 0.0);
-            r = 1.0;
-        } else {
-            u = u / r;
-        }
-        let cosb = dot(u, c.b.xyz);
-        let sinb = sqrt(max(0.0, 1.0 - cosb * cosb));
-        let sintheta = sqrt(max(0.0, 1.0 - c.b.w * c.b.w));
-        let bbound = cosb * c.b.w + sinb * sintheta;
-        if (cosb < c.b.w && bbound < -1.0e-6 && r * (-bbound) >= c.a.w) {
-            vis = 0u;
-        }
-    }
-    if (vis == 1u) {
-        var p = 0;
-        loop {
-            if (p >= 6) {
-                break;
-            }
-            var dist = dot(params.planes[p].xyz, c.a.xyz) + params.planes[p].w;
-            if (dist < -c.a.w) {
-                vis = 0u;
-            }
-            p = p + 1;
-        }
-    }
-    return vis;
-}
-@compute @workgroup_size(64)
-fn fxmain(@builtin(global_invocation_id) gid: vec3<u32>) {
-    if (gid.x >= u32(params.misc.x)) {
-        return;
-    }
-    let i = u32(params.misc.w) + gid.x;
-    let c = clusters[i];
-    let want = fxscreenerr(i) <= params.misc.z;
-    var parentwanted = false;
-    if (c.c.y >= 0.0) {
-        parentwanted = fxscreenerr(u32(c.c.y)) <= params.misc.z;
-    }
-    let desired = fxvisible(i) == 1u && want && (c.c.y < 0.0 || !parentwanted);
-    let fb = atomicLoad(&flags[i]);
-    var res = 1u;
-    if (params.misc2.x > 0.5) {
-        res = resident[i];
-    }
-    if (res == 1u) {
-        var outv = 0u;
-        if (desired || fb > 0u) {
-            outv = 1u;
-        }
-        sel[i] = outv;
-    } else {
-        sel[i] = 0u;
-        if (desired || fb > 0u) {
-            if (c.c.y >= 0.0) {
-                atomicOr(&flags[u32(c.c.y)], 1u);
-            }
-        }
-    }
-}`;
+const zahea = `struct fxparams {\n    viewpos: vec4<f32>,\n    planes: array<vec4<f32>, 6>,\n    misc: vec4<f32>,\n    misc2: vec4<f32>,\n};\nstruct fxcluster {\n    a: vec4<f32>,\n    b: vec4<f32>,\n    c: vec4<f32>,\n};\n@group(0) @binding(0) var<uniform> params: fxparams;\n@group(0) @binding(1) var<storage, read> clusters: array<fxcluster>;\n@group(0) @binding(2) var<storage, read_write> sel: array<u32>;\n@group(0) @binding(3) var<storage, read_write> flags: array<atomic<u32>>;\n@group(0) @binding(4) var<storage, read> resident: array<u32>;\nfn fxscreenerr(i: u32) -> f32 {\n    let c = clusters[i];\n    var d = length(params.viewpos.xyz - c.a.xyz) - c.a.w;\n    if (d < 0.001) { d = 0.001; }\n    return c.c.x * params.viewpos.w / d;\n}\nfn fxvisible(i: u32) -> u32 {\n    let c = clusters[i];\n    var vis = 1u;\n    if (params.misc.y > 0.5 && c.c.w > 0.5) {\n        var u = params.viewpos.xyz - c.a.xyz;\n        var r = length(u);\n        if (r < 0.000001) {\n            u = vec3<f32>(0.0, 1.0, 0.0);\n            r = 1.0;\n        } else {\n            u = u / r;\n        }\n        let cosb = dot(u, c.b.xyz);\n        let sinb = sqrt(max(0.0, 1.0 - cosb * cosb));\n        let sintheta = sqrt(max(0.0, 1.0 - c.b.w * c.b.w));\n        let bbound = cosb * c.b.w + sinb * sintheta;\n        if (cosb < c.b.w && bbound < -1.0e-6 && r * (-bbound) >= c.a.w) {\n            vis = 0u;\n        }\n    }\n    if (vis == 1u) {\n        var p = 0;\n        loop {\n            if (p >= 6) {\n                break;\n            }\n            var dist = dot(params.planes[p].xyz, c.a.xyz) + params.planes[p].w;\n            if (dist < -c.a.w) {\n                vis = 0u;\n            }\n            p = p + 1;\n        }\n    }\n    return vis;\n}\n@compute @workgroup_size(64)\nfn fxmain(@builtin(global_invocation_id) gid: vec3<u32>) {\n    if (gid.x >= u32(params.misc.x)) {\n        return;\n    }\n    let i = u32(params.misc.w) + gid.x;\n    let c = clusters[i];\n    let want = fxscreenerr(i) <= params.misc.z;\n    var parentwanted = false;\n    if (c.c.y >= 0.0) {\n        parentwanted = fxscreenerr(u32(c.c.y)) <= params.misc.z;\n    }\n    let desired = fxvisible(i) == 1u && want && (c.c.y < 0.0 || !parentwanted);\n    let fb = atomicLoad(&flags[i]);\n    var res = 1u;\n    if (params.misc2.x > 0.5) {\n        res = resident[i];\n    }\n    if (res == 1u) {\n        var outv = 0u;\n        if (desired || fb > 0u) {\n            outv = 1u;\n        }\n        sel[i] = outv;\n    } else {\n        sel[i] = 0u;\n        if (desired || fb > 0u) {\n            if (c.c.y >= 0.0) {\n                atomicOr(&flags[u32(c.c.y)], 1u);\n            }\n        }\n    }\n}`;
 
-function fxomvgssolve(quad, pax, pay, paz, pbx, pby, pbz) {
-    var q00 = quad[0], q01 = quad[1], q02 = quad[2], q03 = quad[3];
-    var q11 = quad[4], q12 = quad[5], q13 = quad[6];
-    var q22 = quad[7], q23 = quad[8], q33 = quad[9];
-    var a00 = q00, a01 = q01, a02 = q02;
-    var a10 = q01, a11 = q11, a12 = q12;
-    var a20 = q02, a21 = q12, a22 = q22;
-    var b0 = -q03, b1 = -q13, b2 = -q23;
-    var det = a00 * (a11 * a22 - a12 * a21) - a01 * (a10 * a22 - a12 * a20) + a02 * (a10 * a21 - a11 * a20);
-    var px = (pax + pbx) * 0.5, py = (pay + pby) * 0.5, pz = (paz + pbz) * 0.5;
-    if (Math.abs(det) > 1e-10) {
-        var dx = b0 * (a11 * a22 - a12 * a21) - a01 * (b1 * a22 - a12 * b2) + a02 * (b1 * a21 - a11 * b2);
-        var dy = a00 * (b1 * a22 - a12 * b2) - b0 * (a10 * a22 - a12 * a20) + a02 * (a10 * b2 - b1 * a20);
-        var dz = a00 * (a11 * b2 - b1 * a21) - a01 * (a10 * b2 - b1 * a20) + b0 * (a10 * a21 - a11 * a20);
-        px = dx / det; py = dy / det; pz = dz / det;
-        if (!isFinite(px) || !isFinite(py) || !isFinite(pz)) {
-            px = (pax + pbx) * 0.5; py = (pay + pby) * 0.5; pz = (paz + pbz) * 0.5;
+function zaheb(zahea, zaheb, zahec, zahed, zahee, zahef, zaheg) {
+    var zaheh = zahea[0], zahei = zahea[1], zahej = zahea[2], zahek = zahea[3];
+    var zahel = zahea[4], zahem = zahea[5], zahen = zahea[6];
+    var zaheo = zahea[7], zahep = zahea[8], zaheq = zahea[9];
+    var zaher = zaheh, zahes = zahei, zahet = zahej;
+    var zaheu = zahei, zahev = zahel, zahew = zahem;
+    var zahex = zahej, zahey = zahem, zahez = zaheo;
+    var zaheaa = -zahek, zaheab = -zahen, zaheac = -zahep;
+    var zahead = zaher * (zahev * zahez - zahew * zahey) - zahes * (zaheu * zahez - zahew * zahex) + zahet * (zaheu * zahey - zahev * zahex);
+    var zaheae = (zaheb + zahee) * .5, zaheaf = (zahec + zahef) * .5, zaheag = (zahed + zaheg) * .5;
+    if (Math.abs(zahead) > 1e-10) {
+        var zaheah = zaheaa * (zahev * zahez - zahew * zahey) - zahes * (zaheab * zahez - zahew * zaheac) + zahet * (zaheab * zahey - zahev * zaheac);
+        var zaheai = zaher * (zaheab * zahez - zahew * zaheac) - zaheaa * (zaheu * zahez - zahew * zahex) + zahet * (zaheu * zaheac - zaheab * zahex);
+        var zaheaj = zaher * (zahev * zaheac - zaheab * zahey) - zahes * (zaheu * zaheac - zaheab * zahex) + zaheaa * (zaheu * zahey - zahev * zahex);
+        zaheae = zaheah / zahead;
+        zaheaf = zaheai / zahead;
+        zaheag = zaheaj / zahead;
+        if (!isFinite(zaheae) || !isFinite(zaheaf) || !isFinite(zaheag)) {
+            zaheae = (zaheb + zahee) * .5;
+            zaheaf = (zahec + zahef) * .5;
+            zaheag = (zahed + zaheg) * .5;
         }
     }
-    var x = px, y = py, z = pz, w = 1;
-    var value = q00 * x * x + 2 * q01 * x * y + 2 * q02 * x * z + 2 * q03 * x * w
-        + q11 * y * y + 2 * q12 * y * z + 2 * q13 * y * w
-        + q22 * z * z + 2 * q23 * z * w
-        + q33 * w * w;
-    if (!isFinite(value)) value = 1e30;
-    if (value < 0) value = 0;
-    return { x: px, y: py, z: pz, cost: value };
+    var zaheak = zaheae, zaheal = zaheaf, zaheam = zaheag, zahean = 1;
+    var zaheao = zaheh * zaheak * zaheak + 2 * zahei * zaheak * zaheal + 2 * zahej * zaheak * zaheam + 2 * zahek * zaheak * zahean + zahel * zaheal * zaheal + 2 * zahem * zaheal * zaheam + 2 * zahen * zaheal * zahean + zaheo * zaheam * zaheam + 2 * zahep * zaheam * zahean + zaheq * zahean * zahean;
+    if (!isFinite(zaheao)) zaheao = 1e30;
+    if (zaheao < 0) zaheao = 0;
+    return {
+        x: zaheae,
+        y: zaheaf,
+        z: zaheag,
+        cost: zaheao
+    };
 }
 
-function fxomvgsimplify(pos, nrm, uv, idx, owner, ownerCount, targetTris) {
-    var vertCount = pos.length / 3;
-    var triCount = idx.length / 3;
-    var alive = new Uint8Array(vertCount);
-    var triAlive = new Uint8Array(triCount);
-    for (var i0 = 0; i0 < vertCount; i0++) alive[i0] = 1;
-    for (var i1 = 0; i1 < triCount; i1++) triAlive[i1] = 1;
-    var liveTris = triCount;
-    var pendingErr = new Float64Array(ownerCount);
-    var guard = 0;
-    var maxGuard = vertCount * 4 + 16;
-    while (liveTris > targetTris && guard < maxGuard) {
-        guard++;
-        var quad = new Float64Array(vertCount * 10);
-        for (var t = 0; t < triCount; t++) {
-            if (!triAlive[t]) continue;
-            var ia = idx[t * 3], ib = idx[t * 3 + 1], ic = idx[t * 3 + 2];
-            var ax = pos[ia * 3], ay = pos[ia * 3 + 1], az = pos[ia * 3 + 2];
-            var bx = pos[ib * 3], by = pos[ib * 3 + 1], bz = pos[ib * 3 + 2];
-            var cx = pos[ic * 3], cy = pos[ic * 3 + 1], cz = pos[ic * 3 + 2];
-            var e1x = bx - ax, e1y = by - ay, e1z = bz - az;
-            var e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
-            var nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
-            var nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (nl < 1e-12) continue;
-            nx /= nl; ny /= nl; nz /= nl;
-            var area = nl * 0.5;
-            var d = -(nx * ax + ny * ay + nz * az);
-            var w = area;
-            var vertsOf = [ia, ib, ic];
-            for (var vv = 0; vv < 3; vv++) {
-                var o = vertsOf[vv] * 10;
-                quad[o] += nx * nx * w; quad[o + 1] += nx * ny * w; quad[o + 2] += nx * nz * w; quad[o + 3] += nx * d * w;
-                quad[o + 4] += ny * ny * w; quad[o + 5] += ny * nz * w; quad[o + 6] += ny * d * w;
-                quad[o + 7] += nz * nz * w; quad[o + 8] += nz * d * w;
-                quad[o + 9] += d * d * w;
+function zahec(zahea, zahec, zahed, zahee, zahef, zaheg, zaheh) {
+    var zahei = zahea.length / 3;
+    var zahej = zahee.length / 3;
+    var zahek = new Uint8Array(zahei);
+    var zahel = new Uint8Array(zahej);
+    for (var zahem = 0; zahem < zahei; zahem++) zahek[zahem] = 1;
+    for (var zahen = 0; zahen < zahej; zahen++) zahel[zahen] = 1;
+    var zaheo = zahej;
+    var zahep = new Float64Array(zaheg);
+    var zaheq = 0;
+    var zaher = zahei * 4 + 16;
+    while (zaheo > zaheh && zaheq < zaher) {
+        zaheq++;
+        var zahes = new Float64Array(zahei * 10);
+        for (var zahet = 0; zahet < zahej; zahet++) {
+            if (!zahel[zahet]) continue;
+            var zaheu = zahee[zahet * 3], zahev = zahee[zahet * 3 + 1], zahew = zahee[zahet * 3 + 2];
+            var zahex = zahea[zaheu * 3], zahey = zahea[zaheu * 3 + 1], zahez = zahea[zaheu * 3 + 2];
+            var zaheaa = zahea[zahev * 3], zaheab = zahea[zahev * 3 + 1], zaheac = zahea[zahev * 3 + 2];
+            var zahead = zahea[zahew * 3], zaheae = zahea[zahew * 3 + 1], zaheaf = zahea[zahew * 3 + 2];
+            var zaheag = zaheaa - zahex, zaheah = zaheab - zahey, zaheai = zaheac - zahez;
+            var zaheaj = zahead - zahex, zaheak = zaheae - zahey, zaheal = zaheaf - zahez;
+            var zaheam = zaheah * zaheal - zaheai * zaheak, zahean = zaheai * zaheaj - zaheag * zaheal, zaheao = zaheag * zaheak - zaheah * zaheaj;
+            var zaheap = Math.sqrt(zaheam * zaheam + zahean * zahean + zaheao * zaheao);
+            if (zaheap < 1e-12) continue;
+            zaheam /= zaheap;
+            zahean /= zaheap;
+            zaheao /= zaheap;
+            var zaheaq = zaheap * .5;
+            var zahear = -(zaheam * zahex + zahean * zahey + zaheao * zahez);
+            var zaheas = zaheaq;
+            var zaheat = [ zaheu, zahev, zahew ];
+            for (var zaheau = 0; zaheau < 3; zaheau++) {
+                var zaheav = zaheat[zaheau] * 10;
+                zahes[zaheav] += zaheam * zaheam * zaheas;
+                zahes[zaheav + 1] += zaheam * zahean * zaheas;
+                zahes[zaheav + 2] += zaheam * zaheao * zaheas;
+                zahes[zaheav + 3] += zaheam * zahear * zaheas;
+                zahes[zaheav + 4] += zahean * zahean * zaheas;
+                zahes[zaheav + 5] += zahean * zaheao * zaheas;
+                zahes[zaheav + 6] += zahean * zahear * zaheas;
+                zahes[zaheav + 7] += zaheao * zaheao * zaheas;
+                zahes[zaheav + 8] += zaheao * zahear * zaheas;
+                zahes[zaheav + 9] += zahear * zahear * zaheas;
             }
         }
-        var edges = [];
-        var edgeFirst = [];
-        var edgeSecond = [];
-        var edgeTris = [];
-        var emap = new Map();
-        for (var t2 = 0; t2 < triCount; t2++) {
-            if (!triAlive[t2]) continue;
-            for (var e = 0; e < 3; e++) {
-                var va = idx[t2 * 3 + e];
-                var vb = idx[t2 * 3 + ((e + 1) % 3)];
-                var lo = va < vb ? va : vb;
-                var hi = va < vb ? vb : va;
-                var key = lo * vertCount + hi;
-                var eid = emap.get(key);
-                if (eid === undefined) {
-                    eid = edges.length;
-                    emap.set(key, eid);
-                    edgeFirst.push(lo);
-                    edgeSecond.push(hi);
-                    edgeTris.push([]);
-                    edges.push(key);
+        var zaheaw = [];
+        var zaheax = [];
+        var zaheay = [];
+        var zaheaz = [];
+        var zaheba = new Map;
+        for (var zahebb = 0; zahebb < zahej; zahebb++) {
+            if (!zahel[zahebb]) continue;
+            for (var zahebc = 0; zahebc < 3; zahebc++) {
+                var zahebd = zahee[zahebb * 3 + zahebc];
+                var zahebe = zahee[zahebb * 3 + (zahebc + 1) % 3];
+                var zahebf = zahebd < zahebe ? zahebd : zahebe;
+                var zahebg = zahebd < zahebe ? zahebe : zahebd;
+                var zahebh = zahebf * zahei + zahebg;
+                var zahebi = zaheba.get(zahebh);
+                if (zahebi === undefined) {
+                    zahebi = zaheaw.length;
+                    zaheba.set(zahebh, zahebi);
+                    zaheax.push(zahebf);
+                    zaheay.push(zahebg);
+                    zaheaz.push([]);
+                    zaheaw.push(zahebh);
                 }
-                edgeTris[eid].push(t2);
+                zaheaz[zahebi].push(zahebb);
             }
         }
-        for (var be = 0; be < edges.length; be++) {
-            if (edgeTris[be].length !== 1) continue;
-            var ta = edgeTris[be][0];
-            var pa = edgeFirst[be], pb = edgeSecond[be];
-            var pax = pos[pa * 3], pay = pos[pa * 3 + 1], paz = pos[pa * 3 + 2];
-            var pbx = pos[pb * 3], pby = pos[pb * 3 + 1], pbz = pos[pb * 3 + 2];
-            var iax = idx[ta * 3], ibx = idx[ta * 3 + 1], icx = idx[ta * 3 + 2];
-            var fx = pos[iax * 3], fy = pos[iax * 3 + 1], fz = pos[iax * 3 + 2];
-            var gx = pos[ibx * 3], gy = pos[ibx * 3 + 1], gz = pos[ibx * 3 + 2];
-            var hx = pos[icx * 3], hy = pos[icx * 3 + 1], hz = pos[icx * 3 + 2];
-            var tnx = (gy - fy) * (hz - fz) - (gz - fz) * (hy - fy);
-            var tny = (gz - fz) * (hx - fx) - (gx - fx) * (hz - fz);
-            var tnz = (gx - fx) * (hy - fy) - (gy - fy) * (hx - fx);
-            var tnl = Math.sqrt(tnx * tnx + tny * tny + tnz * tnz) || 1;
-            tnx /= tnl; tny /= tnl; tnz /= tnl;
-            var edgx = pbx - pax, edgy = pby - pay, edgz = pbz - paz;
-            var mx = edgy * tnz - edgz * tny;
-            var my = edgz * tnx - edgx * tnz;
-            var mz = edgx * tny - edgy * tnx;
-            var ml = Math.sqrt(mx * mx + my * my + mz * mz);
-            if (ml < 1e-12) continue;
-            mx /= ml; my /= ml; mz /= ml;
-            var md = -(mx * pax + my * pay + mz * paz);
-            var bw = 100;
-            var pair = [pa, pb];
-            for (var pw = 0; pw < 2; pw++) {
-                var o2 = pair[pw] * 10;
-                quad[o2] += mx * mx * bw; quad[o2 + 1] += mx * my * bw; quad[o2 + 2] += mx * mz * bw; quad[o2 + 3] += mx * md * bw;
-                quad[o2 + 4] += my * my * bw; quad[o2 + 5] += my * mz * bw; quad[o2 + 6] += my * md * bw;
-                quad[o2 + 7] += mz * mz * bw; quad[o2 + 8] += mz * md * bw;
-                quad[o2 + 9] += md * md * bw;
+        for (var zahebj = 0; zahebj < zaheaw.length; zahebj++) {
+            if (zaheaz[zahebj].length !== 1) continue;
+            var zahebk = zaheaz[zahebj][0];
+            var zahebl = zaheax[zahebj], zahebm = zaheay[zahebj];
+            var zahebn = zahea[zahebl * 3], zahebo = zahea[zahebl * 3 + 1], zahebp = zahea[zahebl * 3 + 2];
+            var zahebq = zahea[zahebm * 3], zahebr = zahea[zahebm * 3 + 1], zahebs = zahea[zahebm * 3 + 2];
+            var zahebt = zahee[zahebk * 3], zahebu = zahee[zahebk * 3 + 1], zahebv = zahee[zahebk * 3 + 2];
+            var zahebw = zahea[zahebt * 3], zahebx = zahea[zahebt * 3 + 1], zaheby = zahea[zahebt * 3 + 2];
+            var zahebz = zahea[zahebu * 3], zaheca = zahea[zahebu * 3 + 1], zahecb = zahea[zahebu * 3 + 2];
+            var zahecc = zahea[zahebv * 3], zahecd = zahea[zahebv * 3 + 1], zahece = zahea[zahebv * 3 + 2];
+            var zahecf = (zaheca - zahebx) * (zahece - zaheby) - (zahecb - zaheby) * (zahecd - zahebx);
+            var zahecg = (zahecb - zaheby) * (zahecc - zahebw) - (zahebz - zahebw) * (zahece - zaheby);
+            var zahech = (zahebz - zahebw) * (zahecd - zahebx) - (zaheca - zahebx) * (zahecc - zahebw);
+            var zaheci = Math.sqrt(zahecf * zahecf + zahecg * zahecg + zahech * zahech) || 1;
+            zahecf /= zaheci;
+            zahecg /= zaheci;
+            zahech /= zaheci;
+            var zahecj = zahebq - zahebn, zaheck = zahebr - zahebo, zahecl = zahebs - zahebp;
+            var zahecm = zaheck * zahech - zahecl * zahecg;
+            var zahecn = zahecl * zahecf - zahecj * zahech;
+            var zaheco = zahecj * zahecg - zaheck * zahecf;
+            var zahecp = Math.sqrt(zahecm * zahecm + zahecn * zahecn + zaheco * zaheco);
+            if (zahecp < 1e-12) continue;
+            zahecm /= zahecp;
+            zahecn /= zahecp;
+            zaheco /= zahecp;
+            var zahecq = -(zahecm * zahebn + zahecn * zahebo + zaheco * zahebp);
+            var zahecr = 100;
+            var zahecs = [ zahebl, zahebm ];
+            for (var zahect = 0; zahect < 2; zahect++) {
+                var zahecu = zahecs[zahect] * 10;
+                zahes[zahecu] += zahecm * zahecm * zahecr;
+                zahes[zahecu + 1] += zahecm * zahecn * zahecr;
+                zahes[zahecu + 2] += zahecm * zaheco * zahecr;
+                zahes[zahecu + 3] += zahecm * zahecq * zahecr;
+                zahes[zahecu + 4] += zahecn * zahecn * zahecr;
+                zahes[zahecu + 5] += zahecn * zaheco * zahecr;
+                zahes[zahecu + 6] += zahecn * zahecq * zahecr;
+                zahes[zahecu + 7] += zaheco * zaheco * zahecr;
+                zahes[zahecu + 8] += zaheco * zahecq * zahecr;
+                zahes[zahecu + 9] += zahecq * zahecq * zahecr;
             }
         }
-        var best = -1, bestCost = Infinity, bestKey = -1, bestSol = null;
-        for (var e2 = 0; e2 < edges.length; e2++) {
-            if (edgeTris[e2].length !== 2) continue;
-            var a = edgeFirst[e2], b = edgeSecond[e2];
-            var qa = quad.slice(a * 10, a * 10 + 10);
-            var qb = quad.slice(b * 10, b * 10 + 10);
-            var q = [];
-            for (var qq = 0; qq < 10; qq++) q.push(qa[qq] + qb[qq]);
-            var sol = fxomvgssolve(q, pos[a * 3], pos[a * 3 + 1], pos[a * 3 + 2], pos[b * 3], pos[b * 3 + 1], pos[b * 3 + 2]);
-            if (!isFinite(sol.cost)) continue;
-            var key2 = a * vertCount + b;
-            if (sol.cost < bestCost - 1e-14 || (sol.cost - bestCost <= 1e-14 && sol.cost - bestCost >= -1e-14 && key2 < bestKey)) {
-                best = e2; bestCost = sol.cost; bestKey = key2; bestSol = sol;
+        var zahecv = -1, zahecw = Infinity, zahecx = -1, zahecy = null;
+        for (var zahecz = 0; zahecz < zaheaw.length; zahecz++) {
+            if (zaheaz[zahecz].length !== 2) continue;
+            var zaheda = zaheax[zahecz], zahedb = zaheay[zahecz];
+            var zahedc = zahes.slice(zaheda * 10, zaheda * 10 + 10);
+            var zahedd = zahes.slice(zahedb * 10, zahedb * 10 + 10);
+            var zahede = [];
+            for (var zahedf = 0; zahedf < 10; zahedf++) zahede.push(zahedc[zahedf] + zahedd[zahedf]);
+            var zahedg = zaheb(zahede, zahea[zaheda * 3], zahea[zaheda * 3 + 1], zahea[zaheda * 3 + 2], zahea[zahedb * 3], zahea[zahedb * 3 + 1], zahea[zahedb * 3 + 2]);
+            if (!isFinite(zahedg.cost)) continue;
+            var zahedh = zaheda * zahei + zahedb;
+            if (zahedg.cost < zahecw - 1e-14 || zahedg.cost - zahecw <= 1e-14 && zahedg.cost - zahecw >= -1e-14 && zahedh < zahecx) {
+                zahecv = zahecz;
+                zahecw = zahedg.cost;
+                zahecx = zahedh;
+                zahecy = zahedg;
             }
         }
-        if (best < 0 || !bestSol) break;
-        var ka = edgeFirst[best], kb = edgeSecond[best];
-        var disp = Math.max(
-            Math.sqrt((bestSol.x - pos[ka * 3]) * (bestSol.x - pos[ka * 3]) + (bestSol.y - pos[ka * 3 + 1]) * (bestSol.y - pos[ka * 3 + 1]) + (bestSol.z - pos[ka * 3 + 2]) * (bestSol.z - pos[ka * 3 + 2])),
-            Math.sqrt((bestSol.x - pos[kb * 3]) * (bestSol.x - pos[kb * 3]) + (bestSol.y - pos[kb * 3 + 1]) * (bestSol.y - pos[kb * 3 + 1]) + (bestSol.z - pos[kb * 3 + 2]) * (bestSol.z - pos[kb * 3 + 2]))
-        );
-        for (var t3 = 0; t3 < triCount; t3++) {
-            if (!triAlive[t3]) continue;
-            var v0 = idx[t3 * 3], v1 = idx[t3 * 3 + 1], v2 = idx[t3 * 3 + 2];
-            var hasA = v0 === ka || v1 === ka || v2 === ka;
-            var hasB = v0 === kb || v1 === kb || v2 === kb;
-            if (!hasA && !hasB) continue;
-            if (pendingErr[owner[t3]] < disp) pendingErr[owner[t3]] = disp;
-            if (hasA && hasB) {
-                triAlive[t3] = 0;
-                liveTris--;
+        if (zahecv < 0 || !zahecy) break;
+        var zahedi = zaheax[zahecv], zahedj = zaheay[zahecv];
+        var zahedk = Math.max(Math.sqrt((zahecy.x - zahea[zahedi * 3]) * (zahecy.x - zahea[zahedi * 3]) + (zahecy.y - zahea[zahedi * 3 + 1]) * (zahecy.y - zahea[zahedi * 3 + 1]) + (zahecy.z - zahea[zahedi * 3 + 2]) * (zahecy.z - zahea[zahedi * 3 + 2])), Math.sqrt((zahecy.x - zahea[zahedj * 3]) * (zahecy.x - zahea[zahedj * 3]) + (zahecy.y - zahea[zahedj * 3 + 1]) * (zahecy.y - zahea[zahedj * 3 + 1]) + (zahecy.z - zahea[zahedj * 3 + 2]) * (zahecy.z - zahea[zahedj * 3 + 2])));
+        for (var zahedl = 0; zahedl < zahej; zahedl++) {
+            if (!zahel[zahedl]) continue;
+            var zahedm = zahee[zahedl * 3], zahedn = zahee[zahedl * 3 + 1], zahedo = zahee[zahedl * 3 + 2];
+            var zahedp = zahedm === zahedi || zahedn === zahedi || zahedo === zahedi;
+            var zahedq = zahedm === zahedj || zahedn === zahedj || zahedo === zahedj;
+            if (!zahedp && !zahedq) continue;
+            if (zahep[zahef[zahedl]] < zahedk) zahep[zahef[zahedl]] = zahedk;
+            if (zahedp && zahedq) {
+                zahel[zahedl] = 0;
+                zaheo--;
                 continue;
             }
-            if (v0 === kb) idx[t3 * 3] = ka;
-            if (v1 === kb) idx[t3 * 3 + 1] = ka;
-            if (v2 === kb) idx[t3 * 3 + 2] = ka;
+            if (zahedm === zahedj) zahee[zahedl * 3] = zahedi;
+            if (zahedn === zahedj) zahee[zahedl * 3 + 1] = zahedi;
+            if (zahedo === zahedj) zahee[zahedl * 3 + 2] = zahedi;
         }
-        pos[ka * 3] = bestSol.x; pos[ka * 3 + 1] = bestSol.y; pos[ka * 3 + 2] = bestSol.z;
-        if (uv) {
-            uv[ka * 2] = (uv[ka * 2] + uv[kb * 2]) * 0.5;
-            uv[ka * 2 + 1] = (uv[ka * 2 + 1] + uv[kb * 2 + 1]) * 0.5;
+        zahea[zahedi * 3] = zahecy.x;
+        zahea[zahedi * 3 + 1] = zahecy.y;
+        zahea[zahedi * 3 + 2] = zahecy.z;
+        if (zahed) {
+            zahed[zahedi * 2] = (zahed[zahedi * 2] + zahed[zahedj * 2]) * .5;
+            zahed[zahedi * 2 + 1] = (zahed[zahedi * 2 + 1] + zahed[zahedj * 2 + 1]) * .5;
         }
-        alive[kb] = 0;
+        zahek[zahedj] = 0;
     }
-    var remap = new Int32Array(vertCount);
-    for (var r = 0; r < vertCount; r++) remap[r] = -1;
-    var outPos = [], outNrm = [], outUv = uv ? [] : null, outIdx = [];
-    var next = 0;
-    for (var v2 = 0; v2 < vertCount; v2++) {
-        if (!alive[v2]) continue;
-        remap[v2] = next++;
-        outPos.push(pos[v2 * 3], pos[v2 * 3 + 1], pos[v2 * 3 + 2]);
-        if (outUv) outUv.push(uv[v2 * 2], uv[v2 * 2 + 1]);
+    var zahedr = new Int32Array(zahei);
+    for (var zaheds = 0; zaheds < zahei; zaheds++) zahedr[zaheds] = -1;
+    var zahedt = [], zahedu = [], zahedv = zahed ? [] : null, zahedw = [];
+    var zahedx = 0;
+    for (var zahedo = 0; zahedo < zahei; zahedo++) {
+        if (!zahek[zahedo]) continue;
+        zahedr[zahedo] = zahedx++;
+        zahedt.push(zahea[zahedo * 3], zahea[zahedo * 3 + 1], zahea[zahedo * 3 + 2]);
+        if (zahedv) zahedv.push(zahed[zahedo * 2], zahed[zahedo * 2 + 1]);
     }
-    for (var t4 = 0; t4 < triCount; t4++) {
-        if (!triAlive[t4]) continue;
-        outIdx.push(remap[idx[t4 * 3]], remap[idx[t4 * 3 + 1]], remap[idx[t4 * 3 + 2]]);
+    for (var zahedy = 0; zahedy < zahej; zahedy++) {
+        if (!zahel[zahedy]) continue;
+        zahedw.push(zahedr[zahee[zahedy * 3]], zahedr[zahee[zahedy * 3 + 1]], zahedr[zahee[zahedy * 3 + 2]]);
     }
-    var outNrmArr = new Float64Array(outPos.length);
-    for (var t5 = 0; t5 * 3 < outIdx.length; t5++) {
-        var ja = outIdx[t5 * 3], jb = outIdx[t5 * 3 + 1], jc = outIdx[t5 * 3 + 2];
-        var jax = outPos[ja * 3], jay = outPos[ja * 3 + 1], jaz = outPos[ja * 3 + 2];
-        var jbx = outPos[jb * 3], jby = outPos[jb * 3 + 1], jbz = outPos[jb * 3 + 2];
-        var jcx = outPos[jc * 3], jcy = outPos[jc * 3 + 1], jcz = outPos[jc * 3 + 2];
-        var fnx = (jby - jay) * (jcz - jaz) - (jbz - jaz) * (jcy - jay);
-        var fny = (jbz - jaz) * (jcx - jax) - (jbx - jax) * (jcz - jaz);
-        var fnz = (jbx - jax) * (jcy - jay) - (jby - jay) * (jcx - jax);
-        outNrmArr[ja * 3] += fnx; outNrmArr[ja * 3 + 1] += fny; outNrmArr[ja * 3 + 2] += fnz;
-        outNrmArr[jb * 3] += fnx; outNrmArr[jb * 3 + 1] += fny; outNrmArr[jb * 3 + 2] += fnz;
-        outNrmArr[jc * 3] += fnx; outNrmArr[jc * 3 + 1] += fny; outNrmArr[jc * 3 + 2] += fnz;
+    var zahedz = new Float64Array(zahedt.length);
+    for (var zaheea = 0; zaheea * 3 < zahedw.length; zaheea++) {
+        var zaheeb = zahedw[zaheea * 3], zaheec = zahedw[zaheea * 3 + 1], zaheed = zahedw[zaheea * 3 + 2];
+        var zaheee = zahedt[zaheeb * 3], zaheef = zahedt[zaheeb * 3 + 1], zaheeg = zahedt[zaheeb * 3 + 2];
+        var zaheeh = zahedt[zaheec * 3], zaheei = zahedt[zaheec * 3 + 1], zaheej = zahedt[zaheec * 3 + 2];
+        var zaheek = zahedt[zaheed * 3], zaheel = zahedt[zaheed * 3 + 1], zaheem = zahedt[zaheed * 3 + 2];
+        var zaheen = (zaheei - zaheef) * (zaheem - zaheeg) - (zaheej - zaheeg) * (zaheel - zaheef);
+        var zaheeo = (zaheej - zaheeg) * (zaheek - zaheee) - (zaheeh - zaheee) * (zaheem - zaheeg);
+        var zaheep = (zaheeh - zaheee) * (zaheel - zaheef) - (zaheei - zaheef) * (zaheek - zaheee);
+        zahedz[zaheeb * 3] += zaheen;
+        zahedz[zaheeb * 3 + 1] += zaheeo;
+        zahedz[zaheeb * 3 + 2] += zaheep;
+        zahedz[zaheec * 3] += zaheen;
+        zahedz[zaheec * 3 + 1] += zaheeo;
+        zahedz[zaheec * 3 + 2] += zaheep;
+        zahedz[zaheed * 3] += zaheen;
+        zahedz[zaheed * 3 + 1] += zaheeo;
+        zahedz[zaheed * 3 + 2] += zaheep;
     }
-    for (var n = 0; n < outNrmArr.length; n += 3) {
-        var l2 = Math.sqrt(outNrmArr[n] * outNrmArr[n] + outNrmArr[n + 1] * outNrmArr[n + 1] + outNrmArr[n + 2] * outNrmArr[n + 2]);
-        if (l2 > 1e-12) { outNrm.push(outNrmArr[n] / l2, outNrmArr[n + 1] / l2, outNrmArr[n + 2] / l2); }
-        else { outNrm.push(0, 1, 0); }
+    for (var zaheeq = 0; zaheeq < zahedz.length; zaheeq += 3) {
+        var zaheer = Math.sqrt(zahedz[zaheeq] * zahedz[zaheeq] + zahedz[zaheeq + 1] * zahedz[zaheeq + 1] + zahedz[zaheeq + 2] * zahedz[zaheeq + 2]);
+        if (zaheer > 1e-12) {
+            zahedu.push(zahedz[zaheeq] / zaheer, zahedz[zaheeq + 1] / zaheer, zahedz[zaheeq + 2] / zaheer);
+        } else {
+            zahedu.push(0, 1, 0);
+        }
     }
-    return { pos: outPos, nrm: outNrm, uv: outUv, idx: outIdx, pendingErr: pendingErr, collapses: guard };
+    return {
+        pos: zahedt,
+        nrm: zahedu,
+        uv: zahedv,
+        idx: zahedw,
+        pendingErr: zahep,
+        collapses: zaheq
+    };
 }
 
-function fxomvgsclusterbounds(pos, idx) {
-    var minx = 1e30, miny = 1e30, minz = 1e30, maxx = -1e30, maxy = -1e30, maxz = -1e30;
-    var seen = {};
-    for (var i = 0; i < idx.length; i++) seen[idx[i]] = 1;
-    var sx = 0, sy = 0, sz = 0, sn = 0;
-    for (var key in seen) {
-        var vi = key | 0;
-        var px = pos[vi * 3], py = pos[vi * 3 + 1], pz = pos[vi * 3 + 2];
-        if (px < minx) minx = px;
-        if (py < miny) miny = py;
-        if (pz < minz) minz = pz;
-        if (px > maxx) maxx = px;
-        if (py > maxy) maxy = py;
-        if (pz > maxz) maxz = pz;
-        sx += px; sy += py; sz += pz; sn++;
+function zahed(zahea, zaheb) {
+    var zahec = 1e30, zahed = 1e30, zahee = 1e30, zahef = -1e30, zaheg = -1e30, zaheh = -1e30;
+    var zahei = {};
+    for (var zahej = 0; zahej < zaheb.length; zahej++) zahei[zaheb[zahej]] = 1;
+    var zahek = 0, zahel = 0, zahem = 0, zahen = 0;
+    for (var zaheo in zahei) {
+        var zahep = zaheo | 0;
+        var zaheq = zahea[zahep * 3], zaher = zahea[zahep * 3 + 1], zahes = zahea[zahep * 3 + 2];
+        if (zaheq < zahec) zahec = zaheq;
+        if (zaher < zahed) zahed = zaher;
+        if (zahes < zahee) zahee = zahes;
+        if (zaheq > zahef) zahef = zaheq;
+        if (zaher > zaheg) zaheg = zaher;
+        if (zahes > zaheh) zaheh = zahes;
+        zahek += zaheq;
+        zahel += zaher;
+        zahem += zahes;
+        zahen++;
     }
-    if (sn === 0) { minx = miny = minz = maxx = maxy = maxz = 0; sx = sy = sz = 0; sn = 1; }
-    var cx = sx / sn, cy = sy / sn, cz = sz / sn;
-    var radius = 0;
-    for (var key2 in seen) {
-        var vi2 = key2 | 0;
-        var dx = pos[vi2 * 3] - cx, dy = pos[vi2 * 3 + 1] - cy, dz = pos[vi2 * 3 + 2] - cz;
-        var dl = dx * dx + dy * dy + dz * dz;
-        if (dl > radius) radius = dl;
+    if (zahen === 0) {
+        zahec = zahed = zahee = zahef = zaheg = zaheh = 0;
+        zahek = zahel = zahem = 0;
+        zahen = 1;
     }
-    radius = Math.sqrt(radius);
-    var ax = 0, ay = 0, az = 0;
-    for (var t = 0; t * 3 < idx.length; t++) {
-        var ia = idx[t * 3], ib = idx[t * 3 + 1], ic = idx[t * 3 + 2];
-        var axv = pos[ib * 3] - pos[ia * 3], ayv = pos[ib * 3 + 1] - pos[ia * 3 + 1], azv = pos[ib * 3 + 2] - pos[ia * 3 + 2];
-        var bxv = pos[ic * 3] - pos[ia * 3], byv = pos[ic * 3 + 1] - pos[ia * 3 + 1], bzv = pos[ic * 3 + 2] - pos[ia * 3 + 2];
-        var nx = ayv * bzv - azv * byv, ny = azv * bxv - axv * bzv, nz = axv * byv - ayv * bxv;
-        ax += nx; ay += ny; az += nz;
+    var zahet = zahek / zahen, zaheu = zahel / zahen, zahev = zahem / zahen;
+    var zahew = 0;
+    for (var zahex in zahei) {
+        var zahey = zahex | 0;
+        var zahez = zahea[zahey * 3] - zahet, zaheaa = zahea[zahey * 3 + 1] - zaheu, zaheab = zahea[zahey * 3 + 2] - zahev;
+        var zaheac = zahez * zahez + zaheaa * zaheaa + zaheab * zaheab;
+        if (zaheac > zahew) zahew = zaheac;
     }
-    var al = Math.sqrt(ax * ax + ay * ay + az * az);
-    var axis = [0, 1, 0], cosThetaMax = -1, cullable = 0;
-    if (al > 1e-6) {
-        axis = [ax / al, ay / al, az / al];
-        var ctm = 1;
-        for (var t2 = 0; t2 * 3 < idx.length; t2++) {
-            var ia2 = idx[t2 * 3], ib2 = idx[t2 * 3 + 1], ic2 = idx[t2 * 3 + 2];
-            var e1x = pos[ib2 * 3] - pos[ia2 * 3], e1y = pos[ib2 * 3 + 1] - pos[ia2 * 3 + 1], e1z = pos[ib2 * 3 + 2] - pos[ia2 * 3 + 2];
-            var e2x = pos[ic2 * 3] - pos[ia2 * 3], e2y = pos[ic2 * 3 + 1] - pos[ia2 * 3 + 1], e2z = pos[ic2 * 3 + 2] - pos[ia2 * 3 + 2];
-            var n2x = e1y * e2z - e1z * e2y, n2y = e1z * e2x - e1x * e2z, n2z = e1x * e2y - e1y * e2x;
-            var d = n2x * axis[0] + n2y * axis[1] + n2z * axis[2];
-            if (d < ctm) ctm = d;
+    zahew = Math.sqrt(zahew);
+    var zahead = 0, zaheae = 0, zaheaf = 0;
+    for (var zaheag = 0; zaheag * 3 < zaheb.length; zaheag++) {
+        var zaheah = zaheb[zaheag * 3], zaheai = zaheb[zaheag * 3 + 1], zaheaj = zaheb[zaheag * 3 + 2];
+        var zaheak = zahea[zaheai * 3] - zahea[zaheah * 3], zaheal = zahea[zaheai * 3 + 1] - zahea[zaheah * 3 + 1], zaheam = zahea[zaheai * 3 + 2] - zahea[zaheah * 3 + 2];
+        var zahean = zahea[zaheaj * 3] - zahea[zaheah * 3], zaheao = zahea[zaheaj * 3 + 1] - zahea[zaheah * 3 + 1], zaheap = zahea[zaheaj * 3 + 2] - zahea[zaheah * 3 + 2];
+        var zaheaq = zaheal * zaheap - zaheam * zaheao, zahear = zaheam * zahean - zaheak * zaheap, zaheas = zaheak * zaheao - zaheal * zahean;
+        zahead += zaheaq;
+        zaheae += zahear;
+        zaheaf += zaheas;
+    }
+    var zaheat = Math.sqrt(zahead * zahead + zaheae * zaheae + zaheaf * zaheaf);
+    var zaheau = [ 0, 1, 0 ], zaheav = -1, zaheaw = 0;
+    if (zaheat > 1e-6) {
+        zaheau = [ zahead / zaheat, zaheae / zaheat, zaheaf / zaheat ];
+        var zaheax = 1;
+        for (var zaheay = 0; zaheay * 3 < zaheb.length; zaheay++) {
+            var zaheaz = zaheb[zaheay * 3], zaheba = zaheb[zaheay * 3 + 1], zahebb = zaheb[zaheay * 3 + 2];
+            var zahebc = zahea[zaheba * 3] - zahea[zaheaz * 3], zahebd = zahea[zaheba * 3 + 1] - zahea[zaheaz * 3 + 1], zahebe = zahea[zaheba * 3 + 2] - zahea[zaheaz * 3 + 2];
+            var zahebf = zahea[zahebb * 3] - zahea[zaheaz * 3], zahebg = zahea[zahebb * 3 + 1] - zahea[zaheaz * 3 + 1], zahebh = zahea[zahebb * 3 + 2] - zahea[zaheaz * 3 + 2];
+            var zahebi = zahebd * zahebh - zahebe * zahebg, zahebj = zahebe * zahebf - zahebc * zahebh, zahebk = zahebc * zahebg - zahebd * zahebf;
+            var zahebl = zahebi * zaheau[0] + zahebj * zaheau[1] + zahebk * zaheau[2];
+            if (zahebl < zaheax) zaheax = zahebl;
         }
-        cosThetaMax = ctm;
-        if (ctm > -0.98) cullable = 1;
+        zaheav = zaheax;
+        if (zaheax > -.98) zaheaw = 1;
     }
-    return { center: [cx, cy, cz], radius: radius, min: [minx, miny, minz], max: [maxx, maxy, maxz], axis: axis, cosThetaMax: cosThetaMax, cullable: cullable };
+    return {
+        center: [ zahet, zaheu, zahev ],
+        radius: zahew,
+        min: [ zahec, zahed, zahee ],
+        max: [ zahef, zaheg, zaheh ],
+        axis: zaheau,
+        cosThetaMax: zaheav,
+        cullable: zaheaw
+    };
 }
 
 class FXOMVGS {
-    constructor(geometry, options) {
-        options = options || {};
-        this.source = geometry;
-        this.maxVertices = Math.max(3, options.maxVertices || 96);
-        this.maxTriangles = Math.max(3, options.maxTriangles || 192);
-        this.groupSize = Math.max(2, options.groupSize || 4);
-        this.maxLevels = Math.min(24, Math.max(2, options.maxLevels || 16));
-        this.renderer = options.renderer || null;
+    constructor(zahea, zaheb) {
+        zaheb = zaheb || {};
+        this.source = zahea;
+        this.maxVertices = Math.max(3, zaheb.maxVertices || 96);
+        this.maxTriangles = Math.max(3, zaheb.maxTriangles || 192);
+        this.groupSize = Math.max(2, zaheb.groupSize || 4);
+        this.maxLevels = Math.min(24, Math.max(2, zaheb.maxLevels || 16));
+        this.renderer = zaheb.renderer || null;
         this.device = this.renderer ? this.renderer.device : null;
         this.clusters = [];
         this.levelRanges = [];
@@ -379,278 +351,395 @@ class FXOMVGS {
         this.memoryBudget = Infinity;
         this.frame = 0;
         this.lastSelection = null;
-        this.stats = { levels: 0, clusters: 0, levelClusters: [], levelTriangles: [], vertices: 0, buildms: 0, simplifyms: 0, selected: 0, selectedTriangles: 0, selectms: 0, resident: 0 };
+        this.stats = {
+            levels: 0,
+            clusters: 0,
+            levelClusters: [],
+            levelTriangles: [],
+            vertices: 0,
+            buildms: 0,
+            simplifyms: 0,
+            selected: 0,
+            selectedTriangles: 0,
+            selectms: 0,
+            resident: 0
+        };
         this.build();
     }
     build() {
-        var t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
-        var source = this.source;
-        if (!source || !source.attributes || !source.attributes.position) return this;
-        var hasNormals = !!source.attributes.normal;
-        var hasUv = !!source.attributes.uv;
-        var ms = new MeshletSet(source, { maxVertices: this.maxVertices, maxTriangles: this.maxTriangles });
-        var pos0 = source.attributes.position.array;
-        var nrm0 = hasNormals ? source.attributes.normal.array : null;
-        var uv0 = hasUv ? source.attributes.uv.array : null;
-        for (var p = 0; p < pos0.length; p++) this.positions.push(pos0[p]);
-        if (nrm0) { for (var n = 0; n < nrm0.length; n++) this.normals.push(nrm0[n]); }
-        else {
-            for (var v = 0; v < pos0.length / 3; v++) this.normals.push(0, 1, 0);
+        var zahea = typeof performance !== "undefined" ? performance.now() : Date.now();
+        var zaheb = this.source;
+        if (!zaheb || !zaheb.attributes || !zaheb.attributes.position) return this;
+        var zahee = !!zaheb.attributes.normal;
+        var zahef = !!zaheb.attributes.uv;
+        var zaheg = new MeshletSet(zaheb, {
+            maxVertices: this.maxVertices,
+            maxTriangles: this.maxTriangles
+        });
+        var zaheh = zaheb.attributes.position.array;
+        var zahei = zahee ? zaheb.attributes.normal.array : null;
+        var zahej = zahef ? zaheb.attributes.uv.array : null;
+        for (var zahek = 0; zahek < zaheh.length; zahek++) this.positions.push(zaheh[zahek]);
+        if (zahei) {
+            for (var zahel = 0; zahel < zahei.length; zahel++) this.normals.push(zahei[zahel]);
+        } else {
+            for (var zahem = 0; zahem < zaheh.length / 3; zahem++) this.normals.push(0, 1, 0);
         }
-        if (uv0) {
+        if (zahej) {
             this.uvs = [];
-            for (var u = 0; u < uv0.length; u++) this.uvs.push(uv0[u]);
+            for (var zahen = 0; zahen < zahej.length; zahen++) this.uvs.push(zahej[zahen]);
         }
-        var msIndex = ms.geometry.index;
-        for (var m = 0; m < ms.meshlets.length; m++) {
-            var ml = ms.meshlets[m];
-            var first = this.clusterIndices.length;
-            for (var k = 0; k < ml.count; k++) this.clusterIndices.push(msIndex[ml.first * 3 + k]);
-            this.clusters.push({ level: 0, first: first, count: ml.count, center: ml.center, radius: ml.radius, axis: ml.axis, cosThetaMax: ml.cosThetaMax, cullable: ml.cullable, min: ml.min, max: ml.max, err: 0, parent: -1, triangles: ml.triangles });
+        var zaheo = zaheg.geometry.index;
+        for (var zahep = 0; zahep < zaheg.meshlets.length; zahep++) {
+            var zaheq = zaheg.meshlets[zahep];
+            var zaher = this.clusterIndices.length;
+            for (var zahes = 0; zahes < zaheq.count; zahes++) this.clusterIndices.push(zaheo[zaheq.first * 3 + zahes]);
+            this.clusters.push({
+                level: 0,
+                first: zaher,
+                count: zaheq.count,
+                center: zaheq.center,
+                radius: zaheq.radius,
+                axis: zaheq.axis,
+                cosThetaMax: zaheq.cosThetaMax,
+                cullable: zaheq.cullable,
+                min: zaheq.min,
+                max: zaheq.max,
+                err: 0,
+                parent: -1,
+                triangles: zaheq.triangles
+            });
         }
-        this.levelRanges.push({ start: 0, count: this.clusters.length });
-        var simplifyAccum = 0;
-        var level = 1;
-        while (level < this.maxLevels) {
-            var prev = this.levelRanges[this.levelRanges.length - 1];
-            if (prev.count <= 1) break;
-            var levelStart = this.clusters.length;
-            for (var g = prev.start; g < prev.start + prev.count; g += this.groupSize) {
-                var gend = Math.min(g + this.groupSize, prev.start + prev.count);
-                var localOfGlobal = new Map();
-                var localPos = [], localNrm = [], localUv = this.uvs ? [] : null;
-                var localIdx = [];
-                var owner = [];
-                var groupClusterIds = [];
-                var childErr = 0;
-                for (var ci = g; ci < gend; ci++) {
-                    var cl = this.clusters[ci];
-                    if (cl.err > childErr) childErr = cl.err;
-                    var ownerId = groupClusterIds.length;
-                    groupClusterIds.push(ci);
-                    for (var k2 = 0; k2 < cl.count; k2 += 3) {
-                        for (var vv = 0; vv < 3; vv++) {
-                            var gv = this.clusterIndices[cl.first + k2 + vv];
-                            var loc = localOfGlobal.get(gv);
-                            if (loc === undefined) {
-                                loc = localPos.length / 3;
-                                localOfGlobal.set(gv, loc);
-                                localPos.push(this.positions[gv * 3], this.positions[gv * 3 + 1], this.positions[gv * 3 + 2]);
-                                localNrm.push(this.normals[gv * 3], this.normals[gv * 3 + 1], this.normals[gv * 3 + 2]);
-                                if (localUv) localUv.push(this.uvs[gv * 2], this.uvs[gv * 2 + 1]);
+        this.levelRanges.push({
+            start: 0,
+            count: this.clusters.length
+        });
+        var zahet = 0;
+        var zaheu = 1;
+        while (zaheu < this.maxLevels) {
+            var zahev = this.levelRanges[this.levelRanges.length - 1];
+            if (zahev.count <= 1) break;
+            var zahew = this.clusters.length;
+            for (var zahex = zahev.start; zahex < zahev.start + zahev.count; zahex += this.groupSize) {
+                var zahey = Math.min(zahex + this.groupSize, zahev.start + zahev.count);
+                var zahez = new Map;
+                var zaheaa = [], zaheab = [], zaheac = this.uvs ? [] : null;
+                var zahead = [];
+                var zaheae = [];
+                var zaheaf = [];
+                var zaheag = 0;
+                for (var zaheah = zahex; zaheah < zahey; zaheah++) {
+                    var zaheai = this.clusters[zaheah];
+                    if (zaheai.err > zaheag) zaheag = zaheai.err;
+                    var zaheaj = zaheaf.length;
+                    zaheaf.push(zaheah);
+                    for (var zaheak = 0; zaheak < zaheai.count; zaheak += 3) {
+                        for (var zaheal = 0; zaheal < 3; zaheal++) {
+                            var zaheam = this.clusterIndices[zaheai.first + zaheak + zaheal];
+                            var zahean = zahez.get(zaheam);
+                            if (zahean === undefined) {
+                                zahean = zaheaa.length / 3;
+                                zahez.set(zaheam, zahean);
+                                zaheaa.push(this.positions[zaheam * 3], this.positions[zaheam * 3 + 1], this.positions[zaheam * 3 + 2]);
+                                zaheab.push(this.normals[zaheam * 3], this.normals[zaheam * 3 + 1], this.normals[zaheam * 3 + 2]);
+                                if (zaheac) zaheac.push(this.uvs[zaheam * 2], this.uvs[zaheam * 2 + 1]);
                             }
-                            localIdx.push(loc);
+                            zahead.push(zahean);
                         }
-                        owner.push(ownerId);
+                        zaheae.push(zaheaj);
                     }
                 }
-                var groupTris = owner.length;
-                var target = Math.max(4, Math.min(Math.floor(this.maxTriangles * 0.9), Math.floor(groupTris * 0.55)));
-                var ts = (typeof performance !== "undefined" ? performance.now() : Date.now());
-                var sim = fxomvgsimplify(localPos, localNrm, localUv, localIdx, owner, groupClusterIds.length, target);
-                simplifyAccum += (typeof performance !== "undefined" ? performance.now() : Date.now()) - ts;
-                var perr = childErr;
-                for (var pe = 0; pe < sim.pendingErr.length; pe++) {
-                    if (sim.pendingErr[pe] > perr) perr = sim.pendingErr[pe];
+                var zaheao = zaheae.length;
+                var zaheap = Math.max(4, Math.min(Math.floor(this.maxTriangles * .9), Math.floor(zaheao * .55)));
+                var zaheaq = typeof performance !== "undefined" ? performance.now() : Date.now();
+                var zahear = zahec(zaheaa, zaheab, zaheac, zahead, zaheae, zaheaf.length, zaheap);
+                zahet += (typeof performance !== "undefined" ? performance.now() : Date.now()) - zaheaq;
+                var zaheas = zaheag;
+                for (var zaheat = 0; zaheat < zahear.pendingErr.length; zaheat++) {
+                    if (zahear.pendingErr[zaheat] > zaheas) zaheas = zahear.pendingErr[zaheat];
                 }
-                var base = this.positions.length / 3;
-                for (var np = 0; np < sim.pos.length; np++) this.positions.push(sim.pos[np]);
-                for (var nn = 0; nn < sim.nrm.length; nn++) this.normals.push(sim.nrm[nn]);
-                if (this.uvs) { for (var nu = 0; nu < sim.uv.length; nu++) this.uvs.push(sim.uv[nu]); }
-                var pfirst = this.clusterIndices.length;
-                for (var ni = 0; ni < sim.idx.length; ni++) this.clusterIndices.push(sim.idx[ni] + base);
-                var bounds = fxomvgsclusterbounds(sim.pos, sim.idx);
-                var parentIndex = this.clusters.length;
-                this.clusters.push({ level: level, first: pfirst, count: sim.idx.length, center: bounds.center, radius: bounds.radius, axis: bounds.axis, cosThetaMax: bounds.cosThetaMax, cullable: bounds.cullable, min: bounds.min, max: bounds.max, err: perr, parent: -1, triangles: sim.idx.length / 3 });
-                for (var ci2 = g; ci2 < gend; ci2++) this.clusters[ci2].parent = parentIndex;
+                var zaheau = this.positions.length / 3;
+                for (var zaheav = 0; zaheav < zahear.pos.length; zaheav++) this.positions.push(zahear.pos[zaheav]);
+                for (var zaheaw = 0; zaheaw < zahear.nrm.length; zaheaw++) this.normals.push(zahear.nrm[zaheaw]);
+                if (this.uvs) {
+                    for (var zaheax = 0; zaheax < zahear.uv.length; zaheax++) this.uvs.push(zahear.uv[zaheax]);
+                }
+                var zaheay = this.clusterIndices.length;
+                for (var zaheaz = 0; zaheaz < zahear.idx.length; zaheaz++) this.clusterIndices.push(zahear.idx[zaheaz] + zaheau);
+                var zaheba = zahed(zahear.pos, zahear.idx);
+                var zahebb = this.clusters.length;
+                this.clusters.push({
+                    level: zaheu,
+                    first: zaheay,
+                    count: zahear.idx.length,
+                    center: zaheba.center,
+                    radius: zaheba.radius,
+                    axis: zaheba.axis,
+                    cosThetaMax: zaheba.cosThetaMax,
+                    cullable: zaheba.cullable,
+                    min: zaheba.min,
+                    max: zaheba.max,
+                    err: zaheas,
+                    parent: -1,
+                    triangles: zahear.idx.length / 3
+                });
+                for (var zahebc = zahex; zahebc < zahey; zahebc++) this.clusters[zahebc].parent = zahebb;
             }
-            var produced = this.clusters.length - levelStart;
-            if (produced === 0) break;
-            this.levelRanges.push({ start: levelStart, count: produced });
-            if (produced >= prev.count) break;
-            level++;
+            var zahebd = this.clusters.length - zahew;
+            if (zahebd === 0) break;
+            this.levelRanges.push({
+                start: zahew,
+                count: zahebd
+            });
+            if (zahebd >= zahev.count) break;
+            zaheu++;
         }
         this.stats.levels = this.levelRanges.length;
         this.stats.clusters = this.clusters.length;
         this.stats.vertices = this.positions.length / 3;
-        for (var lr = 0; lr < this.levelRanges.length; lr++) {
-            var range = this.levelRanges[lr];
-            var tris = 0, cnt = 0;
-            for (var lc = range.start; lc < range.start + range.count; lc++) { tris += this.clusters[lc].triangles; cnt++; }
-            this.stats.levelClusters.push(cnt);
-            this.stats.levelTriangles.push(tris);
+        for (var zahebe = 0; zahebe < this.levelRanges.length; zahebe++) {
+            var zahebf = this.levelRanges[zahebe];
+            var zahebg = 0, zahebh = 0;
+            for (var zahebi = zahebf.start; zahebi < zahebf.start + zahebf.count; zahebi++) {
+                zahebg += this.clusters[zahebi].triangles;
+                zahebh++;
+            }
+            this.stats.levelClusters.push(zahebh);
+            this.stats.levelTriangles.push(zahebg);
         }
-        this.stats.buildms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
-        this.stats.simplifyms = simplifyAccum;
+        this.stats.buildms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - zahea;
+        this.stats.simplifyms = zahet;
         return this;
     }
     ensuregpu() {
         if (this.pipeline) return;
         if (!this.device) throw new Error("FXOMVGS needs a renderer (pass options.renderer)");
-        var device = this.device;
-        this.pipeline = device.createComputePipeline({ layout: "auto", compute: { module: device.createShaderModule({ code: fxomvgswgsl }), entryPoint: "fxmain" } });
-        this.paramsbuffer = device.createBuffer({ size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        var count = this.clusters.length;
-        var data = new Float32Array(count * 12);
-        for (var i = 0; i < count; i++) {
-            var c = this.clusters[i];
-            var b = i * 12;
-            data[b] = c.center[0]; data[b + 1] = c.center[1]; data[b + 2] = c.center[2]; data[b + 3] = c.radius;
-            data[b + 4] = c.axis[0]; data[b + 5] = c.axis[1]; data[b + 6] = c.axis[2]; data[b + 7] = c.cosThetaMax;
-            data[b + 8] = c.err; data[b + 9] = c.parent; data[b + 10] = c.level; data[b + 11] = c.cullable;
+        var zaheb = this.device;
+        this.pipeline = zaheb.createComputePipeline({
+            layout: "auto",
+            compute: {
+                module: zaheb.createShaderModule({
+                    code: zahea
+                }),
+                entryPoint: "fxmain"
+            }
+        });
+        this.paramsbuffer = zaheb.createBuffer({
+            size: 256,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        var zahec = this.clusters.length;
+        var zahed = new Float32Array(zahec * 12);
+        for (var zahee = 0; zahee < zahec; zahee++) {
+            var zahef = this.clusters[zahee];
+            var zaheg = zahee * 12;
+            zahed[zaheg] = zahef.center[0];
+            zahed[zaheg + 1] = zahef.center[1];
+            zahed[zaheg + 2] = zahef.center[2];
+            zahed[zaheg + 3] = zahef.radius;
+            zahed[zaheg + 4] = zahef.axis[0];
+            zahed[zaheg + 5] = zahef.axis[1];
+            zahed[zaheg + 6] = zahef.axis[2];
+            zahed[zaheg + 7] = zahef.cosThetaMax;
+            zahed[zaheg + 8] = zahef.err;
+            zahed[zaheg + 9] = zahef.parent;
+            zahed[zaheg + 10] = zahef.level;
+            zahed[zaheg + 11] = zahef.cullable;
         }
-        this.clusterbuffer = device.createBuffer({ size: Math.max(16, count * 48), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-        device.queue.writeBuffer(this.clusterbuffer, 0, data);
-        this.selbuffer = device.createBuffer({ size: Math.max(16, count * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
-        this.flagsbuffer = device.createBuffer({ size: Math.max(16, count * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-        var zeros = new Uint32Array(count);
-        device.queue.writeBuffer(this.flagsbuffer, 0, zeros);
-        this.residentbuffer = device.createBuffer({ size: Math.max(16, count * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-        var ones = new Uint32Array(count);
-        for (var o = 0; o < count; o++) ones[o] = 1;
-        device.queue.writeBuffer(this.residentbuffer, 0, ones);
-        this.readbackbuffer = device.createBuffer({ size: Math.max(16, count * 4), usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-        this.bind = device.createBindGroup({ layout: this.pipeline.getBindGroupLayout(0), entries: [
-            { binding: 0, resource: { buffer: this.paramsbuffer } },
-            { binding: 1, resource: { buffer: this.clusterbuffer } },
-            { binding: 2, resource: { buffer: this.selbuffer } },
-            { binding: 3, resource: { buffer: this.flagsbuffer } },
-            { binding: 4, resource: { buffer: this.residentbuffer } }
-        ] });
+        this.clusterbuffer = zaheb.createBuffer({
+            size: Math.max(16, zahec * 48),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        zaheb.queue.writeBuffer(this.clusterbuffer, 0, zahed);
+        this.selbuffer = zaheb.createBuffer({
+            size: Math.max(16, zahec * 4),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+        });
+        this.flagsbuffer = zaheb.createBuffer({
+            size: Math.max(16, zahec * 4),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        var zaheh = new Uint32Array(zahec);
+        zaheb.queue.writeBuffer(this.flagsbuffer, 0, zaheh);
+        this.residentbuffer = zaheb.createBuffer({
+            size: Math.max(16, zahec * 4),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        var zahei = new Uint32Array(zahec);
+        for (var zahej = 0; zahej < zahec; zahej++) zahei[zahej] = 1;
+        zaheb.queue.writeBuffer(this.residentbuffer, 0, zahei);
+        this.readbackbuffer = zaheb.createBuffer({
+            size: Math.max(16, zahec * 4),
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+        });
+        this.bind = zaheb.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [ {
+                binding: 0,
+                resource: {
+                    buffer: this.paramsbuffer
+                }
+            }, {
+                binding: 1,
+                resource: {
+                    buffer: this.clusterbuffer
+                }
+            }, {
+                binding: 2,
+                resource: {
+                    buffer: this.selbuffer
+                }
+            }, {
+                binding: 3,
+                resource: {
+                    buffer: this.flagsbuffer
+                }
+            }, {
+                binding: 4,
+                resource: {
+                    buffer: this.residentbuffer
+                }
+            } ]
+        });
     }
-    select(camera, options) {
+    select(zahea, zaheb) {
         this.ensuregpu();
-        options = options || {};
-        var threshold = options.threshold !== undefined ? options.threshold : 2;
-        var viewportHeight = options.viewportHeight !== undefined ? options.viewportHeight : 600;
-        var useCone = options.useCone !== false;
-        var residencyOn = this.residentMask ? 1 : 0;
-        var projection = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        var pe = projection.elements;
-        var planes = [
-            pe[3] + pe[0], pe[7] + pe[4], pe[11] + pe[8], pe[15] + pe[12],
-            pe[3] - pe[0], pe[7] - pe[4], pe[11] - pe[8], pe[15] - pe[12],
-            pe[3] + pe[1], pe[7] + pe[5], pe[11] + pe[9], pe[15] + pe[13],
-            pe[3] - pe[1], pe[7] - pe[5], pe[11] - pe[9], pe[15] - pe[13],
-            pe[2], pe[6], pe[10], pe[14],
-            pe[3] - pe[2], pe[7] - pe[6], pe[11] - pe[10], pe[15] - pe[14]
-        ];
-        for (var pl = 0; pl < 6; pl++) {
-            var ln = Math.sqrt(planes[pl * 4] * planes[pl * 4] + planes[pl * 4 + 1] * planes[pl * 4 + 1] + planes[pl * 4 + 2] * planes[pl * 4 + 2]) || 1;
-            planes[pl * 4] /= ln; planes[pl * 4 + 1] /= ln; planes[pl * 4 + 2] /= ln; planes[pl * 4 + 3] /= ln;
+        zaheb = zaheb || {};
+        var zahec = zaheb.threshold !== undefined ? zaheb.threshold : 2;
+        var zahed = zaheb.viewportHeight !== undefined ? zaheb.viewportHeight : 600;
+        var zahee = zaheb.useCone !== false;
+        var zahef = this.residentMask ? 1 : 0;
+        var zaheg = (new Matrix4).multiplyMatrices(zahea.projectionMatrix, zahea.matrixWorldInverse);
+        var zaheh = zaheg.elements;
+        var zahei = [ zaheh[3] + zaheh[0], zaheh[7] + zaheh[4], zaheh[11] + zaheh[8], zaheh[15] + zaheh[12], zaheh[3] - zaheh[0], zaheh[7] - zaheh[4], zaheh[11] - zaheh[8], zaheh[15] - zaheh[12], zaheh[3] + zaheh[1], zaheh[7] + zaheh[5], zaheh[11] + zaheh[9], zaheh[15] + zaheh[13], zaheh[3] - zaheh[1], zaheh[7] - zaheh[5], zaheh[11] - zaheh[9], zaheh[15] - zaheh[13], zaheh[2], zaheh[6], zaheh[10], zaheh[14], zaheh[3] - zaheh[2], zaheh[7] - zaheh[6], zaheh[11] - zaheh[10], zaheh[15] - zaheh[14] ];
+        for (var zahej = 0; zahej < 6; zahej++) {
+            var zahek = Math.sqrt(zahei[zahej * 4] * zahei[zahej * 4] + zahei[zahej * 4 + 1] * zahei[zahej * 4 + 1] + zahei[zahej * 4 + 2] * zahei[zahej * 4 + 2]) || 1;
+            zahei[zahej * 4] /= zahek;
+            zahei[zahej * 4 + 1] /= zahek;
+            zahei[zahej * 4 + 2] /= zahek;
+            zahei[zahej * 4 + 3] /= zahek;
         }
-        var fov = 2 * Math.atan(1 / camera.projectionMatrix.elements[5]);
-        var screenScale = viewportHeight / (2 * Math.tan(fov / 2));
-        var count = this.clusters.length;
-        var zeros = new Uint32Array(count);
-        this.device.queue.writeBuffer(this.flagsbuffer, 0, zeros);
-        var data = new Float32Array(36);
-        data[0] = camera.position.x; data[1] = camera.position.y; data[2] = camera.position.z; data[3] = screenScale;
-        for (var pp = 0; pp < 24; pp++) data[4 + pp] = planes[pp];
-        data[32] = residencyOn;
-        var t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
-        for (var lr = 0; lr < this.levelRanges.length; lr++) {
-            var range = this.levelRanges[lr];
-            data[28] = range.count; data[29] = useCone ? 1 : 0; data[30] = threshold; data[31] = range.start;
-            this.device.queue.writeBuffer(this.paramsbuffer, 0, data);
-            var encoder = this.device.createCommandEncoder();
-            var pass = encoder.beginComputePass();
-            pass.setPipeline(this.pipeline);
-            pass.setBindGroup(0, this.bind);
-            pass.dispatchWorkgroups(Math.ceil(range.count / 64));
-            pass.end();
-            this.device.queue.submit([encoder.finish()]);
+        var zahel = 2 * Math.atan(1 / zahea.projectionMatrix.elements[5]);
+        var zahem = zahed / (2 * Math.tan(zahel / 2));
+        var zahen = this.clusters.length;
+        var zaheo = new Uint32Array(zahen);
+        this.device.queue.writeBuffer(this.flagsbuffer, 0, zaheo);
+        var zahep = new Float32Array(36);
+        zahep[0] = zahea.position.x;
+        zahep[1] = zahea.position.y;
+        zahep[2] = zahea.position.z;
+        zahep[3] = zahem;
+        for (var zaheq = 0; zaheq < 24; zaheq++) zahep[4 + zaheq] = zahei[zaheq];
+        zahep[32] = zahef;
+        var zaher = typeof performance !== "undefined" ? performance.now() : Date.now();
+        for (var zahes = 0; zahes < this.levelRanges.length; zahes++) {
+            var zahet = this.levelRanges[zahes];
+            zahep[28] = zahet.count;
+            zahep[29] = zahee ? 1 : 0;
+            zahep[30] = zahec;
+            zahep[31] = zahet.start;
+            this.device.queue.writeBuffer(this.paramsbuffer, 0, zahep);
+            var zaheu = this.device.createCommandEncoder();
+            var zahev = zaheu.beginComputePass();
+            zahev.setPipeline(this.pipeline);
+            zahev.setBindGroup(0, this.bind);
+            zahev.dispatchWorkgroups(Math.ceil(zahet.count / 64));
+            zahev.end();
+            this.device.queue.submit([ zaheu.finish() ]);
         }
-        this.stats.selectms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+        this.stats.selectms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - zaher;
         return this;
     }
     readback() {
-        var self = this;
+        var zahea = this;
         this.ensuregpu();
-        var count = this.clusters.length;
-        var encoder = this.device.createCommandEncoder();
-        encoder.copyBufferToBuffer(this.selbuffer, 0, this.readbackbuffer, 0, Math.max(16, count * 4));
-        this.device.queue.submit([encoder.finish()]);
+        var zaheb = this.clusters.length;
+        var zahec = this.device.createCommandEncoder();
+        zahec.copyBufferToBuffer(this.selbuffer, 0, this.readbackbuffer, 0, Math.max(16, zaheb * 4));
+        this.device.queue.submit([ zahec.finish() ]);
         return this.device.queue.onSubmittedWorkDone().then(function() {
-            return self.readbackbuffer.mapAsync(GPUMapMode.READ).then(function() {
-                var out = new Uint32Array(self.readbackbuffer.getMappedRange()).slice();
-                self.readbackbuffer.unmap();
-                var sel = 0, selTris = 0;
-                for (var i = 0; i < count; i++) {
-                    if (out[i]) { sel++; selTris += self.clusters[i].triangles; }
+            return zahea.readbackbuffer.mapAsync(GPUMapMode.READ).then(function() {
+                var zahec = new Uint32Array(zahea.readbackbuffer.getMappedRange()).slice();
+                zahea.readbackbuffer.unmap();
+                var zahed = 0, zahee = 0;
+                for (var zahef = 0; zahef < zaheb; zahef++) {
+                    if (zahec[zahef]) {
+                        zahed++;
+                        zahee += zahea.clusters[zahef].triangles;
+                    }
                 }
-                self.stats.selected = sel;
-                self.stats.selectedTriangles = selTris;
-                self.lastSelection = out;
-                return out;
+                zahea.stats.selected = zahed;
+                zahea.stats.selectedTriangles = zahee;
+                zahea.lastSelection = zahec;
+                return zahec;
             });
         });
     }
-    selectedIndices(selection) {
-        var sel = selection || this.lastSelection;
-        if (!sel) return new Uint32Array(0);
-        var total = 0;
-        for (var i = 0; i < this.clusters.length; i++) {
-            if (sel[i]) total += this.clusters[i].count;
+    selectedIndices(zahea) {
+        var zaheb = zahea || this.lastSelection;
+        if (!zaheb) return new Uint32Array(0);
+        var zahec = 0;
+        for (var zahed = 0; zahed < this.clusters.length; zahed++) {
+            if (zaheb[zahed]) zahec += this.clusters[zahed].count;
         }
-        var out = new Uint32Array(total);
-        var cursor = 0;
-        for (var j = 0; j < this.clusters.length; j++) {
-            if (!sel[j]) continue;
-            var c = this.clusters[j];
-            for (var k = 0; k < c.count; k++) out[cursor++] = this.clusterIndices[c.first + k];
+        var zahee = new Uint32Array(zahec);
+        var zahef = 0;
+        for (var zaheg = 0; zaheg < this.clusters.length; zaheg++) {
+            if (!zaheb[zaheg]) continue;
+            var zaheh = this.clusters[zaheg];
+            for (var zahei = 0; zahei < zaheh.count; zahei++) zahee[zahef++] = this.clusterIndices[zaheh.first + zahei];
         }
-        return out;
+        return zahee;
     }
-    selectionGeometry(selection) {
-        var out = new Geometry();
-        out.setAttribute("position", new Float32Array(this.positions), 3);
-        out.setAttribute("normal", new Float32Array(this.normals), 3);
-        if (this.uvs) out.setAttribute("uv", new Float32Array(this.uvs), 2);
-        out.setIndex(this.selectedIndices(selection));
-        out.computeBounds();
-        return out;
+    selectionGeometry(zahea) {
+        var zaheb = new Geometry;
+        zaheb.setAttribute("position", new Float32Array(this.positions), 3);
+        zaheb.setAttribute("normal", new Float32Array(this.normals), 3);
+        if (this.uvs) zaheb.setAttribute("uv", new Float32Array(this.uvs), 2);
+        zaheb.setIndex(this.selectedIndices(zahea));
+        zaheb.computeBounds();
+        return zaheb;
     }
-    setMemoryBudget(clusterBudget) {
-        this.memoryBudget = clusterBudget;
+    setMemoryBudget(zahea) {
+        this.memoryBudget = zahea;
         if (!this.residentMask && this.renderer) {
-            var count = this.clusters.length;
-            this.residentMask = new Uint32Array(count);
-            this.lastUsed = new Int32Array(count);
-            for (var i = 0; i < count; i++) this.residentMask[i] = 1;
-            for (var f = 0; f < count; f++) this.lastUsed[f] = -1;
+            var zaheb = this.clusters.length;
+            this.residentMask = new Uint32Array(zaheb);
+            this.lastUsed = new Int32Array(zaheb);
+            for (var zahec = 0; zahec < zaheb; zahec++) this.residentMask[zahec] = 1;
+            for (var zahed = 0; zahed < zaheb; zahed++) this.lastUsed[zahed] = -1;
             this.ensuregpu();
         }
         return this;
     }
-    updateResidency(selection, frame) {
+    updateResidency(zahea, zaheb) {
         if (!this.residentMask) return this;
-        var count = this.clusters.length;
-        var fr = frame !== undefined ? frame : this.frame;
-        this.frame = fr + 1;
-        var sel = selection || this.lastSelection;
-        if (sel) {
-            for (var i = 0; i < count; i++) {
-                if (sel[i]) this.lastUsed[i] = fr;
+        var zahec = this.clusters.length;
+        var zahed = zaheb !== undefined ? zaheb : this.frame;
+        this.frame = zahed + 1;
+        var zahee = zahea || this.lastSelection;
+        if (zahee) {
+            for (var zahef = 0; zahef < zahec; zahef++) {
+                if (zahee[zahef]) this.lastUsed[zahef] = zahed;
             }
         }
-        var order = [];
-        for (var j = 0; j < count; j++) order.push(j);
-        var self = this;
-        order.sort(function(a, b) {
-            if (self.lastUsed[a] !== self.lastUsed[b]) return self.lastUsed[b] - self.lastUsed[a];
-            return a - b;
+        var zaheg = [];
+        for (var zaheh = 0; zaheh < zahec; zaheh++) zaheg.push(zaheh);
+        var zahei = this;
+        zaheg.sort(function(zahea, zaheb) {
+            if (zahei.lastUsed[zahea] !== zahei.lastUsed[zaheb]) return zahei.lastUsed[zaheb] - zahei.lastUsed[zahea];
+            return zahea - zaheb;
         });
-        var budget = Math.min(this.memoryBudget, count);
-        var keep = new Uint32Array(count);
-        for (var k = 0; k < budget; k++) keep[order[k]] = 1;
-        keep[count - 1] = 1;
-        var residentCount = 0;
-        for (var m = 0; m < count; m++) {
-            this.residentMask[m] = keep[m];
-            if (keep[m]) residentCount++;
+        var zahej = Math.min(this.memoryBudget, zahec);
+        var zahek = new Uint32Array(zahec);
+        for (var zahel = 0; zahel < zahej; zahel++) zahek[zaheg[zahel]] = 1;
+        zahek[zahec - 1] = 1;
+        var zahem = 0;
+        for (var zahen = 0; zahen < zahec; zahen++) {
+            this.residentMask[zahen] = zahek[zahen];
+            if (zahek[zahen]) zahem++;
         }
-        this.stats.resident = residentCount;
+        this.stats.resident = zahem;
         this.device.queue.writeBuffer(this.residentbuffer, 0, this.residentMask);
         return this;
     }

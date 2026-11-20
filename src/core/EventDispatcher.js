@@ -1,9 +1,30 @@
 class EventDispatcher {
-    constructor() { this._listeners = {}; }
-    addEventListener(type, listener) { if (!type || typeof listener !== "function") return this; (this._listeners[type] || (this._listeners[type] = [])).push(listener); return this; }
-    hasEventListener(type, listener) { return !!(this._listeners[type] && this._listeners[type].indexOf(listener) >= 0); }
-    removeEventListener(type, listener) { var list = this._listeners[type]; if (!list) return this; var index = list.indexOf(listener); if (index >= 0) list.splice(index, 1); return this; }
-    dispatchEvent(event) { if (!event || !event.type) return this; var list = this._listeners[event.type]; if (!list) return this; event.target = event.target || this; for (var i = 0; i < list.length; i++) list[i].call(this, event); return this; }
+    constructor() {
+        this._listeners = {};
+    }
+    addEventListener(zacka, zackb) {
+        if (!zacka || typeof zackb !== "function") return this;
+        (this._listeners[zacka] || (this._listeners[zacka] = [])).push(zackb);
+        return this;
+    }
+    hasEventListener(zacka, zackb) {
+        return !!(this._listeners[zacka] && this._listeners[zacka].indexOf(zackb) >= 0);
+    }
+    removeEventListener(zacka, zackb) {
+        var zackc = this._listeners[zacka];
+        if (!zackc) return this;
+        var zackd = zackc.indexOf(zackb);
+        if (zackd >= 0) zackc.splice(zackd, 1);
+        return this;
+    }
+    dispatchEvent(zacka) {
+        if (!zacka || !zacka.type) return this;
+        var zackb = this._listeners[zacka.type];
+        if (!zackb) return this;
+        zacka.target = zacka.target || this;
+        for (var zackc = 0; zackc < zackb.length; zackc++) zackb[zackc].call(this, zacka);
+        return this;
+    }
 }
 
 export { EventDispatcher };

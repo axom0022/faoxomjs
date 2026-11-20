@@ -1,935 +1,1165 @@
 import { DoubleSide } from "../core/index.js";
+
 import { Geometry } from "../geometries/index.js";
+
 import { BasicMaterial } from "../materials/index.js";
+
 import { Color, Matrix3, Path, ShapePath, Vector2 } from "../math/index.js";
+
 import { DataTexture } from "../textures/DataTexture.js";
 
-var GRADIENT_REFERENCE = /^\s*url\(\s*(?:["']\s*)?#([^)'"\s]+)(?:\s*["'])?\s*\)\s*$/;
-var UNIT_INCHES = { pt: 1 / 72, pc: 1 / 6, mm: 1 / 25.4, cm: 1 / 2.54, "in": 1 };
-var CORNER_KAPPA = 1 - 0.551915024494;
-var TWO_PI = Math.PI * 2;
+var zamxa = /^\s*url\(\s*(?:["']\s*)?#([^)'"\s]+)(?:\s*["'])?\s*\)\s*$/;
 
-function scanNumbers(text) {
-    var values = [];
-    var pattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g;
-    var match;
-    while ((match = pattern.exec(text))) values.push(parseFloat(match[0]));
-    return values;
+var zamxb = {
+    pt: 1 / 72,
+    pc: 1 / 6,
+    mm: 1 / 25.4,
+    cm: 1 / 2.54,
+    in: 1
+};
+
+var zamxc = 1 - .551915024494;
+
+var zamxd = Math.PI * 2;
+
+function zamxe(zamxa) {
+    var zamxb = [];
+    var zamxc = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g;
+    var zamxd;
+    while (zamxd = zamxc.exec(zamxa)) zamxb.push(parseFloat(zamxd[0]));
+    return zamxb;
 }
 
-function readLength(raw, dpi, fallbackUnit) {
-    if (raw === null || raw === undefined) return 0;
-    var text = String(raw).trim();
-    var unit = "px";
-    for (var name in UNIT_INCHES) {
-        if (text.endsWith(name)) { unit = name; text = text.slice(0, -name.length); break; }
+function zamxf(zamxa, zamxc, zamxd) {
+    if (zamxa === null || zamxa === undefined) return 0;
+    var zamxe = String(zamxa).trim();
+    var zamxf = "px";
+    for (var zamxg in zamxb) {
+        if (zamxe.endsWith(zamxg)) {
+            zamxf = zamxg;
+            zamxe = zamxe.slice(0, -zamxg.length);
+            break;
+        }
     }
-    var value = parseFloat(text);
-    if (isNaN(value)) return 0;
-    if (unit === "px" && fallbackUnit === "px") return value;
-    var inches = unit === "px" ? 1 / dpi : UNIT_INCHES[unit];
-    var scale = fallbackUnit === "px" ? inches * dpi : inches / UNIT_INCHES[fallbackUnit];
-    return scale * value;
+    var zamxh = parseFloat(zamxe);
+    if (isNaN(zamxh)) return 0;
+    if (zamxf === "px" && zamxd === "px") return zamxh;
+    var zamxi = zamxf === "px" ? 1 / zamxc : zamxb[zamxf];
+    var zamxj = zamxd === "px" ? zamxi * zamxc : zamxi / zamxb[zamxd];
+    return zamxj * zamxh;
 }
 
-function signedAngle(ux, uy, vx, vy) {
-    var lengths = Math.sqrt(ux * ux + uy * uy) * Math.sqrt(vx * vx + vy * vy);
-    var angle = Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / lengths)));
-    return ux * vy - uy * vx < 0 ? -angle : angle;
+function zamxg(zamxa, zamxb, zamxc, zamxd) {
+    var zamxe = Math.sqrt(zamxa * zamxa + zamxb * zamxb) * Math.sqrt(zamxc * zamxc + zamxd * zamxd);
+    var zamxf = Math.acos(Math.max(-1, Math.min(1, (zamxa * zamxc + zamxb * zamxd) / zamxe)));
+    return zamxa * zamxd - zamxb * zamxc < 0 ? -zamxf : zamxf;
 }
 
-function parseTransformList(text) {
-    var total = new Matrix3();
-    var pattern = /([a-zA-Z]+)\s*\(([^)]*)\)/g;
-    var match;
-    while ((match = pattern.exec(text))) {
-        var name = match[1];
-        var values = scanNumbers(match[2]);
-        var step = new Matrix3();
-        if (name === "translate" && values.length >= 1) step.makeTranslation(values[0], values.length >= 2 ? values[1] : 0);
-        else if (name === "scale" && values.length >= 1) step.makeScale(values[0], values.length >= 2 ? values[1] : values[0]);
-        else if (name === "rotate" && values.length >= 1) {
-            var radians = values[0] * Math.PI / 180;
-            if (values.length >= 3) {
-                var pivot = new Matrix3().makeTranslation(values[1], values[2]);
-                var spin = new Matrix3().makeRotation(radians);
-                var unpivot = new Matrix3().makeTranslation(-values[1], -values[2]);
-                step.multiplyMatrices(pivot, spin).multiply(unpivot);
-            } else step.makeRotation(radians);
-        } else if (name === "skewX" && values.length === 1) step.set(1, Math.tan(values[0] * Math.PI / 180), 0, 0, 1, 0, 0, 0, 1);
-        else if (name === "skewY" && values.length === 1) step.set(1, 0, 0, Math.tan(values[0] * Math.PI / 180), 1, 0, 0, 0, 1);
-        else if (name === "matrix" && values.length >= 6) step.set(values[0], values[2], values[4], values[1], values[3], values[5], 0, 0, 1);
-        total.multiply(step);
+function zamxh(zamxa) {
+    var zamxb = new Matrix3;
+    var zamxc = /([a-zA-Z]+)\s*\(([^)]*)\)/g;
+    var zamxd;
+    while (zamxd = zamxc.exec(zamxa)) {
+        var zamxf = zamxd[1];
+        var zamxg = zamxe(zamxd[2]);
+        var zamxh = new Matrix3;
+        if (zamxf === "translate" && zamxg.length >= 1) zamxh.makeTranslation(zamxg[0], zamxg.length >= 2 ? zamxg[1] : 0); else if (zamxf === "scale" && zamxg.length >= 1) zamxh.makeScale(zamxg[0], zamxg.length >= 2 ? zamxg[1] : zamxg[0]); else if (zamxf === "rotate" && zamxg.length >= 1) {
+            var zamxi = zamxg[0] * Math.PI / 180;
+            if (zamxg.length >= 3) {
+                var zamxj = (new Matrix3).makeTranslation(zamxg[1], zamxg[2]);
+                var zamxk = (new Matrix3).makeRotation(zamxi);
+                var zamxl = (new Matrix3).makeTranslation(-zamxg[1], -zamxg[2]);
+                zamxh.multiplyMatrices(zamxj, zamxk).multiply(zamxl);
+            } else zamxh.makeRotation(zamxi);
+        } else if (zamxf === "skewX" && zamxg.length === 1) zamxh.set(1, Math.tan(zamxg[0] * Math.PI / 180), 0, 0, 1, 0, 0, 0, 1); else if (zamxf === "skewY" && zamxg.length === 1) zamxh.set(1, 0, 0, Math.tan(zamxg[0] * Math.PI / 180), 1, 0, 0, 0, 1); else if (zamxf === "matrix" && zamxg.length >= 6) zamxh.set(zamxg[0], zamxg[2], zamxg[4], zamxg[1], zamxg[3], zamxg[5], 0, 0, 1);
+        zamxb.multiply(zamxh);
     }
-    return total;
+    return zamxb;
 }
 
-function symmetricEigen(a, b, c) {
-    var angle = 0.5 * Math.atan2(2 * b, a - c);
-    var cos = Math.cos(angle), sin = Math.sin(angle);
-    var major = a * cos * cos + 2 * b * cos * sin + c * sin * sin;
-    var minor = a * sin * sin - 2 * b * cos * sin + c * cos * cos;
-    if (a > c ? cos > 0 : sin < 0) { cos = -cos; sin = -sin; }
-    return { lambda1: major, lambda2: minor, axis1: [cos, sin], axis2: [-sin, cos] };
-}
-
-function mapPoint(m, x, y) { var e = m.elements; return { x: e[0] * x + e[3] * y + e[6], y: e[1] * x + e[4] * y + e[7] }; }
-
-function mapVector(m, x, y) { var e = m.elements; return [e[0] * x + e[3] * y, e[1] * x + e[4] * y]; }
-
-function transformScale(m) { var e = m.elements; return Math.sqrt(Math.abs(e[0] * e[4] - e[1] * e[3])); }
-
-function transformFlipped(m) { var e = m.elements; return e[0] * e[4] - e[1] * e[3] < 0; }
-
-function transformSkewed(m) {
-    var e = m.elements;
-    var basisDot = e[0] * e[3] + e[1] * e[4];
-    if (basisDot === 0) return false;
-    var sx = Math.sqrt(e[0] * e[0] + e[1] * e[1]), sy = Math.sqrt(e[3] * e[3] + e[4] * e[4]);
-    return Math.abs(basisDot / (sx * sy)) > 1e-6;
-}
-
-function applyMatrixToPath(path, m) {
-    function stamp(vector) {
-        var mapped = mapPoint(m, vector.x, vector.y);
-        vector.set(mapped.x, mapped.y);
+function zamxi(zamxa, zamxb, zamxc) {
+    var zamxd = .5 * Math.atan2(2 * zamxb, zamxa - zamxc);
+    var zamxe = Math.cos(zamxd), zamxf = Math.sin(zamxd);
+    var zamxg = zamxa * zamxe * zamxe + 2 * zamxb * zamxe * zamxf + zamxc * zamxf * zamxf;
+    var zamxh = zamxa * zamxf * zamxf - 2 * zamxb * zamxe * zamxf + zamxc * zamxe * zamxe;
+    if (zamxa > zamxc ? zamxe > 0 : zamxf < 0) {
+        zamxe = -zamxe;
+        zamxf = -zamxf;
     }
-    function refitEllipse(curve) {
-        var cosR = Math.cos(curve.rotation), sinR = Math.sin(curve.rotation);
-        var axisU = mapVector(m, cosR * curve.xRadius, sinR * curve.xRadius);
-        var axisV = mapVector(m, -sinR * curve.yRadius, cosR * curve.yRadius);
-        var w11 = axisU[0], w21 = axisU[1], w12 = axisV[0], w22 = axisV[1];
-        var det = w11 * w22 - w12 * w21;
-        if (Math.abs(det) < 1e-14) { curve.xRadius = 0; curve.yRadius = 0; return; }
-        var i11 = w22 / det, i12 = -w12 / det, i21 = -w21 / det, i22 = w11 / det;
-        var gA = i11 * i11 + i21 * i21;
-        var gB = i11 * i12 + i21 * i22;
-        var gC = i12 * i12 + i22 * i22;
-        var eigen = symmetricEigen(gA, gB, gC);
-        var radius1 = 1 / Math.sqrt(Math.max(eigen.lambda1, 1e-14));
-        var radius2 = 1 / Math.sqrt(Math.max(eigen.lambda2, 1e-14));
-        curve.xRadius = radius1;
-        curve.yRadius = radius2;
-        curve.rotation = Math.atan2(eigen.axis1[1], eigen.axis1[0]);
-        var isFull = (curve.endAngle - curve.startAngle) % TWO_PI < Number.EPSILON;
-        if (!isFull) {
-            function remap(phi) {
-                var image = [w11 * Math.cos(phi) + w12 * Math.sin(phi), w21 * Math.cos(phi) + w22 * Math.sin(phi)];
-                var along1 = eigen.axis1[0] * image[0] + eigen.axis1[1] * image[1];
-                var along2 = eigen.axis2[0] * image[0] + eigen.axis2[1] * image[1];
-                return Math.atan2(along2 / radius2, along1 / radius1);
+    return {
+        lambda1: zamxg,
+        lambda2: zamxh,
+        axis1: [ zamxe, zamxf ],
+        axis2: [ -zamxf, zamxe ]
+    };
+}
+
+function zamxj(zamxa, zamxb, zamxc) {
+    var zamxd = zamxa.elements;
+    return {
+        x: zamxd[0] * zamxb + zamxd[3] * zamxc + zamxd[6],
+        y: zamxd[1] * zamxb + zamxd[4] * zamxc + zamxd[7]
+    };
+}
+
+function zamxk(zamxa, zamxb, zamxc) {
+    var zamxd = zamxa.elements;
+    return [ zamxd[0] * zamxb + zamxd[3] * zamxc, zamxd[1] * zamxb + zamxd[4] * zamxc ];
+}
+
+function zamxl(zamxa) {
+    var zamxb = zamxa.elements;
+    return Math.sqrt(Math.abs(zamxb[0] * zamxb[4] - zamxb[1] * zamxb[3]));
+}
+
+function zamxm(zamxa) {
+    var zamxb = zamxa.elements;
+    return zamxb[0] * zamxb[4] - zamxb[1] * zamxb[3] < 0;
+}
+
+function zamxn(zamxa) {
+    var zamxb = zamxa.elements;
+    var zamxc = zamxb[0] * zamxb[3] + zamxb[1] * zamxb[4];
+    if (zamxc === 0) return false;
+    var zamxd = Math.sqrt(zamxb[0] * zamxb[0] + zamxb[1] * zamxb[1]), zamxe = Math.sqrt(zamxb[3] * zamxb[3] + zamxb[4] * zamxb[4]);
+    return Math.abs(zamxc / (zamxd * zamxe)) > 1e-6;
+}
+
+function zamxo(zamxa, zamxb) {
+    function zamxc(zamxa) {
+        var zamxc = zamxj(zamxb, zamxa.x, zamxa.y);
+        zamxa.set(zamxc.x, zamxc.y);
+    }
+    function zamxe(zamxa) {
+        var zamxc = Math.cos(zamxa.rotation), zamxe = Math.sin(zamxa.rotation);
+        var zamxf = zamxk(zamxb, zamxc * zamxa.xRadius, zamxe * zamxa.xRadius);
+        var zamxg = zamxk(zamxb, -zamxe * zamxa.yRadius, zamxc * zamxa.yRadius);
+        var zamxh = zamxf[0], zamxj = zamxf[1], zamxl = zamxg[0], zamxn = zamxg[1];
+        var zamxo = zamxh * zamxn - zamxl * zamxj;
+        if (Math.abs(zamxo) < 1e-14) {
+            zamxa.xRadius = 0;
+            zamxa.yRadius = 0;
+            return;
+        }
+        var zamxp = zamxn / zamxo, zamxq = -zamxl / zamxo, zamxr = -zamxj / zamxo, zamxs = zamxh / zamxo;
+        var zamxt = zamxp * zamxp + zamxr * zamxr;
+        var zamxu = zamxp * zamxq + zamxr * zamxs;
+        var zamxv = zamxq * zamxq + zamxs * zamxs;
+        var zamxw = zamxi(zamxt, zamxu, zamxv);
+        var zamxx = 1 / Math.sqrt(Math.max(zamxw.lambda1, 1e-14));
+        var zamxy = 1 / Math.sqrt(Math.max(zamxw.lambda2, 1e-14));
+        zamxa.xRadius = zamxx;
+        zamxa.yRadius = zamxy;
+        zamxa.rotation = Math.atan2(zamxw.axis1[1], zamxw.axis1[0]);
+        var zamxz = (zamxa.endAngle - zamxa.startAngle) % zamxd < Number.EPSILON;
+        if (!zamxz) {
+            function zamxaa(zamxa) {
+                var zamxb = [ zamxh * Math.cos(zamxa) + zamxl * Math.sin(zamxa), zamxj * Math.cos(zamxa) + zamxn * Math.sin(zamxa) ];
+                var zamxc = zamxw.axis1[0] * zamxb[0] + zamxw.axis1[1] * zamxb[1];
+                var zamxd = zamxw.axis2[0] * zamxb[0] + zamxw.axis2[1] * zamxb[1];
+                return Math.atan2(zamxd / zamxy, zamxc / zamxx);
             }
-            curve.startAngle = remap(curve.startAngle);
-            curve.endAngle = remap(curve.endAngle);
-            if (transformFlipped(m)) curve.clockwise = !curve.clockwise;
+            zamxa.startAngle = zamxaa(zamxa.startAngle);
+            zamxa.endAngle = zamxaa(zamxa.endAngle);
+            if (zamxm(zamxb)) zamxa.clockwise = !zamxa.clockwise;
         }
     }
-    function rescaleEllipse(curve) {
-        var e = m.elements;
-        var sx = Math.sqrt(e[0] * e[0] + e[1] * e[1]), sy = Math.sqrt(e[3] * e[3] + e[4] * e[4]);
-        curve.xRadius *= sx;
-        curve.yRadius *= sy;
-        curve.rotation += sx > Number.EPSILON ? Math.atan2(e[1], e[0]) : Math.atan2(-e[3], e[4]);
-        if (transformFlipped(m)) {
-            curve.startAngle *= -1;
-            curve.endAngle *= -1;
-            curve.clockwise = !curve.clockwise;
+    function zamxf(zamxa) {
+        var zamxc = zamxb.elements;
+        var zamxd = Math.sqrt(zamxc[0] * zamxc[0] + zamxc[1] * zamxc[1]), zamxe = Math.sqrt(zamxc[3] * zamxc[3] + zamxc[4] * zamxc[4]);
+        zamxa.xRadius *= zamxd;
+        zamxa.yRadius *= zamxe;
+        zamxa.rotation += zamxd > Number.EPSILON ? Math.atan2(zamxc[1], zamxc[0]) : Math.atan2(-zamxc[3], zamxc[4]);
+        if (zamxm(zamxb)) {
+            zamxa.startAngle *= -1;
+            zamxa.endAngle *= -1;
+            zamxa.clockwise = !zamxa.clockwise;
         }
     }
-    for (var i = 0; i < path.subPaths.length; i++) {
-        var curves = path.subPaths[i].curves;
-        for (var j = 0; j < curves.length; j++) {
-            var curve = curves[j];
-            if (curve.type === "line") { stamp(curve.v1); stamp(curve.v2); }
-            else if (curve.type === "quadratic") { stamp(curve.v0); stamp(curve.v1); stamp(curve.v2); }
-            else if (curve.type === "bezier") { stamp(curve.v0); stamp(curve.v1); stamp(curve.v2); stamp(curve.v3); }
-            else if (curve.type === "arc") {
-                var center = mapPoint(m, curve.cx, curve.cy);
-                curve.cx = center.x;
-                curve.cy = center.y;
-                if (transformSkewed(m)) refitEllipse(curve);
-                else rescaleEllipse(curve);
+    for (var zamxg = 0; zamxg < zamxa.subPaths.length; zamxg++) {
+        var zamxh = zamxa.subPaths[zamxg].curves;
+        for (var zamxl = 0; zamxl < zamxh.length; zamxl++) {
+            var zamxo = zamxh[zamxl];
+            if (zamxo.type === "line") {
+                zamxc(zamxo.v1);
+                zamxc(zamxo.v2);
+            } else if (zamxo.type === "quadratic") {
+                zamxc(zamxo.v0);
+                zamxc(zamxo.v1);
+                zamxc(zamxo.v2);
+            } else if (zamxo.type === "bezier") {
+                zamxc(zamxo.v0);
+                zamxc(zamxo.v1);
+                zamxc(zamxo.v2);
+                zamxc(zamxo.v3);
+            } else if (zamxo.type === "arc") {
+                var zamxp = zamxj(zamxb, zamxo.cx, zamxo.cy);
+                zamxo.cx = zamxp.x;
+                zamxo.cy = zamxp.y;
+                if (zamxn(zamxb)) zamxe(zamxo); else zamxf(zamxo);
             }
         }
     }
 }
 
-function appendArc(path, from, to, rx, ry, rotationDegrees, largeArc, sweep) {
-    if (rx === 0 || ry === 0) { path.lineTo(to.x, to.y); return; }
-    rx = Math.abs(rx);
-    ry = Math.abs(ry);
-    var phi = rotationDegrees * Math.PI / 180;
-    var cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
-    var halfX = (from.x - to.x) / 2, halfY = (from.y - to.y) / 2;
-    var px = cosPhi * halfX + sinPhi * halfY;
-    var py = -sinPhi * halfX + cosPhi * halfY;
-    var stretch = Math.sqrt(Math.max(0, (px * px) / (rx * rx) + (py * py) / (ry * ry)));
-    if (stretch > 1) { rx *= stretch; ry *= stretch; }
-    var numerator = rx * rx * ry * ry - rx * rx * py * py - ry * ry * px * px;
-    var denominator = rx * rx * py * py + ry * ry * px * px;
-    var factor = Math.sqrt(Math.max(0, numerator / denominator));
-    if (largeArc === sweep) factor = -factor;
-    var stepX = factor * rx * py / ry;
-    var stepY = -factor * ry * px / rx;
-    var centerX = cosPhi * stepX - sinPhi * stepY + (from.x + to.x) / 2;
-    var centerY = sinPhi * stepX + cosPhi * stepY + (from.y + to.y) / 2;
-    var startUnitX = (px - stepX) / rx, startUnitY = (py - stepY) / ry;
-    var endUnitX = (-px - stepX) / rx, endUnitY = (-py - stepY) / ry;
-    var startAngle = signedAngle(1, 0, startUnitX, startUnitY);
-    var sweepAngle = signedAngle(startUnitX, startUnitY, endUnitX, endUnitY) % TWO_PI;
-    if (!path.currentPath) path.moveTo(from.x, from.y);
-    path.currentPath.absellipse(centerX, centerY, rx, ry, startAngle, startAngle + sweepAngle, sweep === 0, phi);
+function zamxp(zamxa, zamxb, zamxc, zamxe, zamxf, zamxh, zamxi, zamxj) {
+    if (zamxe === 0 || zamxf === 0) {
+        zamxa.lineTo(zamxc.x, zamxc.y);
+        return;
+    }
+    zamxe = Math.abs(zamxe);
+    zamxf = Math.abs(zamxf);
+    var zamxk = zamxh * Math.PI / 180;
+    var zamxl = Math.cos(zamxk), zamxm = Math.sin(zamxk);
+    var zamxn = (zamxb.x - zamxc.x) / 2, zamxo = (zamxb.y - zamxc.y) / 2;
+    var zamxp = zamxl * zamxn + zamxm * zamxo;
+    var zamxq = -zamxm * zamxn + zamxl * zamxo;
+    var zamxr = Math.sqrt(Math.max(0, zamxp * zamxp / (zamxe * zamxe) + zamxq * zamxq / (zamxf * zamxf)));
+    if (zamxr > 1) {
+        zamxe *= zamxr;
+        zamxf *= zamxr;
+    }
+    var zamxs = zamxe * zamxe * zamxf * zamxf - zamxe * zamxe * zamxq * zamxq - zamxf * zamxf * zamxp * zamxp;
+    var zamxt = zamxe * zamxe * zamxq * zamxq + zamxf * zamxf * zamxp * zamxp;
+    var zamxu = Math.sqrt(Math.max(0, zamxs / zamxt));
+    if (zamxi === zamxj) zamxu = -zamxu;
+    var zamxv = zamxu * zamxe * zamxq / zamxf;
+    var zamxw = -zamxu * zamxf * zamxp / zamxe;
+    var zamxx = zamxl * zamxv - zamxm * zamxw + (zamxb.x + zamxc.x) / 2;
+    var zamxy = zamxm * zamxv + zamxl * zamxw + (zamxb.y + zamxc.y) / 2;
+    var zamxz = (zamxp - zamxv) / zamxe, zamxaa = (zamxq - zamxw) / zamxf;
+    var zamxab = (-zamxp - zamxv) / zamxe, zamxac = (-zamxq - zamxw) / zamxf;
+    var zamxad = zamxg(1, 0, zamxz, zamxaa);
+    var zamxae = zamxg(zamxz, zamxaa, zamxab, zamxac) % zamxd;
+    if (!zamxa.currentPath) zamxa.moveTo(zamxb.x, zamxb.y);
+    zamxa.currentPath.absellipse(zamxx, zamxy, zamxe, zamxf, zamxad, zamxad + zamxae, zamxj === 0, zamxk);
 }
 
-var PATH_ARITY = { M: 2, L: 2, T: 2, S: 4, Q: 4, C: 6, A: 7, H: 1, V: 1 };
+var zamxq = {
+    M: 2,
+    L: 2,
+    T: 2,
+    S: 4,
+    Q: 4,
+    C: 6,
+    A: 7,
+    H: 1,
+    V: 1
+};
 
-function buildPathFromData(data) {
-    if (data === "" || data === "none" || data === null || data === undefined) return null;
-    var path = new ShapePath();
-    var cursor = new Vector2();
-    var control = new Vector2();
-    var anchor = new Vector2();
-    var awaitingAnchor = true;
-    var index = 0;
-    var length = data.length;
-    var numberPattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
-    function skipFiller() { while (index < length && (data[index] === " " || data[index] === "\t" || data[index] === "\r" || data[index] === "\n" || data[index] === ",")) index++; }
-    function readNumber() {
-        skipFiller();
-        numberPattern.lastIndex = index;
-        var hit = numberPattern.exec(data);
-        if (!hit) return null;
-        index = numberPattern.lastIndex;
-        return parseFloat(hit[0]);
+function zamxr(zamxa) {
+    if (zamxa === "" || zamxa === "none" || zamxa === null || zamxa === undefined) return null;
+    var zamxb = new ShapePath;
+    var zamxc = new Vector2;
+    var zamxd = new Vector2;
+    var zamxe = new Vector2;
+    var zamxf = true;
+    var zamxg = 0;
+    var zamxh = zamxa.length;
+    var zamxi = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
+    function zamxj() {
+        while (zamxg < zamxh && (zamxa[zamxg] === " " || zamxa[zamxg] === "\t" || zamxa[zamxg] === "\r" || zamxa[zamxg] === "\n" || zamxa[zamxg] === ",")) zamxg++;
     }
-    function readFlag() {
-        skipFiller();
-        var glyph = data[index];
-        if (glyph === "0" || glyph === "1") { index++; return glyph === "1" ? 1 : 0; }
+    function zamxk() {
+        zamxj();
+        zamxi.lastIndex = zamxg;
+        var zamxb = zamxi.exec(zamxa);
+        if (!zamxb) return null;
+        zamxg = zamxi.lastIndex;
+        return parseFloat(zamxb[0]);
+    }
+    function zamxl() {
+        zamxj();
+        var zamxb = zamxa[zamxg];
+        if (zamxb === "0" || zamxb === "1") {
+            zamxg++;
+            return zamxb === "1" ? 1 : 0;
+        }
         return null;
     }
-    function noteAnchor(x, y) { if (awaitingAnchor) { anchor.set(x, y); awaitingAnchor = false; } }
-    while (index < length) {
-        skipFiller();
-        if (index >= length) break;
-        var kind = data[index];
-        if (!/[a-zA-Z]/.test(kind)) { index++; continue; }
-        index++;
-        if (kind === "Z" || kind === "z") {
-            if (path.currentPath) {
-                path.currentPath.autoClose = true;
-                if (path.currentPath.curves.length > 0) {
-                    cursor.copy(anchor);
-                    path.currentPath.currentPoint.copy(cursor);
-                    awaitingAnchor = true;
+    function zamxm(zamxa, zamxb) {
+        if (zamxf) {
+            zamxe.set(zamxa, zamxb);
+            zamxf = false;
+        }
+    }
+    while (zamxg < zamxh) {
+        zamxj();
+        if (zamxg >= zamxh) break;
+        var zamxn = zamxa[zamxg];
+        if (!/[a-zA-Z]/.test(zamxn)) {
+            zamxg++;
+            continue;
+        }
+        zamxg++;
+        if (zamxn === "Z" || zamxn === "z") {
+            if (zamxb.currentPath) {
+                zamxb.currentPath.autoClose = true;
+                if (zamxb.currentPath.curves.length > 0) {
+                    zamxc.copy(zamxe);
+                    zamxb.currentPath.currentPoint.copy(zamxc);
+                    zamxf = true;
                 }
             }
             continue;
         }
-        var arity = PATH_ARITY[kind.toUpperCase()];
-        if (!arity) { console.warn("SVGLoader: unknown path command " + kind); continue; }
-        var relative = kind.toLowerCase() === kind;
-        var runIndex = 0;
+        var zamxo = zamxq[zamxn.toUpperCase()];
+        if (!zamxo) {
+            console.warn("SVGLoader: unknown path command " + zamxn);
+            continue;
+        }
+        var zamxr = zamxn.toLowerCase() === zamxn;
+        var zamxs = 0;
         while (true) {
-            var values = [];
-            var usable = true;
-            for (var a = 0; a < arity; a++) {
-                if (arity === 7 && (a === 3 || a === 4)) {
-                    var flag = readFlag();
-                    if (flag === null) { usable = false; break; }
-                    values.push(flag);
+            var zamxt = [];
+            var zamxu = true;
+            for (var zamxv = 0; zamxv < zamxo; zamxv++) {
+                if (zamxo === 7 && (zamxv === 3 || zamxv === 4)) {
+                    var zamxw = zamxl();
+                    if (zamxw === null) {
+                        zamxu = false;
+                        break;
+                    }
+                    zamxt.push(zamxw);
                 } else {
-                    var number = readNumber();
-                    if (number === null) { usable = false; break; }
-                    values.push(number);
+                    var zamxx = zamxk();
+                    if (zamxx === null) {
+                        zamxu = false;
+                        break;
+                    }
+                    zamxt.push(zamxx);
                 }
             }
-            if (!usable) break;
-            switch (kind) {
-                case "M": case "m": {
-                    var mx = relative ? cursor.x + values[0] : values[0];
-                    var my = relative ? cursor.y + values[1] : values[1];
-                    if (runIndex === 0) path.moveTo(mx, my);
-                    else path.lineTo(mx, my);
-                    cursor.set(mx, my);
-                    control.copy(cursor);
-                    anchor.set(mx, my);
-                    awaitingAnchor = false;
+            if (!zamxu) break;
+            switch (zamxn) {
+              case "M":
+              case "m":
+                {
+                    var zamxy = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    var zamxz = zamxr ? zamxc.y + zamxt[1] : zamxt[1];
+                    if (zamxs === 0) zamxb.moveTo(zamxy, zamxz); else zamxb.lineTo(zamxy, zamxz);
+                    zamxc.set(zamxy, zamxz);
+                    zamxd.copy(zamxc);
+                    zamxe.set(zamxy, zamxz);
+                    zamxf = false;
                     break;
                 }
-                case "L": case "l": {
-                    var lx = relative ? cursor.x + values[0] : values[0];
-                    var ly = relative ? cursor.y + values[1] : values[1];
-                    path.lineTo(lx, ly);
-                    cursor.set(lx, ly);
-                    control.copy(cursor);
-                    noteAnchor(lx, ly);
+
+              case "L":
+              case "l":
+                {
+                    var zamxaa = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    var zamxab = zamxr ? zamxc.y + zamxt[1] : zamxt[1];
+                    zamxb.lineTo(zamxaa, zamxab);
+                    zamxc.set(zamxaa, zamxab);
+                    zamxd.copy(zamxc);
+                    zamxm(zamxaa, zamxab);
                     break;
                 }
-                case "H": case "h": {
-                    var hx = relative ? cursor.x + values[0] : values[0];
-                    path.lineTo(hx, cursor.y);
-                    cursor.x = hx;
-                    control.copy(cursor);
-                    noteAnchor(hx, cursor.y);
+
+              case "H":
+              case "h":
+                {
+                    var zamxac = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    zamxb.lineTo(zamxac, zamxc.y);
+                    zamxc.x = zamxac;
+                    zamxd.copy(zamxc);
+                    zamxm(zamxac, zamxc.y);
                     break;
                 }
-                case "V": case "v": {
-                    var vy = relative ? cursor.y + values[0] : values[0];
-                    path.lineTo(cursor.x, vy);
-                    cursor.y = vy;
-                    control.copy(cursor);
-                    noteAnchor(cursor.x, vy);
+
+              case "V":
+              case "v":
+                {
+                    var zamxad = zamxr ? zamxc.y + zamxt[0] : zamxt[0];
+                    zamxb.lineTo(zamxc.x, zamxad);
+                    zamxc.y = zamxad;
+                    zamxd.copy(zamxc);
+                    zamxm(zamxc.x, zamxad);
                     break;
                 }
-                case "C": case "c": {
-                    var c1x = relative ? cursor.x + values[0] : values[0];
-                    var c1y = relative ? cursor.y + values[1] : values[1];
-                    var c2x = relative ? cursor.x + values[2] : values[2];
-                    var c2y = relative ? cursor.y + values[3] : values[3];
-                    var cex = relative ? cursor.x + values[4] : values[4];
-                    var cey = relative ? cursor.y + values[5] : values[5];
-                    path.bezierCurveTo(c1x, c1y, c2x, c2y, cex, cey);
-                    control.set(c2x, c2y);
-                    cursor.set(cex, cey);
-                    noteAnchor(cex, cey);
+
+              case "C":
+              case "c":
+                {
+                    var zamxae = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    var zamxaf = zamxr ? zamxc.y + zamxt[1] : zamxt[1];
+                    var zamxag = zamxr ? zamxc.x + zamxt[2] : zamxt[2];
+                    var zamxah = zamxr ? zamxc.y + zamxt[3] : zamxt[3];
+                    var zamxai = zamxr ? zamxc.x + zamxt[4] : zamxt[4];
+                    var zamxaj = zamxr ? zamxc.y + zamxt[5] : zamxt[5];
+                    zamxb.bezierCurveTo(zamxae, zamxaf, zamxag, zamxah, zamxai, zamxaj);
+                    zamxd.set(zamxag, zamxah);
+                    zamxc.set(zamxai, zamxaj);
+                    zamxm(zamxai, zamxaj);
                     break;
                 }
-                case "S": case "s": {
-                    var r1x = 2 * cursor.x - control.x;
-                    var r1y = 2 * cursor.y - control.y;
-                    var scx = relative ? cursor.x + values[0] : values[0];
-                    var scy = relative ? cursor.y + values[1] : values[1];
-                    var sex = relative ? cursor.x + values[2] : values[2];
-                    var sey = relative ? cursor.y + values[3] : values[3];
-                    path.bezierCurveTo(r1x, r1y, scx, scy, sex, sey);
-                    control.set(scx, scy);
-                    cursor.set(sex, sey);
-                    noteAnchor(sex, sey);
+
+              case "S":
+              case "s":
+                {
+                    var zamxak = 2 * zamxc.x - zamxd.x;
+                    var zamxal = 2 * zamxc.y - zamxd.y;
+                    var zamxam = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    var zamxan = zamxr ? zamxc.y + zamxt[1] : zamxt[1];
+                    var zamxao = zamxr ? zamxc.x + zamxt[2] : zamxt[2];
+                    var zamxap = zamxr ? zamxc.y + zamxt[3] : zamxt[3];
+                    zamxb.bezierCurveTo(zamxak, zamxal, zamxam, zamxan, zamxao, zamxap);
+                    zamxd.set(zamxam, zamxan);
+                    zamxc.set(zamxao, zamxap);
+                    zamxm(zamxao, zamxap);
                     break;
                 }
-                case "Q": case "q": {
-                    var qcx = relative ? cursor.x + values[0] : values[0];
-                    var qcy = relative ? cursor.y + values[1] : values[1];
-                    var qex = relative ? cursor.x + values[2] : values[2];
-                    var qey = relative ? cursor.y + values[3] : values[3];
-                    path.quadraticCurveTo(qcx, qcy, qex, qey);
-                    control.set(qcx, qcy);
-                    cursor.set(qex, qey);
-                    noteAnchor(qex, qey);
+
+              case "Q":
+              case "q":
+                {
+                    var zamxaq = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    var zamxar = zamxr ? zamxc.y + zamxt[1] : zamxt[1];
+                    var zamxas = zamxr ? zamxc.x + zamxt[2] : zamxt[2];
+                    var zamxat = zamxr ? zamxc.y + zamxt[3] : zamxt[3];
+                    zamxb.quadraticCurveTo(zamxaq, zamxar, zamxas, zamxat);
+                    zamxd.set(zamxaq, zamxar);
+                    zamxc.set(zamxas, zamxat);
+                    zamxm(zamxas, zamxat);
                     break;
                 }
-                case "T": case "t": {
-                    var tcx = 2 * cursor.x - control.x;
-                    var tcy = 2 * cursor.y - control.y;
-                    var tex = relative ? cursor.x + values[0] : values[0];
-                    var tey = relative ? cursor.y + values[1] : values[1];
-                    path.quadraticCurveTo(tcx, tcy, tex, tey);
-                    control.set(tcx, tcy);
-                    cursor.set(tex, tey);
-                    noteAnchor(tex, tey);
+
+              case "T":
+              case "t":
+                {
+                    var zamxau = 2 * zamxc.x - zamxd.x;
+                    var zamxav = 2 * zamxc.y - zamxd.y;
+                    var zamxaw = zamxr ? zamxc.x + zamxt[0] : zamxt[0];
+                    var zamxax = zamxr ? zamxc.y + zamxt[1] : zamxt[1];
+                    zamxb.quadraticCurveTo(zamxau, zamxav, zamxaw, zamxax);
+                    zamxd.set(zamxau, zamxav);
+                    zamxc.set(zamxaw, zamxax);
+                    zamxm(zamxaw, zamxax);
                     break;
                 }
-                case "A": case "a": {
-                    var aex = relative ? cursor.x + values[5] : values[5];
-                    var aey = relative ? cursor.y + values[6] : values[6];
-                    if (relative ? (values[5] === 0 && values[6] === 0) : (aex === cursor.x && aey === cursor.y)) break;
-                    var start = cursor.clone();
-                    cursor.set(aex, aey);
-                    control.copy(cursor);
-                    appendArc(path, start, cursor, values[0], values[1], values[2], values[3], values[4]);
-                    noteAnchor(aex, aey);
+
+              case "A":
+              case "a":
+                {
+                    var zamxay = zamxr ? zamxc.x + zamxt[5] : zamxt[5];
+                    var zamxaz = zamxr ? zamxc.y + zamxt[6] : zamxt[6];
+                    if (zamxr ? zamxt[5] === 0 && zamxt[6] === 0 : zamxay === zamxc.x && zamxaz === zamxc.y) break;
+                    var zamxba = zamxc.clone();
+                    zamxc.set(zamxay, zamxaz);
+                    zamxd.copy(zamxc);
+                    zamxp(zamxb, zamxba, zamxc, zamxt[0], zamxt[1], zamxt[2], zamxt[3], zamxt[4]);
+                    zamxm(zamxay, zamxaz);
                     break;
                 }
             }
-            runIndex++;
+            zamxs++;
         }
     }
-    if (!path.subPaths.length) return null;
-    return path;
+    if (!zamxb.subPaths.length) return null;
+    return zamxb;
 }
 
-function stopsToRGBA(stops, t) {
-    if (!stops || !stops.length) return [0, 0, 0, 1];
-    var lower = stops[0], upper = stops[stops.length - 1];
-    for (var i = 0; i < stops.length; i++) {
-        if (stops[i].offset <= t + 1e-9) lower = stops[i];
-        if (stops[i].offset >= t - 1e-9) { upper = stops[i]; break; }
+function zamxs(zamxa, zamxb) {
+    if (!zamxa || !zamxa.length) return [ 0, 0, 0, 1 ];
+    var zamxc = zamxa[0], zamxd = zamxa[zamxa.length - 1];
+    for (var zamxe = 0; zamxe < zamxa.length; zamxe++) {
+        if (zamxa[zamxe].offset <= zamxb + 1e-9) zamxc = zamxa[zamxe];
+        if (zamxa[zamxe].offset >= zamxb - 1e-9) {
+            zamxd = zamxa[zamxe];
+            break;
+        }
     }
-    if (t <= lower.offset) { var first = new Color().setStyle(lower.color, "srgb"); return [first.r, first.g, first.b, lower.opacity]; }
-    if (t >= upper.offset) { var last = new Color().setStyle(upper.color, "srgb"); return [last.r, last.g, last.b, upper.opacity]; }
-    var span = upper.offset - lower.offset;
-    var k = span > 0 ? (t - lower.offset) / span : 0;
-    var a = new Color().setStyle(lower.color, "srgb");
-    var b = new Color().setStyle(upper.color, "srgb");
-    return [a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k, lower.opacity + (upper.opacity - lower.opacity) * k];
+    if (zamxb <= zamxc.offset) {
+        var zamxf = (new Color).setStyle(zamxc.color, "srgb");
+        return [ zamxf.r, zamxf.g, zamxf.b, zamxc.opacity ];
+    }
+    if (zamxb >= zamxd.offset) {
+        var zamxg = (new Color).setStyle(zamxd.color, "srgb");
+        return [ zamxg.r, zamxg.g, zamxg.b, zamxd.opacity ];
+    }
+    var zamxh = zamxd.offset - zamxc.offset;
+    var zamxi = zamxh > 0 ? (zamxb - zamxc.offset) / zamxh : 0;
+    var zamxj = (new Color).setStyle(zamxc.color, "srgb");
+    var zamxk = (new Color).setStyle(zamxd.color, "srgb");
+    return [ zamxj.r + (zamxk.r - zamxj.r) * zamxi, zamxj.g + (zamxk.g - zamxj.g) * zamxi, zamxj.b + (zamxk.b - zamxj.b) * zamxi, zamxc.opacity + (zamxd.opacity - zamxc.opacity) * zamxi ];
 }
 
-function localBounds(shapePath, worldTransform) {
-    var inverse = worldTransform ? new Matrix3().copy(worldTransform).invert() : null;
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (var i = 0; i < shapePath.subPaths.length; i++) {
-        var pts = shapePath.subPaths[i].getPoints();
-        for (var p = 0; p < pts.length; p++) {
-            var x = pts[p].x, y = pts[p].y;
-            if (inverse) {
-                var mapped = mapPoint(inverse, x, y);
-                x = mapped.x;
-                y = mapped.y;
+function zamxt(zamxa, zamxb) {
+    var zamxc = zamxb ? (new Matrix3).copy(zamxb).invert() : null;
+    var zamxd = Infinity, zamxe = Infinity, zamxf = -Infinity, zamxg = -Infinity;
+    for (var zamxh = 0; zamxh < zamxa.subPaths.length; zamxh++) {
+        var zamxi = zamxa.subPaths[zamxh].getPoints();
+        for (var zamxk = 0; zamxk < zamxi.length; zamxk++) {
+            var zamxl = zamxi[zamxk].x, zamxm = zamxi[zamxk].y;
+            if (zamxc) {
+                var zamxn = zamxj(zamxc, zamxl, zamxm);
+                zamxl = zamxn.x;
+                zamxm = zamxn.y;
             }
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
+            if (zamxl < zamxd) zamxd = zamxl;
+            if (zamxl > zamxf) zamxf = zamxl;
+            if (zamxm < zamxe) zamxe = zamxm;
+            if (zamxm > zamxg) zamxg = zamxm;
         }
     }
-    if (minX === Infinity) return null;
-    return { minX: minX, minY: minY, width: maxX - minX, height: maxY - minY };
+    if (zamxd === Infinity) return null;
+    return {
+        minX: zamxd,
+        minY: zamxe,
+        width: zamxf - zamxd,
+        height: zamxg - zamxe
+    };
 }
 
-function bakeGradientTexture(gradient, shapePath, resolution) {
-    if (!gradient || !Array.isArray(gradient.stops) || gradient.stops.length === 0) return null;
-    resolution = resolution || 256;
-    var world = shapePath.userData.transform;
-    var boxUnits = gradient.gradientUnits === "objectBoundingBox";
-    var bounds = null;
-    if (boxUnits) {
-        bounds = localBounds(shapePath, world);
-        if (bounds === null) return null;
+function zamxu(zamxa, zamxb, zamxc) {
+    if (!zamxa || !Array.isArray(zamxa.stops) || zamxa.stops.length === 0) return null;
+    zamxc = zamxc || 256;
+    var zamxd = zamxb.userData.transform;
+    var zamxe = zamxa.gradientUnits === "objectBoundingBox";
+    var zamxf = null;
+    if (zamxe) {
+        zamxf = zamxt(zamxb, zamxd);
+        if (zamxf === null) return null;
     }
-    function place(x, y) {
-        var point = { x: x, y: y };
-        if (gradient.gradientTransform) point = mapPoint(gradient.gradientTransform, point.x, point.y);
-        if (boxUnits) point = { x: bounds.minX + point.x * bounds.width, y: bounds.minY + point.y * bounds.height };
-        if (world) point = mapPoint(world, point.x, point.y);
-        return point;
+    function zamxg(zamxb, zamxc) {
+        var zamxg = {
+            x: zamxb,
+            y: zamxc
+        };
+        if (zamxa.gradientTransform) zamxg = zamxj(zamxa.gradientTransform, zamxg.x, zamxg.y);
+        if (zamxe) zamxg = {
+            x: zamxf.minX + zamxg.x * zamxf.width,
+            y: zamxf.minY + zamxg.y * zamxf.height
+        };
+        if (zamxd) zamxg = zamxj(zamxd, zamxg.x, zamxg.y);
+        return zamxg;
     }
-    function pack(rgba) {
-        return [Math.round(Math.min(1, Math.max(0, rgba[0])) * 255), Math.round(Math.min(1, Math.max(0, rgba[1])) * 255), Math.round(Math.min(1, Math.max(0, rgba[2])) * 255), Math.round(Math.min(1, Math.max(0, rgba[3])) * 255)];
+    function zamxh(zamxa) {
+        return [ Math.round(Math.min(1, Math.max(0, zamxa[0])) * 255), Math.round(Math.min(1, Math.max(0, zamxa[1])) * 255), Math.round(Math.min(1, Math.max(0, zamxa[2])) * 255), Math.round(Math.min(1, Math.max(0, zamxa[3])) * 255) ];
     }
-    var width, height, data, matrix;
-    if (gradient.type === "linearGradient") {
-        width = resolution;
-        height = 1;
-        data = new Uint8Array(width * 4);
-        for (var x = 0; x < width; x++) {
-            var rgba = pack(stopsToRGBA(gradient.stops, x / (resolution - 1)));
-            data[x * 4] = rgba[0];
-            data[x * 4 + 1] = rgba[1];
-            data[x * 4 + 2] = rgba[2];
-            data[x * 4 + 3] = rgba[3];
+    var zamxi, zamxk, zamxl, zamxm;
+    if (zamxa.type === "linearGradient") {
+        zamxi = zamxc;
+        zamxk = 1;
+        zamxl = new Uint8Array(zamxi * 4);
+        for (var zamxn = 0; zamxn < zamxi; zamxn++) {
+            var zamxo = zamxh(zamxs(zamxa.stops, zamxn / (zamxc - 1)));
+            zamxl[zamxn * 4] = zamxo[0];
+            zamxl[zamxn * 4 + 1] = zamxo[1];
+            zamxl[zamxn * 4 + 2] = zamxo[2];
+            zamxl[zamxn * 4 + 3] = zamxo[3];
         }
-        var p1 = place(gradient.x1, gradient.y1);
-        var p2 = place(gradient.x2, gradient.y2);
-        var dx = p2.x - p1.x, dy = p2.y - p1.y;
-        var squared = dx * dx + dy * dy || 1e-20;
-        var a = dx / squared, b = dy / squared;
-        matrix = new Matrix3().set(a, b, -(a * p1.x + b * p1.y), 0, 0, 0.5, 0, 0, 1);
+        var zamxp = zamxg(zamxa.x1, zamxa.y1);
+        var zamxq = zamxg(zamxa.x2, zamxa.y2);
+        var zamxr = zamxq.x - zamxp.x, zamxu = zamxq.y - zamxp.y;
+        var zamxv = zamxr * zamxr + zamxu * zamxu || 1e-20;
+        var zamxw = zamxr / zamxv, zamxx = zamxu / zamxv;
+        zamxm = (new Matrix3).set(zamxw, zamxx, -(zamxw * zamxp.x + zamxx * zamxp.y), 0, 0, .5, 0, 0, 1);
     } else {
-        var cx = gradient.cx, cy = gradient.cy, fx = gradient.fx, fy = gradient.fy, r = gradient.r;
-        if (gradient.gradientTransform) {
-            var c = mapPoint(gradient.gradientTransform, cx, cy);
-            var f = mapPoint(gradient.gradientTransform, fx, fy);
-            cx = c.x; cy = c.y; fx = f.x; fy = f.y;
+        var zamxy = zamxa.cx, zamxz = zamxa.cy, zamxaa = zamxa.fx, zamxab = zamxa.fy, zamxac = zamxa.r;
+        if (zamxa.gradientTransform) {
+            var zamxad = zamxj(zamxa.gradientTransform, zamxy, zamxz);
+            var zamxae = zamxj(zamxa.gradientTransform, zamxaa, zamxab);
+            zamxy = zamxad.x;
+            zamxz = zamxad.y;
+            zamxaa = zamxae.x;
+            zamxab = zamxae.y;
         }
-        if (boxUnits) {
-            cx = bounds.minX + cx * bounds.width;
-            cy = bounds.minY + cy * bounds.height;
-            fx = bounds.minX + fx * bounds.width;
-            fy = bounds.minY + fy * bounds.height;
-            r = r * Math.sqrt((bounds.width * bounds.width + bounds.height * bounds.height) / 2);
+        if (zamxe) {
+            zamxy = zamxf.minX + zamxy * zamxf.width;
+            zamxz = zamxf.minY + zamxz * zamxf.height;
+            zamxaa = zamxf.minX + zamxaa * zamxf.width;
+            zamxab = zamxf.minY + zamxab * zamxf.height;
+            zamxac = zamxac * Math.sqrt((zamxf.width * zamxf.width + zamxf.height * zamxf.height) / 2);
         }
-        if (r <= 0) return null;
-        var fdx = fx - cx, fdy = fy - cy;
-        var fdist = Math.sqrt(fdx * fdx + fdy * fdy);
-        if (fdist >= r) {
-            var pull = (r - 1e-6) / fdist;
-            fx = cx + fdx * pull;
-            fy = cy + fdy * pull;
+        if (zamxac <= 0) return null;
+        var zamxaf = zamxaa - zamxy, zamxag = zamxab - zamxz;
+        var zamxah = Math.sqrt(zamxaf * zamxaf + zamxag * zamxag);
+        if (zamxah >= zamxac) {
+            var zamxai = (zamxac - 1e-6) / zamxah;
+            zamxaa = zamxy + zamxaf * zamxai;
+            zamxab = zamxz + zamxag * zamxai;
         }
-        width = resolution;
-        height = resolution;
-        data = new Uint8Array(width * height * 4);
-        var originX = cx - r, originY = cy - r, span = 2 * r;
-        for (var py = 0; py < height; py++) {
-            for (var px = 0; px < width; px++) {
-                var sampleX = originX + (px / (resolution - 1)) * span;
-                var sampleY = originY + (py / (resolution - 1)) * span;
-                var rayX = sampleX - fx, rayY = sampleY - fy;
-                var t = 0;
-                var rayLength2 = rayX * rayX + rayY * rayY;
-                if (rayLength2 > 0) {
-                    var offX = fx - cx, offY = fy - cy;
-                    var b2 = offX * rayX + offY * rayY;
-                    var c2 = offX * offX + offY * offY - r * r;
-                    var disc = b2 * b2 - rayLength2 * c2;
-                    if (disc <= 0) t = 1;
-                    else t = rayLength2 / (-b2 + Math.sqrt(disc));
-                    if (t < 0) t = 0;
-                    if (t > 1) t = 1;
+        zamxi = zamxc;
+        zamxk = zamxc;
+        zamxl = new Uint8Array(zamxi * zamxk * 4);
+        var zamxaj = zamxy - zamxac, zamxak = zamxz - zamxac, zamxal = 2 * zamxac;
+        for (var zamxam = 0; zamxam < zamxk; zamxam++) {
+            for (var zamxan = 0; zamxan < zamxi; zamxan++) {
+                var zamxao = zamxaj + zamxan / (zamxc - 1) * zamxal;
+                var zamxap = zamxak + zamxam / (zamxc - 1) * zamxal;
+                var zamxaq = zamxao - zamxaa, zamxar = zamxap - zamxab;
+                var zamxas = 0;
+                var zamxat = zamxaq * zamxaq + zamxar * zamxar;
+                if (zamxat > 0) {
+                    var zamxau = zamxaa - zamxy, zamxav = zamxab - zamxz;
+                    var zamxaw = zamxau * zamxaq + zamxav * zamxar;
+                    var zamxax = zamxau * zamxau + zamxav * zamxav - zamxac * zamxac;
+                    var zamxay = zamxaw * zamxaw - zamxat * zamxax;
+                    if (zamxay <= 0) zamxas = 1; else zamxas = zamxat / (-zamxaw + Math.sqrt(zamxay));
+                    if (zamxas < 0) zamxas = 0;
+                    if (zamxas > 1) zamxas = 1;
                 }
-                var rgba2 = pack(stopsToRGBA(gradient.stops, t));
-                var offset = (py * width + px) * 4;
-                data[offset] = rgba2[0];
-                data[offset + 1] = rgba2[1];
-                data[offset + 2] = rgba2[2];
-                data[offset + 3] = rgba2[3];
+                var zamxaz = zamxh(zamxs(zamxa.stops, zamxas));
+                var zamxba = (zamxam * zamxi + zamxan) * 4;
+                zamxl[zamxba] = zamxaz[0];
+                zamxl[zamxba + 1] = zamxaz[1];
+                zamxl[zamxba + 2] = zamxaz[2];
+                zamxl[zamxba + 3] = zamxaz[3];
             }
         }
-        var inverseWorld = world ? new Matrix3().copy(world).invert() : new Matrix3();
-        var normalize = new Matrix3().set(1 / span, 0, -originX / span, 0, 1 / span, -originY / span, 0, 0, 1);
-        matrix = normalize.multiply(inverseWorld);
+        var zamxbb = zamxd ? (new Matrix3).copy(zamxd).invert() : new Matrix3;
+        var zamxbc = (new Matrix3).set(1 / zamxal, 0, -zamxaj / zamxal, 0, 1 / zamxal, -zamxak / zamxal, 0, 0, 1);
+        zamxm = zamxbc.multiply(zamxbb);
     }
-    var texture = new DataTexture(data, width, height, { minFilter: "linear", magFilter: "linear", colorSpace: "srgb" });
-    texture.matrixAutoUpdate = false;
-    texture.matrix = matrix;
-    texture.wrapS = gradient.spreadMethod === "reflect" ? "mirror" : gradient.spreadMethod === "repeat" ? "repeat" : "clamp";
-    texture.wrapT = texture.wrapS;
-    return texture;
+    var zamxbd = new DataTexture(zamxl, zamxi, zamxk, {
+        minFilter: "linear",
+        magFilter: "linear",
+        colorSpace: "srgb"
+    });
+    zamxbd.matrixAutoUpdate = false;
+    zamxbd.matrix = zamxm;
+    zamxbd.wrapS = zamxa.spreadMethod === "reflect" ? "mirror" : zamxa.spreadMethod === "repeat" ? "repeat" : "clamp";
+    zamxbd.wrapT = zamxbd.wrapS;
+    return zamxbd;
 }
 
 class SVGLoader {
-    constructor(manager) { this.manager = manager; this.defaultDPI = 90; this.defaultUnit = "px"; }
-    parse(text) {
-        var scope = this;
-        var document = new DOMParser().parseFromString(text, "image/svg+xml");
-        var gradients = {};
-        var selectors = {};
-        var paths = [];
-        var stack = [new Matrix3()];
-        var STYLE_PROPERTIES = [
-            ["fill", "fill", null],
-            ["fill-opacity", "fillOpacity", "fraction"],
-            ["fill-rule", "fillRule", null],
-            ["opacity", "opacity", "fraction"],
-            ["stroke", "stroke", null],
-            ["stroke-opacity", "strokeOpacity", "fraction"],
-            ["stroke-width", "strokeWidth", "positive"],
-            ["stroke-linejoin", "strokeLineJoin", null],
-            ["stroke-linecap", "strokeLineCap", null],
-            ["stroke-miterlimit", "strokeMiterLimit", "positive"],
-            ["visibility", "visibility", null]
-        ];
-        function adjust(value, mode) {
-            if (mode === "fraction") return Math.max(0, Math.min(1, readLength(value, scope.defaultDPI, scope.defaultUnit)));
-            if (mode === "positive") return Math.max(0, readLength(value, scope.defaultDPI, scope.defaultUnit));
-            return value;
+    constructor(zamxa) {
+        this.manager = zamxa;
+        this.defaultDPI = 90;
+        this.defaultUnit = "px";
+    }
+    parse(zamxa) {
+        var zamxb = this;
+        var zamxg = (new DOMParser).parseFromString(zamxa, "image/svg+xml");
+        var zamxi = {};
+        var zamxj = {};
+        var zamxk = [];
+        var zamxm = [ new Matrix3 ];
+        var zamxn = [ [ "fill", "fill", null ], [ "fill-opacity", "fillOpacity", "fraction" ], [ "fill-rule", "fillRule", null ], [ "opacity", "opacity", "fraction" ], [ "stroke", "stroke", null ], [ "stroke-opacity", "strokeOpacity", "fraction" ], [ "stroke-width", "strokeWidth", "positive" ], [ "stroke-linejoin", "strokeLineJoin", null ], [ "stroke-linecap", "strokeLineCap", null ], [ "stroke-miterlimit", "strokeMiterLimit", "positive" ], [ "visibility", "visibility", null ] ];
+        function zamxp(zamxa, zamxc) {
+            if (zamxc === "fraction") return Math.max(0, Math.min(1, zamxf(zamxa, zamxb.defaultDPI, zamxb.defaultUnit)));
+            if (zamxc === "positive") return Math.max(0, zamxf(zamxa, zamxb.defaultDPI, zamxb.defaultUnit));
+            return zamxa;
         }
-        function collectStylesheets(root) {
-            var nodes = root.getElementsByTagName("style");
-            for (var i = 0; i < nodes.length; i++) {
-                var sheet = nodes[i].sheet;
-                if (!sheet || !sheet.cssRules) continue;
-                for (var r = 0; r < sheet.cssRules.length; r++) {
-                    var rule = sheet.cssRules[r];
-                    if (rule.type !== 1 || !rule.selectorText || !rule.style) continue;
-                    var names = rule.selectorText.split(",").map(function(part) { return part.trim(); }).filter(Boolean);
-                    for (var n = 0; n < names.length; n++) {
-                        if (!selectors[names[n]]) selectors[names[n]] = {};
-                        var captured = {};
-                        for (var propName in rule.style) {
-                            var propValue = rule.style[propName];
-                            if (propValue !== "") captured[propName] = propValue;
+        function zamxq(zamxa) {
+            var zamxb = zamxa.getElementsByTagName("style");
+            for (var zamxc = 0; zamxc < zamxb.length; zamxc++) {
+                var zamxd = zamxb[zamxc].sheet;
+                if (!zamxd || !zamxd.cssRules) continue;
+                for (var zamxe = 0; zamxe < zamxd.cssRules.length; zamxe++) {
+                    var zamxf = zamxd.cssRules[zamxe];
+                    if (zamxf.type !== 1 || !zamxf.selectorText || !zamxf.style) continue;
+                    var zamxg = zamxf.selectorText.split(",").map(function(zamxa) {
+                        return zamxa.trim();
+                    }).filter(Boolean);
+                    for (var zamxh = 0; zamxh < zamxg.length; zamxh++) {
+                        if (!zamxj[zamxg[zamxh]]) zamxj[zamxg[zamxh]] = {};
+                        var zamxi = {};
+                        for (var zamxk in zamxf.style) {
+                            var zamxl = zamxf.style[zamxk];
+                            if (zamxl !== "") zamxi[zamxk] = zamxl;
                         }
-                        Object.assign(selectors[names[n]], captured);
+                        Object.assign(zamxj[zamxg[zamxh]], zamxi);
                     }
                 }
             }
         }
-        function resolveStyle(node, inherited) {
-            var style = Object.assign({}, inherited);
-            var matched = {};
-            if (node.hasAttribute("class")) {
-                var classes = node.getAttribute("class").split(/\s+/).filter(Boolean);
-                for (var c = 0; c < classes.length; c++) Object.assign(matched, selectors["." + classes[c]] || {});
+        function zamxs(zamxa, zamxb) {
+            var zamxc = Object.assign({}, zamxb);
+            var zamxd = {};
+            if (zamxa.hasAttribute("class")) {
+                var zamxe = zamxa.getAttribute("class").split(/\s+/).filter(Boolean);
+                for (var zamxf = 0; zamxf < zamxe.length; zamxf++) Object.assign(zamxd, zamxj["." + zamxe[zamxf]] || {});
             }
-            if (node.hasAttribute("id")) Object.assign(matched, selectors["#" + node.getAttribute("id")] || {});
-            for (var p = 0; p < STYLE_PROPERTIES.length; p++) {
-                var cssName = STYLE_PROPERTIES[p][0], jsName = STYLE_PROPERTIES[p][1], mode = STYLE_PROPERTIES[p][2];
-                if (node.hasAttribute(cssName)) style[jsName] = adjust(node.getAttribute(cssName), mode);
-                if (matched[jsName] !== undefined) style[jsName] = adjust(matched[jsName], mode);
-                var inline = node.style ? node.style.getPropertyValue(cssName) : "";
-                if (inline !== "") style[jsName] = adjust(inline, mode);
+            if (zamxa.hasAttribute("id")) Object.assign(zamxd, zamxj["#" + zamxa.getAttribute("id")] || {});
+            for (var zamxg = 0; zamxg < zamxn.length; zamxg++) {
+                var zamxh = zamxn[zamxg][0], zamxi = zamxn[zamxg][1], zamxk = zamxn[zamxg][2];
+                if (zamxa.hasAttribute(zamxh)) zamxc[zamxi] = zamxp(zamxa.getAttribute(zamxh), zamxk);
+                if (zamxd[zamxi] !== undefined) zamxc[zamxi] = zamxp(zamxd[zamxi], zamxk);
+                var zamxl = zamxa.style ? zamxa.style.getPropertyValue(zamxh) : "";
+                if (zamxl !== "") zamxc[zamxi] = zamxp(zamxl, zamxk);
             }
-            return style;
+            return zamxc;
         }
-        function collectGradients(root) {
-            var raw = {};
-            var families = ["linearGradient", "radialGradient"];
-            for (var f = 0; f < families.length; f++) {
-                var nodes = root.getElementsByTagName(families[f]);
-                for (var i = 0; i < nodes.length; i++) {
-                    var node = nodes[i];
-                    var id = node.getAttribute("id");
-                    if (!id) continue;
-                    var entry = { type: families[f], attrs: {}, stops: null, parentId: null };
-                    var href = (node.getAttributeNS && node.getAttributeNS("http://www.w3.org/1999/xlink", "href")) || node.getAttribute("href") || "";
-                    if (href.charAt(0) === "#") entry.parentId = href.slice(1);
-                    var names = ["x1", "y1", "x2", "y2", "cx", "cy", "r", "fx", "fy", "gradientUnits", "gradientTransform", "spreadMethod"];
-                    for (var a = 0; a < names.length; a++) if (node.hasAttribute(names[a])) entry.attrs[names[a]] = node.getAttribute(names[a]);
-                    var stopNodes = node.getElementsByTagName("stop");
-                    if (stopNodes.length) {
-                        entry.stops = [];
-                        for (var s = 0; s < stopNodes.length; s++) {
-                            var stop = stopNodes[s];
-                            var color = stop.getAttribute("stop-color");
-                            if ((color === null || color === "") && stop.style) color = stop.style["stop-color"];
-                            if (color === null || color === "") color = "#000";
-                            var opacityText = stop.getAttribute("stop-opacity");
-                            if ((opacityText === null || opacityText === "") && stop.style) opacityText = stop.style["stop-opacity"];
-                            var opacity = opacityText === null || opacityText === "" || opacityText === undefined ? 1 : Math.max(0, Math.min(1, parseFloat(opacityText)));
-                            var offsetText = stop.getAttribute("offset") || "0";
-                            var offset = offsetText.indexOf("%") !== -1 ? parseFloat(offsetText) / 100 : parseFloat(offsetText);
-                            entry.stops.push({ offset: Math.max(0, Math.min(1, offset)), color: color, opacity: opacity });
+        function zamxt(zamxa) {
+            var zamxc = {};
+            var zamxd = [ "linearGradient", "radialGradient" ];
+            for (var zamxe = 0; zamxe < zamxd.length; zamxe++) {
+                var zamxg = zamxa.getElementsByTagName(zamxd[zamxe]);
+                for (var zamxj = 0; zamxj < zamxg.length; zamxj++) {
+                    var zamxk = zamxg[zamxj];
+                    var zamxl = zamxk.getAttribute("id");
+                    if (!zamxl) continue;
+                    var zamxm = {
+                        type: zamxd[zamxe],
+                        attrs: {},
+                        stops: null,
+                        parentId: null
+                    };
+                    var zamxn = zamxk.getAttributeNS && zamxk.getAttributeNS("http://www.w3.org/1999/xlink", "href") || zamxk.getAttribute("href") || "";
+                    if (zamxn.charAt(0) === "#") zamxm.parentId = zamxn.slice(1);
+                    var zamxo = [ "x1", "y1", "x2", "y2", "cx", "cy", "r", "fx", "fy", "gradientUnits", "gradientTransform", "spreadMethod" ];
+                    for (var zamxp = 0; zamxp < zamxo.length; zamxp++) if (zamxk.hasAttribute(zamxo[zamxp])) zamxm.attrs[zamxo[zamxp]] = zamxk.getAttribute(zamxo[zamxp]);
+                    var zamxq = zamxk.getElementsByTagName("stop");
+                    if (zamxq.length) {
+                        zamxm.stops = [];
+                        for (var zamxr = 0; zamxr < zamxq.length; zamxr++) {
+                            var zamxs = zamxq[zamxr];
+                            var zamxt = zamxs.getAttribute("stop-color");
+                            if ((zamxt === null || zamxt === "") && zamxs.style) zamxt = zamxs.style["stop-color"];
+                            if (zamxt === null || zamxt === "") zamxt = "#000";
+                            var zamxu = zamxs.getAttribute("stop-opacity");
+                            if ((zamxu === null || zamxu === "") && zamxs.style) zamxu = zamxs.style["stop-opacity"];
+                            var zamxv = zamxu === null || zamxu === "" || zamxu === undefined ? 1 : Math.max(0, Math.min(1, parseFloat(zamxu)));
+                            var zamxw = zamxs.getAttribute("offset") || "0";
+                            var zamxx = zamxw.indexOf("%") !== -1 ? parseFloat(zamxw) / 100 : parseFloat(zamxw);
+                            zamxm.stops.push({
+                                offset: Math.max(0, Math.min(1, zamxx)),
+                                color: zamxt,
+                                opacity: zamxv
+                            });
                         }
                     }
-                    raw[id] = entry;
+                    zamxc[zamxl] = zamxm;
                 }
             }
-            function resolveEntry(id, seen) {
-                var entry = raw[id];
-                if (!entry || seen.indexOf(id) !== -1) return entry;
-                seen.push(id);
-                if (entry.parentId && raw[entry.parentId]) {
-                    var parent = resolveEntry(entry.parentId, seen);
-                    if (parent) {
-                        if (!entry.stops) entry.stops = parent.stops;
-                        for (var key in parent.attrs) if (!(key in entry.attrs)) entry.attrs[key] = parent.attrs[key];
+            function zamxy(zamxa, zamxb) {
+                var zamxd = zamxc[zamxa];
+                if (!zamxd || zamxb.indexOf(zamxa) !== -1) return zamxd;
+                zamxb.push(zamxa);
+                if (zamxd.parentId && zamxc[zamxd.parentId]) {
+                    var zamxe = zamxy(zamxd.parentId, zamxb);
+                    if (zamxe) {
+                        if (!zamxd.stops) zamxd.stops = zamxe.stops;
+                        for (var zamxf in zamxe.attrs) if (!(zamxf in zamxd.attrs)) zamxd.attrs[zamxf] = zamxe.attrs[zamxf];
                     }
                 }
-                return entry;
+                return zamxd;
             }
-            for (var id in raw) resolveEntry(id, []);
-            function coordinate(text) {
-                if (typeof text !== "string") return 0;
-                if (text.charAt(text.length - 1) === "%") return parseFloat(text) / 100;
-                return readLength(text, scope.defaultDPI, scope.defaultUnit);
+            for (var zamxl in zamxc) zamxy(zamxl, []);
+            function zamxz(zamxa) {
+                if (typeof zamxa !== "string") return 0;
+                if (zamxa.charAt(zamxa.length - 1) === "%") return parseFloat(zamxa) / 100;
+                return zamxf(zamxa, zamxb.defaultDPI, zamxb.defaultUnit);
             }
-            for (var gid in raw) {
-                var entry = raw[gid];
-                var attrs = entry.attrs;
-                var units = attrs.gradientUnits === "userSpaceOnUse" ? "userSpaceOnUse" : "objectBoundingBox";
-                var spread = attrs.spreadMethod === "reflect" || attrs.spreadMethod === "repeat" ? attrs.spreadMethod : "pad";
-                var gradient = { type: entry.type, gradientUnits: units, spreadMethod: spread, gradientTransform: null, stops: (entry.stops || []).slice().sort(function(x, y) { return x.offset - y.offset; }) };
-                if (attrs.gradientTransform) gradient.gradientTransform = parseTransformList(attrs.gradientTransform);
-                if (entry.type === "linearGradient") {
-                    gradient.x1 = attrs.x1 !== undefined ? coordinate(attrs.x1) : 0;
-                    gradient.y1 = attrs.y1 !== undefined ? coordinate(attrs.y1) : 0;
-                    gradient.x2 = attrs.x2 !== undefined ? coordinate(attrs.x2) : (units === "objectBoundingBox" ? 1 : 0);
-                    gradient.y2 = attrs.y2 !== undefined ? coordinate(attrs.y2) : 0;
+            for (var zamxaa in zamxc) {
+                var zamxm = zamxc[zamxaa];
+                var zamxab = zamxm.attrs;
+                var zamxac = zamxab.gradientUnits === "userSpaceOnUse" ? "userSpaceOnUse" : "objectBoundingBox";
+                var zamxad = zamxab.spreadMethod === "reflect" || zamxab.spreadMethod === "repeat" ? zamxab.spreadMethod : "pad";
+                var zamxae = {
+                    type: zamxm.type,
+                    gradientUnits: zamxac,
+                    spreadMethod: zamxad,
+                    gradientTransform: null,
+                    stops: (zamxm.stops || []).slice().sort(function(zamxa, zamxb) {
+                        return zamxa.offset - zamxb.offset;
+                    })
+                };
+                if (zamxab.gradientTransform) zamxae.gradientTransform = zamxh(zamxab.gradientTransform);
+                if (zamxm.type === "linearGradient") {
+                    zamxae.x1 = zamxab.x1 !== undefined ? zamxz(zamxab.x1) : 0;
+                    zamxae.y1 = zamxab.y1 !== undefined ? zamxz(zamxab.y1) : 0;
+                    zamxae.x2 = zamxab.x2 !== undefined ? zamxz(zamxab.x2) : zamxac === "objectBoundingBox" ? 1 : 0;
+                    zamxae.y2 = zamxab.y2 !== undefined ? zamxz(zamxab.y2) : 0;
                 } else {
-                    var middle = units === "objectBoundingBox" ? 0.5 : 0;
-                    gradient.cx = attrs.cx !== undefined ? coordinate(attrs.cx) : middle;
-                    gradient.cy = attrs.cy !== undefined ? coordinate(attrs.cy) : middle;
-                    gradient.r = attrs.r !== undefined ? coordinate(attrs.r) : middle;
-                    gradient.fx = attrs.fx !== undefined ? coordinate(attrs.fx) : gradient.cx;
-                    gradient.fy = attrs.fy !== undefined ? coordinate(attrs.fy) : gradient.cy;
+                    var zamxaf = zamxac === "objectBoundingBox" ? .5 : 0;
+                    zamxae.cx = zamxab.cx !== undefined ? zamxz(zamxab.cx) : zamxaf;
+                    zamxae.cy = zamxab.cy !== undefined ? zamxz(zamxab.cy) : zamxaf;
+                    zamxae.r = zamxab.r !== undefined ? zamxz(zamxab.r) : zamxaf;
+                    zamxae.fx = zamxab.fx !== undefined ? zamxz(zamxab.fx) : zamxae.cx;
+                    zamxae.fy = zamxab.fy !== undefined ? zamxz(zamxab.fy) : zamxae.cy;
                 }
-                gradients[gid] = gradient;
+                zamxi[zamxaa] = zamxae;
             }
         }
-        function nodeTransform(node) {
-            var hasXY = node.nodeName === "use" && (node.hasAttribute("x") || node.hasAttribute("y"));
-            var hasTransform = node.hasAttribute("transform");
-            if (!hasXY && !hasTransform) return null;
-            var local = new Matrix3();
-            if (hasXY) local.makeTranslation(readLength(node.getAttribute("x") || 0, scope.defaultDPI, scope.defaultUnit), readLength(node.getAttribute("y") || 0, scope.defaultDPI, scope.defaultUnit));
-            if (hasTransform) local.premultiply(parseTransformList(node.getAttribute("transform")));
-            return local;
+        function zamxu(zamxa) {
+            var zamxc = zamxa.nodeName === "use" && (zamxa.hasAttribute("x") || zamxa.hasAttribute("y"));
+            var zamxd = zamxa.hasAttribute("transform");
+            if (!zamxc && !zamxd) return null;
+            var zamxe = new Matrix3;
+            if (zamxc) zamxe.makeTranslation(zamxf(zamxa.getAttribute("x") || 0, zamxb.defaultDPI, zamxb.defaultUnit), zamxf(zamxa.getAttribute("y") || 0, zamxb.defaultDPI, zamxb.defaultUnit));
+            if (zamxd) zamxe.premultiply(zamxh(zamxa.getAttribute("transform")));
+            return zamxe;
         }
-        function buildRect(node) {
-            var x = readLength(node.getAttribute("x") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y = readLength(node.getAttribute("y") || 0, scope.defaultDPI, scope.defaultUnit);
-            var w = readLength(node.getAttribute("width"), scope.defaultDPI, scope.defaultUnit);
-            var h = readLength(node.getAttribute("height"), scope.defaultDPI, scope.defaultUnit);
-            var rx = readLength(node.getAttribute("rx") || node.getAttribute("ry") || 0, scope.defaultDPI, scope.defaultUnit);
-            var ry = readLength(node.getAttribute("ry") || node.getAttribute("rx") || 0, scope.defaultDPI, scope.defaultUnit);
-            rx = Math.min(rx, w / 2);
-            ry = Math.min(ry, h / 2);
-            var path = new ShapePath();
-            path.moveTo(x + rx, y);
-            path.lineTo(x + w - rx, y);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + w - rx * CORNER_KAPPA, y, x + w, y + ry * CORNER_KAPPA, x + w, y + ry);
-            path.lineTo(x + w, y + h - ry);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + w, y + h - ry * CORNER_KAPPA, x + w - rx * CORNER_KAPPA, y + h, x + w - rx, y + h);
-            path.lineTo(x + rx, y + h);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x + rx * CORNER_KAPPA, y + h, x, y + h - ry * CORNER_KAPPA, x, y + h - ry);
-            path.lineTo(x, y + ry);
-            if (rx !== 0 || ry !== 0) path.bezierCurveTo(x, y + ry * CORNER_KAPPA, x + rx * CORNER_KAPPA, y, x + rx, y);
-            return path;
+        function zamxv(zamxa) {
+            var zamxd = zamxf(zamxa.getAttribute("x") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxe = zamxf(zamxa.getAttribute("y") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxg = zamxf(zamxa.getAttribute("width"), zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxh = zamxf(zamxa.getAttribute("height"), zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxi = zamxf(zamxa.getAttribute("rx") || zamxa.getAttribute("ry") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxj = zamxf(zamxa.getAttribute("ry") || zamxa.getAttribute("rx") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            zamxi = Math.min(zamxi, zamxg / 2);
+            zamxj = Math.min(zamxj, zamxh / 2);
+            var zamxk = new ShapePath;
+            zamxk.moveTo(zamxd + zamxi, zamxe);
+            zamxk.lineTo(zamxd + zamxg - zamxi, zamxe);
+            if (zamxi !== 0 || zamxj !== 0) zamxk.bezierCurveTo(zamxd + zamxg - zamxi * zamxc, zamxe, zamxd + zamxg, zamxe + zamxj * zamxc, zamxd + zamxg, zamxe + zamxj);
+            zamxk.lineTo(zamxd + zamxg, zamxe + zamxh - zamxj);
+            if (zamxi !== 0 || zamxj !== 0) zamxk.bezierCurveTo(zamxd + zamxg, zamxe + zamxh - zamxj * zamxc, zamxd + zamxg - zamxi * zamxc, zamxe + zamxh, zamxd + zamxg - zamxi, zamxe + zamxh);
+            zamxk.lineTo(zamxd + zamxi, zamxe + zamxh);
+            if (zamxi !== 0 || zamxj !== 0) zamxk.bezierCurveTo(zamxd + zamxi * zamxc, zamxe + zamxh, zamxd, zamxe + zamxh - zamxj * zamxc, zamxd, zamxe + zamxh - zamxj);
+            zamxk.lineTo(zamxd, zamxe + zamxj);
+            if (zamxi !== 0 || zamxj !== 0) zamxk.bezierCurveTo(zamxd, zamxe + zamxj * zamxc, zamxd + zamxi * zamxc, zamxe, zamxd + zamxi, zamxe);
+            return zamxk;
         }
-        function buildCircle(node) {
-            var cx = readLength(node.getAttribute("cx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var cy = readLength(node.getAttribute("cy") || 0, scope.defaultDPI, scope.defaultUnit);
-            var r = readLength(node.getAttribute("r") || 0, scope.defaultDPI, scope.defaultUnit);
-            var ring = new Path();
-            ring.absarc(cx, cy, r, 0, TWO_PI);
-            var path = new ShapePath();
-            path.subPaths.push(ring);
-            return path;
+        function zamxw(zamxa) {
+            var zamxc = zamxf(zamxa.getAttribute("cx") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxe = zamxf(zamxa.getAttribute("cy") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxg = zamxf(zamxa.getAttribute("r") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxh = new Path;
+            zamxh.absarc(zamxc, zamxe, zamxg, 0, zamxd);
+            var zamxi = new ShapePath;
+            zamxi.subPaths.push(zamxh);
+            return zamxi;
         }
-        function buildEllipse(node) {
-            var cx = readLength(node.getAttribute("cx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var cy = readLength(node.getAttribute("cy") || 0, scope.defaultDPI, scope.defaultUnit);
-            var rx = readLength(node.getAttribute("rx") || 0, scope.defaultDPI, scope.defaultUnit);
-            var ry = readLength(node.getAttribute("ry") || 0, scope.defaultDPI, scope.defaultUnit);
-            var ring = new Path();
-            ring.absellipse(cx, cy, rx, ry, 0, TWO_PI);
-            var path = new ShapePath();
-            path.subPaths.push(ring);
-            return path;
+        function zamxx(zamxa) {
+            var zamxc = zamxf(zamxa.getAttribute("cx") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxe = zamxf(zamxa.getAttribute("cy") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxg = zamxf(zamxa.getAttribute("rx") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxh = zamxf(zamxa.getAttribute("ry") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxi = new Path;
+            zamxi.absellipse(zamxc, zamxe, zamxg, zamxh, 0, zamxd);
+            var zamxj = new ShapePath;
+            zamxj.subPaths.push(zamxi);
+            return zamxj;
         }
-        function buildLine(node) {
-            var x1 = readLength(node.getAttribute("x1") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y1 = readLength(node.getAttribute("y1") || 0, scope.defaultDPI, scope.defaultUnit);
-            var x2 = readLength(node.getAttribute("x2") || 0, scope.defaultDPI, scope.defaultUnit);
-            var y2 = readLength(node.getAttribute("y2") || 0, scope.defaultDPI, scope.defaultUnit);
-            var path = new ShapePath();
-            path.moveTo(x1, y1);
-            path.lineTo(x2, y2);
-            if (path.currentPath) path.currentPath.autoClose = false;
-            return path;
+        function zamxy(zamxa) {
+            var zamxc = zamxf(zamxa.getAttribute("x1") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxd = zamxf(zamxa.getAttribute("y1") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxe = zamxf(zamxa.getAttribute("x2") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxg = zamxf(zamxa.getAttribute("y2") || 0, zamxb.defaultDPI, zamxb.defaultUnit);
+            var zamxh = new ShapePath;
+            zamxh.moveTo(zamxc, zamxd);
+            zamxh.lineTo(zamxe, zamxg);
+            if (zamxh.currentPath) zamxh.currentPath.autoClose = false;
+            return zamxh;
         }
-        function buildPointSeries(node, close) {
-            var numbers = scanNumbers(node.getAttribute("points") || "");
-            var path = new ShapePath();
-            for (var i = 0; i + 1 < numbers.length; i += 2) {
-                if (i === 0) path.moveTo(numbers[i], numbers[i + 1]);
-                else path.lineTo(numbers[i], numbers[i + 1]);
+        function zamxz(zamxa, zamxb) {
+            var zamxc = zamxe(zamxa.getAttribute("points") || "");
+            var zamxd = new ShapePath;
+            for (var zamxf = 0; zamxf + 1 < zamxc.length; zamxf += 2) {
+                if (zamxf === 0) zamxd.moveTo(zamxc[zamxf], zamxc[zamxf + 1]); else zamxd.lineTo(zamxc[zamxf], zamxc[zamxf + 1]);
             }
-            if (path.currentPath) path.currentPath.autoClose = close;
-            return path;
+            if (zamxd.currentPath) zamxd.currentPath.autoClose = zamxb;
+            return zamxd;
         }
-        function walk(node, inheritedStyle) {
-            if (node.nodeType !== 1) return;
-            if (node.hasAttribute("filter")) console.warn("SVGLoader: Filters are not supported.");
-            var tag = node.nodeName;
-            var local = nodeTransform(node);
-            var cumulative = stack[stack.length - 1];
-            if (local) {
-                cumulative = new Matrix3().copy(stack[stack.length - 1]).multiply(local);
-                stack.push(cumulative);
+        function zamxaa(zamxa, zamxb) {
+            if (zamxa.nodeType !== 1) return;
+            if (zamxa.hasAttribute("filter")) console.warn("SVGLoader: Filters are not supported.");
+            var zamxc = zamxa.nodeName;
+            var zamxd = zamxu(zamxa);
+            var zamxe = zamxm[zamxm.length - 1];
+            if (zamxd) {
+                zamxe = (new Matrix3).copy(zamxm[zamxm.length - 1]).multiply(zamxd);
+                zamxm.push(zamxe);
             }
-            var style = inheritedStyle;
-            var built = null;
-            if (tag === "svg" || tag === "g") style = resolveStyle(node, style);
-            else if (tag === "path") { style = resolveStyle(node, style); if (node.hasAttribute("d")) built = buildPathFromData(node.getAttribute("d")); }
-            else if (tag === "rect") { style = resolveStyle(node, style); built = buildRect(node); }
-            else if (tag === "circle") { style = resolveStyle(node, style); built = buildCircle(node); }
-            else if (tag === "ellipse") { style = resolveStyle(node, style); built = buildEllipse(node); }
-            else if (tag === "line") { style = resolveStyle(node, style); built = buildLine(node); }
-            else if (tag === "polygon") { style = resolveStyle(node, style); built = buildPointSeries(node, true); }
-            else if (tag === "polyline") { style = resolveStyle(node, style); built = buildPointSeries(node, false); }
-            else if (tag === "use") {
-                style = resolveStyle(node, style);
-                var href = (node.getAttributeNS && node.getAttributeNS("http://www.w3.org/1999/xlink", "href")) || node.getAttribute("href") || "";
-                var target = null;
-                if (href.charAt(0) === "#") {
-                    var scopeDoc = node.viewportElement || node.ownerDocument || document;
-                    target = scopeDoc.getElementById ? scopeDoc.getElementById(href.slice(1)) : null;
+            var zamxf = zamxb;
+            var zamxh = null;
+            if (zamxc === "svg" || zamxc === "g") zamxf = zamxs(zamxa, zamxf); else if (zamxc === "path") {
+                zamxf = zamxs(zamxa, zamxf);
+                if (zamxa.hasAttribute("d")) zamxh = zamxr(zamxa.getAttribute("d"));
+            } else if (zamxc === "rect") {
+                zamxf = zamxs(zamxa, zamxf);
+                zamxh = zamxv(zamxa);
+            } else if (zamxc === "circle") {
+                zamxf = zamxs(zamxa, zamxf);
+                zamxh = zamxw(zamxa);
+            } else if (zamxc === "ellipse") {
+                zamxf = zamxs(zamxa, zamxf);
+                zamxh = zamxx(zamxa);
+            } else if (zamxc === "line") {
+                zamxf = zamxs(zamxa, zamxf);
+                zamxh = zamxy(zamxa);
+            } else if (zamxc === "polygon") {
+                zamxf = zamxs(zamxa, zamxf);
+                zamxh = zamxz(zamxa, true);
+            } else if (zamxc === "polyline") {
+                zamxf = zamxs(zamxa, zamxf);
+                zamxh = zamxz(zamxa, false);
+            } else if (zamxc === "use") {
+                zamxf = zamxs(zamxa, zamxf);
+                var zamxj = zamxa.getAttributeNS && zamxa.getAttributeNS("http://www.w3.org/1999/xlink", "href") || zamxa.getAttribute("href") || "";
+                var zamxn = null;
+                if (zamxj.charAt(0) === "#") {
+                    var zamxp = zamxa.viewportElement || zamxa.ownerDocument || zamxg;
+                    zamxn = zamxp.getElementById ? zamxp.getElementById(zamxj.slice(1)) : null;
                 }
-                if (target) walk(target, style);
-                else console.warn("SVGLoader: 'use node' references non-existent node id: " + href.slice(1));
+                if (zamxn) zamxaa(zamxn, zamxf); else console.warn("SVGLoader: 'use node' references non-existent node id: " + zamxj.slice(1));
             }
-            if (built) {
-                if (style.fill !== undefined && style.fill !== "none" && style.fill.indexOf("url") !== 0) built.color.setStyle(style.fill, "srgb");
-                applyMatrixToPath(built, cumulative);
-                var carried = Object.assign({}, style);
-                carried.strokeWidth = style.strokeWidth * transformScale(cumulative);
-                built.userData = { node: node, style: carried, transform: cumulative.clone(), gradients: gradients };
-                paths.push(built);
+            if (zamxh) {
+                if (zamxf.fill !== undefined && zamxf.fill !== "none" && zamxf.fill.indexOf("url") !== 0) zamxh.color.setStyle(zamxf.fill, "srgb");
+                zamxo(zamxh, zamxe);
+                var zamxq = Object.assign({}, zamxf);
+                zamxq.strokeWidth = zamxf.strokeWidth * zamxl(zamxe);
+                zamxh.userData = {
+                    node: zamxa,
+                    style: zamxq,
+                    transform: zamxe.clone(),
+                    gradients: zamxi
+                };
+                zamxk.push(zamxh);
             }
-            if (tag === "defs") {
-                var inner = node.childNodes;
-                for (var d = 0; d < inner.length; d++) {
-                    var name = inner[d].nodeName;
-                    if (name === "style" || name === "defs") walk(inner[d], style);
+            if (zamxc === "defs") {
+                var zamxt = zamxa.childNodes;
+                for (var zamxab = 0; zamxab < zamxt.length; zamxab++) {
+                    var zamxac = zamxt[zamxab].nodeName;
+                    if (zamxac === "style" || zamxac === "defs") zamxaa(zamxt[zamxab], zamxf);
                 }
             } else {
-                var children = node.childNodes;
-                for (var c = 0; c < children.length; c++) walk(children[c], style);
+                var zamxad = zamxa.childNodes;
+                for (var zamxae = 0; zamxae < zamxad.length; zamxae++) zamxaa(zamxad[zamxae], zamxf);
             }
-            if (local) stack.pop();
+            if (zamxd) zamxm.pop();
         }
-        collectStylesheets(document);
-        collectGradients(document);
-        walk(document.documentElement, { fill: "#000", fillOpacity: 1, strokeOpacity: 1, strokeWidth: 1, strokeLineJoin: "miter", strokeLineCap: "butt", strokeMiterLimit: 4 });
-        return { paths: paths, gradients: gradients, xml: document.documentElement };
-    }
-    static createShapes(shapePath) { return shapePath.toShapes(); }
-    static createFillMaterial(shapePath) {
-        var style = shapePath.userData.style;
-        if (!style || style.fill === undefined || style.fill === "none") return null;
-        var material = new BasicMaterial({ opacity: style.fillOpacity * (style.opacity || 1), transparent: true, side: DoubleSide, depthWrite: false });
-        var reference = GRADIENT_REFERENCE.exec(style.fill);
-        if (reference) {
-            var gradient = shapePath.userData.gradients && shapePath.userData.gradients[reference[1]];
-            var texture = bakeGradientTexture(gradient, shapePath);
-            if (texture) { material.diffuseMap = texture; return material; }
-        }
-        material.color = shapePath.color;
-        return material;
-    }
-    static createStrokeMaterial(shapePath) {
-        var style = shapePath.userData.style;
-        if (!style || style.stroke === undefined || style.stroke === "none") return null;
-        if (GRADIENT_REFERENCE.test(style.stroke)) console.warn("SVGLoader: Gradient strokes are not supported.");
-        var material = new BasicMaterial({ opacity: style.strokeOpacity * (style.opacity || 1), transparent: true, side: DoubleSide, depthWrite: false });
-        material.color = new Color().setStyle(style.stroke, "srgb");
-        return material;
-    }
-    static getStrokeStyle(width, color, lineJoin, lineCap, miterLimit) {
+        zamxq(zamxg);
+        zamxt(zamxg);
+        zamxaa(zamxg.documentElement, {
+            fill: "#000",
+            fillOpacity: 1,
+            strokeOpacity: 1,
+            strokeWidth: 1,
+            strokeLineJoin: "miter",
+            strokeLineCap: "butt",
+            strokeMiterLimit: 4
+        });
         return {
-            strokeColor: color !== undefined ? color : "#000",
-            strokeWidth: width !== undefined ? width : 1,
-            strokeLineJoin: lineJoin !== undefined ? lineJoin : "miter",
-            strokeLineCap: lineCap !== undefined ? lineCap : "butt",
-            strokeMiterLimit: miterLimit !== undefined ? miterLimit : 4
+            paths: zamxk,
+            gradients: zamxi,
+            xml: zamxg.documentElement
         };
     }
-    static pointsToStroke(points, style, arcDivisions, minDistance) {
-        var vertices = [], normals = [], uvs = [];
-        if (SVGLoader.pointsToStrokeWithBuffers(points, style, arcDivisions, minDistance, vertices, normals, uvs, 0) === 0) return null;
-        var geometry = new Geometry();
-        geometry.setAttribute("position", new Float32Array(vertices), 3);
-        geometry.setAttribute("normal", new Float32Array(normals), 3);
-        geometry.setAttribute("uv", new Float32Array(uvs), 2);
-        return geometry;
+    static createShapes(zamxa) {
+        return zamxa.toShapes();
     }
-    static pointsToStrokeWithBuffers(points, style, arcDivisions, minDistance, vertices, normals, uvs, vertexOffset) {
-        arcDivisions = arcDivisions !== undefined ? arcDivisions : 12;
-        minDistance = minDistance !== undefined ? minDistance : 0.001;
-        vertexOffset = vertexOffset !== undefined ? vertexOffset : 0;
-        if (!points || points.length < 2) return 0;
-        var kept = [points[0]];
-        for (var d = 1; d < points.length - 1; d++) {
-            if (points[d].distanceTo(kept[kept.length - 1]) >= minDistance) kept.push(points[d]);
-        }
-        kept.push(points[points.length - 1]);
-        var count = kept.length;
-        if (count < 2) return 0;
-        var closed = kept[0].equals(kept[count - 1]);
-        var half = style.strokeWidth / 2;
-        var limit = style.strokeMiterLimit;
-        var positions = [];
-        var uvData = [];
-        function emit(ax, ay, ua, va, bx, by, ub, vb, cx, cy, uc, vc) {
-            var cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-            if (cross < 0) {
-                var sx = bx, sy = by, su = ub, sv = vb;
-                bx = cx; by = cy; ub = uc; vb = vc;
-                cx = sx; cy = sy; uc = su; vc = sv;
-            }
-            positions.push(ax, ay, 0, bx, by, 0, cx, cy, 0);
-            uvData.push(ua, va, ub, vb, uc, vc);
-        }
-        function emitSweep(centerX, centerY, fromX, fromY, span, u) {
-            var steps = Math.max(1, arcDivisions - 1);
-            var a0 = Math.atan2(fromY - centerY, fromX - centerX);
-            var previousX = fromX, previousY = fromY;
-            for (var s = 1; s <= steps; s++) {
-                var angle = a0 + span * (s / steps);
-                var nextX = centerX + Math.cos(angle) * half;
-                var nextY = centerY + Math.sin(angle) * half;
-                emit(centerX, centerY, u, 0.5, previousX, previousY, u, 0.5, nextX, nextY, u, 0.5);
-                previousX = nextX;
-                previousY = nextY;
+    static createFillMaterial(zamxb) {
+        var zamxc = zamxb.userData.style;
+        if (!zamxc || zamxc.fill === undefined || zamxc.fill === "none") return null;
+        var zamxd = new BasicMaterial({
+            opacity: zamxc.fillOpacity * (zamxc.opacity || 1),
+            transparent: true,
+            side: DoubleSide,
+            depthWrite: false
+        });
+        var zamxe = zamxa.exec(zamxc.fill);
+        if (zamxe) {
+            var zamxf = zamxb.userData.gradients && zamxb.userData.gradients[zamxe[1]];
+            var zamxg = zamxu(zamxf, zamxb);
+            if (zamxg) {
+                zamxd.diffuseMap = zamxg;
+                return zamxd;
             }
         }
-        function meetPoint(pA, dA, pB, dB) {
-            var cross = dA[0] * dB[1] - dA[1] * dB[0];
-            if (Math.abs(cross) < 1e-12) return null;
-            var t = ((pB.x - pA.x) * dB[1] - (pB.y - pA.y) * dB[0]) / cross;
-            return { x: pA.x + dA[0] * t, y: pA.y + dA[1] * t };
+        zamxd.color = zamxb.color;
+        return zamxd;
+    }
+    static createStrokeMaterial(zamxb) {
+        var zamxc = zamxb.userData.style;
+        if (!zamxc || zamxc.stroke === undefined || zamxc.stroke === "none") return null;
+        if (zamxa.test(zamxc.stroke)) console.warn("SVGLoader: Gradient strokes are not supported.");
+        var zamxd = new BasicMaterial({
+            opacity: zamxc.strokeOpacity * (zamxc.opacity || 1),
+            transparent: true,
+            side: DoubleSide,
+            depthWrite: false
+        });
+        zamxd.color = (new Color).setStyle(zamxc.stroke, "srgb");
+        return zamxd;
+    }
+    static getStrokeStyle(zamxa, zamxb, zamxc, zamxd, zamxe) {
+        return {
+            strokeColor: zamxb !== undefined ? zamxb : "#000",
+            strokeWidth: zamxa !== undefined ? zamxa : 1,
+            strokeLineJoin: zamxc !== undefined ? zamxc : "miter",
+            strokeLineCap: zamxd !== undefined ? zamxd : "butt",
+            strokeMiterLimit: zamxe !== undefined ? zamxe : 4
+        };
+    }
+    static pointsToStroke(zamxa, zamxb, zamxc, zamxd) {
+        var zamxe = [], zamxf = [], zamxg = [];
+        if (SVGLoader.pointsToStrokeWithBuffers(zamxa, zamxb, zamxc, zamxd, zamxe, zamxf, zamxg, 0) === 0) return null;
+        var zamxh = new Geometry;
+        zamxh.setAttribute("position", new Float32Array(zamxe), 3);
+        zamxh.setAttribute("normal", new Float32Array(zamxf), 3);
+        zamxh.setAttribute("uv", new Float32Array(zamxg), 2);
+        return zamxh;
+    }
+    static pointsToStrokeWithBuffers(zamxa, zamxb, zamxc, zamxd, zamxe, zamxf, zamxg, zamxh) {
+        zamxc = zamxc !== undefined ? zamxc : 12;
+        zamxd = zamxd !== undefined ? zamxd : .001;
+        zamxh = zamxh !== undefined ? zamxh : 0;
+        if (!zamxa || zamxa.length < 2) return 0;
+        var zamxi = [ zamxa[0] ];
+        for (var zamxj = 1; zamxj < zamxa.length - 1; zamxj++) {
+            if (zamxa[zamxj].distanceTo(zamxi[zamxi.length - 1]) >= zamxd) zamxi.push(zamxa[zamxj]);
         }
-        var startL = [], startR = [], endL = [], endR = [], directions = [];
-        for (var s = 0; s < count - 1; s++) {
-            var dx = kept[s + 1].x - kept[s].x, dy = kept[s + 1].y - kept[s].y;
-            var len = Math.sqrt(dx * dx + dy * dy) || 1;
-            var nx = -dy / len, ny = dx / len;
-            directions.push([dx / len, dy / len]);
-            startL.push({ x: kept[s].x + nx * half, y: kept[s].y + ny * half });
-            startR.push({ x: kept[s].x - nx * half, y: kept[s].y - ny * half });
-            endL.push({ x: kept[s + 1].x + nx * half, y: kept[s + 1].y + ny * half });
-            endR.push({ x: kept[s + 1].x - nx * half, y: kept[s + 1].y - ny * half });
+        zamxi.push(zamxa[zamxa.length - 1]);
+        var zamxk = zamxi.length;
+        if (zamxk < 2) return 0;
+        var zamxl = zamxi[0].equals(zamxi[zamxk - 1]);
+        var zamxm = zamxb.strokeWidth / 2;
+        var zamxn = zamxb.strokeMiterLimit;
+        var zamxo = [];
+        var zamxp = [];
+        function zamxq(zamxa, zamxb, zamxc, zamxd, zamxe, zamxf, zamxg, zamxh, zamxi, zamxj, zamxk, zamxl) {
+            var zamxm = (zamxe - zamxa) * (zamxj - zamxb) - (zamxf - zamxb) * (zamxi - zamxa);
+            if (zamxm < 0) {
+                var zamxn = zamxe, zamxq = zamxf, zamxr = zamxg, zamxs = zamxh;
+                zamxe = zamxi;
+                zamxf = zamxj;
+                zamxg = zamxk;
+                zamxh = zamxl;
+                zamxi = zamxn;
+                zamxj = zamxq;
+                zamxk = zamxr;
+                zamxl = zamxs;
+            }
+            zamxo.push(zamxa, zamxb, 0, zamxe, zamxf, 0, zamxi, zamxj, 0);
+            zamxp.push(zamxc, zamxd, zamxg, zamxh, zamxk, zamxl);
         }
-        for (var j = 1; j < count - 1; j++) {
-            var inDir = directions[j - 1], outDir = directions[j];
-            var turn = inDir[0] * outDir[1] - inDir[1] * outDir[0];
-            if (Math.abs(turn) < 1e-12) continue;
-            var leftInner = turn > 0;
-            var innerEnd = leftInner ? endL[j - 1] : endR[j - 1];
-            var innerStart = leftInner ? startL[j] : startR[j];
-            var outerEnd = leftInner ? endR[j - 1] : endL[j - 1];
-            var outerStart = leftInner ? startR[j] : startL[j];
-            var incoming = [-inDir[0], -inDir[1]];
-            var innerMeet = meetPoint(innerEnd, incoming, innerStart, outDir);
-            if (innerMeet) {
-                var driftIn = (innerMeet.x - kept[j].x) * -inDir[0] + (innerMeet.y - kept[j].y) * -inDir[1];
-                var driftOut = (innerMeet.x - kept[j].x) * outDir[0] + (innerMeet.y - kept[j].y) * outDir[1];
-                var prevLen = Math.sqrt(Math.pow(kept[j].x - kept[j - 1].x, 2) + Math.pow(kept[j].y - kept[j - 1].y, 2));
-                var nextLen = Math.sqrt(Math.pow(kept[j + 1].x - kept[j].x, 2) + Math.pow(kept[j + 1].y - kept[j].y, 2));
-                if (driftIn < prevLen * 2 && driftOut < nextLen * 2) {
-                    if (leftInner) { endL[j - 1] = innerMeet; startL[j] = innerMeet; }
-                    else { endR[j - 1] = innerMeet; startR[j] = innerMeet; }
+        function zamxr(zamxa, zamxb, zamxd, zamxe, zamxf, zamxg) {
+            var zamxh = Math.max(1, zamxc - 1);
+            var zamxi = Math.atan2(zamxe - zamxb, zamxd - zamxa);
+            var zamxj = zamxd, zamxk = zamxe;
+            for (var zamxl = 1; zamxl <= zamxh; zamxl++) {
+                var zamxn = zamxi + zamxf * (zamxl / zamxh);
+                var zamxo = zamxa + Math.cos(zamxn) * zamxm;
+                var zamxp = zamxb + Math.sin(zamxn) * zamxm;
+                zamxq(zamxa, zamxb, zamxg, .5, zamxj, zamxk, zamxg, .5, zamxo, zamxp, zamxg, .5);
+                zamxj = zamxo;
+                zamxk = zamxp;
+            }
+        }
+        function zamxs(zamxa, zamxb, zamxc, zamxd) {
+            var zamxe = zamxb[0] * zamxd[1] - zamxb[1] * zamxd[0];
+            if (Math.abs(zamxe) < 1e-12) return null;
+            var zamxf = ((zamxc.x - zamxa.x) * zamxd[1] - (zamxc.y - zamxa.y) * zamxd[0]) / zamxe;
+            return {
+                x: zamxa.x + zamxb[0] * zamxf,
+                y: zamxa.y + zamxb[1] * zamxf
+            };
+        }
+        var zamxt = [], zamxu = [], zamxv = [], zamxw = [], zamxx = [];
+        for (var zamxy = 0; zamxy < zamxk - 1; zamxy++) {
+            var zamxz = zamxi[zamxy + 1].x - zamxi[zamxy].x, zamxaa = zamxi[zamxy + 1].y - zamxi[zamxy].y;
+            var zamxab = Math.sqrt(zamxz * zamxz + zamxaa * zamxaa) || 1;
+            var zamxac = -zamxaa / zamxab, zamxad = zamxz / zamxab;
+            zamxx.push([ zamxz / zamxab, zamxaa / zamxab ]);
+            zamxt.push({
+                x: zamxi[zamxy].x + zamxac * zamxm,
+                y: zamxi[zamxy].y + zamxad * zamxm
+            });
+            zamxu.push({
+                x: zamxi[zamxy].x - zamxac * zamxm,
+                y: zamxi[zamxy].y - zamxad * zamxm
+            });
+            zamxv.push({
+                x: zamxi[zamxy + 1].x + zamxac * zamxm,
+                y: zamxi[zamxy + 1].y + zamxad * zamxm
+            });
+            zamxw.push({
+                x: zamxi[zamxy + 1].x - zamxac * zamxm,
+                y: zamxi[zamxy + 1].y - zamxad * zamxm
+            });
+        }
+        for (var zamxae = 1; zamxae < zamxk - 1; zamxae++) {
+            var zamxaf = zamxx[zamxae - 1], zamxag = zamxx[zamxae];
+            var zamxah = zamxaf[0] * zamxag[1] - zamxaf[1] * zamxag[0];
+            if (Math.abs(zamxah) < 1e-12) continue;
+            var zamxai = zamxah > 0;
+            var zamxaj = zamxai ? zamxv[zamxae - 1] : zamxw[zamxae - 1];
+            var zamxak = zamxai ? zamxt[zamxae] : zamxu[zamxae];
+            var zamxal = zamxai ? zamxw[zamxae - 1] : zamxv[zamxae - 1];
+            var zamxam = zamxai ? zamxu[zamxae] : zamxt[zamxae];
+            var zamxan = [ -zamxaf[0], -zamxaf[1] ];
+            var zamxao = zamxs(zamxaj, zamxan, zamxak, zamxag);
+            if (zamxao) {
+                var zamxap = (zamxao.x - zamxi[zamxae].x) * -zamxaf[0] + (zamxao.y - zamxi[zamxae].y) * -zamxaf[1];
+                var zamxaq = (zamxao.x - zamxi[zamxae].x) * zamxag[0] + (zamxao.y - zamxi[zamxae].y) * zamxag[1];
+                var zamxar = Math.sqrt(Math.pow(zamxi[zamxae].x - zamxi[zamxae - 1].x, 2) + Math.pow(zamxi[zamxae].y - zamxi[zamxae - 1].y, 2));
+                var zamxas = Math.sqrt(Math.pow(zamxi[zamxae + 1].x - zamxi[zamxae].x, 2) + Math.pow(zamxi[zamxae + 1].y - zamxi[zamxae].y, 2));
+                if (zamxap < zamxar * 2 && zamxaq < zamxas * 2) {
+                    if (zamxai) {
+                        zamxv[zamxae - 1] = zamxao;
+                        zamxt[zamxae] = zamxao;
+                    } else {
+                        zamxw[zamxae - 1] = zamxao;
+                        zamxu[zamxae] = zamxao;
+                    }
                 }
             }
-            var join = style.strokeLineJoin;
-            var u = j / (count - 1);
-            if (join === "round") {
-                var sweep = Math.atan2(turn, inDir[0] * outDir[0] + inDir[1] * outDir[1]);
-                emitSweep(kept[j].x, kept[j].y, outerEnd.x, outerEnd.y, sweep, u);
-            } else if (join === "bevel") {
-                emit(kept[j].x, kept[j].y, u, 0.5, outerEnd.x, outerEnd.y, u, 0.5, outerStart.x, outerStart.y, u, 0.5);
+            var zamxat = zamxb.strokeLineJoin;
+            var zamxau = zamxae / (zamxk - 1);
+            if (zamxat === "round") {
+                var zamxav = Math.atan2(zamxah, zamxaf[0] * zamxag[0] + zamxaf[1] * zamxag[1]);
+                zamxr(zamxi[zamxae].x, zamxi[zamxae].y, zamxal.x, zamxal.y, zamxav, zamxau);
+            } else if (zamxat === "bevel") {
+                zamxq(zamxi[zamxae].x, zamxi[zamxae].y, zamxau, .5, zamxal.x, zamxal.y, zamxau, .5, zamxam.x, zamxam.y, zamxau, .5);
             } else {
-                var miter = meetPoint(outerEnd, incoming, outerStart, outDir);
-                var miterReach = miter ? Math.sqrt(Math.pow(miter.x - kept[j].x, 2) + Math.pow(miter.y - kept[j].y, 2)) : Infinity;
-                if (miter && miterReach <= limit * half) {
-                    if (leftInner) { endR[j - 1] = miter; startR[j] = miter; }
-                    else { endL[j - 1] = miter; startL[j] = miter; }
-                } else if (join === "miter-clip" && miter) {
-                    var clip = limit * half / miterReach;
-                    var clipped = { x: kept[j].x + (miter.x - kept[j].x) * clip, y: kept[j].y + (miter.y - kept[j].y) * clip };
-                    if (leftInner) { endR[j - 1] = clipped; startR[j] = clipped; }
-                    else { endL[j - 1] = clipped; startL[j] = clipped; }
-                    emit(outerEnd.x, outerEnd.y, u, 1, clipped.x, clipped.y, u, 0.5, outerStart.x, outerStart.y, u, 1);
+                var zamxaw = zamxs(zamxal, zamxan, zamxam, zamxag);
+                var zamxax = zamxaw ? Math.sqrt(Math.pow(zamxaw.x - zamxi[zamxae].x, 2) + Math.pow(zamxaw.y - zamxi[zamxae].y, 2)) : Infinity;
+                if (zamxaw && zamxax <= zamxn * zamxm) {
+                    if (zamxai) {
+                        zamxw[zamxae - 1] = zamxaw;
+                        zamxu[zamxae] = zamxaw;
+                    } else {
+                        zamxv[zamxae - 1] = zamxaw;
+                        zamxt[zamxae] = zamxaw;
+                    }
+                } else if (zamxat === "miter-clip" && zamxaw) {
+                    var zamxay = zamxn * zamxm / zamxax;
+                    var zamxaz = {
+                        x: zamxi[zamxae].x + (zamxaw.x - zamxi[zamxae].x) * zamxay,
+                        y: zamxi[zamxae].y + (zamxaw.y - zamxi[zamxae].y) * zamxay
+                    };
+                    if (zamxai) {
+                        zamxw[zamxae - 1] = zamxaz;
+                        zamxu[zamxae] = zamxaz;
+                    } else {
+                        zamxv[zamxae - 1] = zamxaz;
+                        zamxt[zamxae] = zamxaz;
+                    }
+                    zamxq(zamxal.x, zamxal.y, zamxau, 1, zamxaz.x, zamxaz.y, zamxau, .5, zamxam.x, zamxam.y, zamxau, 1);
                 } else {
-                    emit(kept[j].x, kept[j].y, u, 0.5, outerEnd.x, outerEnd.y, u, 0.5, outerStart.x, outerStart.y, u, 0.5);
+                    zamxq(zamxi[zamxae].x, zamxi[zamxae].y, zamxau, .5, zamxal.x, zamxal.y, zamxau, .5, zamxam.x, zamxam.y, zamxau, .5);
                 }
             }
         }
-        for (var q = 0; q < count - 1; q++) {
-            var u0 = q / (count - 1), u1 = (q + 1) / (count - 1);
-            emit(startL[q].x, startL[q].y, u0, 1, startR[q].x, startR[q].y, u0, 0, endL[q].x, endL[q].y, u1, 1);
-            emit(startR[q].x, startR[q].y, u0, 0, endR[q].x, endR[q].y, u1, 0, endL[q].x, endL[q].y, u1, 1);
+        for (var zamxba = 0; zamxba < zamxk - 1; zamxba++) {
+            var zamxbb = zamxba / (zamxk - 1), zamxbc = (zamxba + 1) / (zamxk - 1);
+            zamxq(zamxt[zamxba].x, zamxt[zamxba].y, zamxbb, 1, zamxu[zamxba].x, zamxu[zamxba].y, zamxbb, 0, zamxv[zamxba].x, zamxv[zamxba].y, zamxbc, 1);
+            zamxq(zamxu[zamxba].x, zamxu[zamxba].y, zamxbb, 0, zamxw[zamxba].x, zamxw[zamxba].y, zamxbc, 0, zamxv[zamxba].x, zamxv[zamxba].y, zamxbc, 1);
         }
-        if (!closed) {
-            var cap = style.strokeLineCap;
-            if (cap === "round") {
-                emitSweep(kept[0].x, kept[0].y, startL[0].x, startL[0].y, Math.PI, 0);
-                emitSweep(kept[count - 1].x, kept[count - 1].y, endR[count - 2].x, endR[count - 2].y, Math.PI, 1);
-            } else if (cap === "square") {
-                var backX = -directions[0][0] * half, backY = -directions[0][1] * half;
-                emit(startL[0].x, startL[0].y, 0, 1, startR[0].x, startR[0].y, 0, 0, startL[0].x + backX, startL[0].y + backY, 0, 1);
-                emit(startR[0].x, startR[0].y, 0, 0, startR[0].x + backX, startR[0].y + backY, 0, 0, startL[0].x + backX, startL[0].y + backY, 0, 1);
-                var head = directions[count - 2];
-                var headX = head[0] * half, headY = head[1] * half;
-                var lastL = endL[count - 2], lastR = endR[count - 2];
-                emit(lastL.x, lastL.y, 1, 1, lastR.x, lastR.y, 1, 0, lastL.x + headX, lastL.y + headY, 1, 1);
-                emit(lastR.x, lastR.y, 1, 0, lastR.x + headX, lastR.y + headY, 1, 0, lastL.x + headX, lastL.y + headY, 1, 1);
+        if (!zamxl) {
+            var zamxbd = zamxb.strokeLineCap;
+            if (zamxbd === "round") {
+                zamxr(zamxi[0].x, zamxi[0].y, zamxt[0].x, zamxt[0].y, Math.PI, 0);
+                zamxr(zamxi[zamxk - 1].x, zamxi[zamxk - 1].y, zamxw[zamxk - 2].x, zamxw[zamxk - 2].y, Math.PI, 1);
+            } else if (zamxbd === "square") {
+                var zamxbe = -zamxx[0][0] * zamxm, zamxbf = -zamxx[0][1] * zamxm;
+                zamxq(zamxt[0].x, zamxt[0].y, 0, 1, zamxu[0].x, zamxu[0].y, 0, 0, zamxt[0].x + zamxbe, zamxt[0].y + zamxbf, 0, 1);
+                zamxq(zamxu[0].x, zamxu[0].y, 0, 0, zamxu[0].x + zamxbe, zamxu[0].y + zamxbf, 0, 0, zamxt[0].x + zamxbe, zamxt[0].y + zamxbf, 0, 1);
+                var zamxbg = zamxx[zamxk - 2];
+                var zamxbh = zamxbg[0] * zamxm, zamxbi = zamxbg[1] * zamxm;
+                var zamxbj = zamxv[zamxk - 2], zamxbk = zamxw[zamxk - 2];
+                zamxq(zamxbj.x, zamxbj.y, 1, 1, zamxbk.x, zamxbk.y, 1, 0, zamxbj.x + zamxbh, zamxbj.y + zamxbi, 1, 1);
+                zamxq(zamxbk.x, zamxbk.y, 1, 0, zamxbk.x + zamxbh, zamxbk.y + zamxbi, 1, 0, zamxbj.x + zamxbh, zamxbj.y + zamxbi, 1, 1);
             }
         }
-        var total = positions.length;
-        if (vertices) {
-            var base = vertexOffset * 3;
-            for (var v = 0; v < total; v++) vertices[base + v] = positions[v];
-            if (normals) for (var n = 0; n < total; n++) normals[base + n] = n % 3 === 2 ? 1 : 0;
-            if (uvs) {
-                var baseUv = vertexOffset * 2;
-                for (var w = 0; w < uvData.length; w++) uvs[baseUv + w] = uvData[w];
+        var zamxbl = zamxo.length;
+        if (zamxe) {
+            var zamxbm = zamxh * 3;
+            for (var zamxbn = 0; zamxbn < zamxbl; zamxbn++) zamxe[zamxbm + zamxbn] = zamxo[zamxbn];
+            if (zamxf) for (var zamxbo = 0; zamxbo < zamxbl; zamxbo++) zamxf[zamxbm + zamxbo] = zamxbo % 3 === 2 ? 1 : 0;
+            if (zamxg) {
+                var zamxbp = zamxh * 2;
+                for (var zamxbq = 0; zamxbq < zamxp.length; zamxbq++) zamxg[zamxbp + zamxbq] = zamxp[zamxbq];
             }
         }
-        return total;
+        return zamxbl;
     }
 }
 

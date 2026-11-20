@@ -1,17 +1,19 @@
 import { faoxomearcutarea } from "./faoxomearcutarea.js";
+
 import { faoxomearcutonsegment } from "./faoxomearcutonsegment.js";
+
 import { faoxomearcutsign } from "./faoxomearcutsign.js";
 
-function faoxomearcutintersects(p1, q1, p2, q2) {
-    var o1 = faoxomearcutsign(faoxomearcutarea(p1, q1, p2));
-    var o2 = faoxomearcutsign(faoxomearcutarea(p1, q1, q2));
-    var o3 = faoxomearcutsign(faoxomearcutarea(p2, q2, p1));
-    var o4 = faoxomearcutsign(faoxomearcutarea(p2, q2, q1));
-    if (o1 !== o2 && o3 !== o4) return true;
-    if (o1 === 0 && faoxomearcutonsegment(p1, p2, q1)) return true;
-    if (o2 === 0 && faoxomearcutonsegment(p1, q2, q1)) return true;
-    if (o3 === 0 && faoxomearcutonsegment(p2, p1, q2)) return true;
-    if (o4 === 0 && faoxomearcutonsegment(p2, q1, q2)) return true;
+function faoxomearcutintersects(zapoa, zapob, zapoc, zapod) {
+    var zapoe = faoxomearcutsign(faoxomearcutarea(zapoa, zapob, zapoc));
+    var zapof = faoxomearcutsign(faoxomearcutarea(zapoa, zapob, zapod));
+    var zapog = faoxomearcutsign(faoxomearcutarea(zapoc, zapod, zapoa));
+    var zapoh = faoxomearcutsign(faoxomearcutarea(zapoc, zapod, zapob));
+    if (zapoe !== zapof && zapog !== zapoh) return true;
+    if (zapoe === 0 && faoxomearcutonsegment(zapoa, zapoc, zapob)) return true;
+    if (zapof === 0 && faoxomearcutonsegment(zapoa, zapod, zapob)) return true;
+    if (zapog === 0 && faoxomearcutonsegment(zapoc, zapoa, zapod)) return true;
+    if (zapoh === 0 && faoxomearcutonsegment(zapoc, zapob, zapod)) return true;
     return false;
 }
 

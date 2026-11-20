@@ -1,14 +1,94 @@
 class WebGPUCompute {
-    constructor(renderer) { this.renderer = renderer; this.pipelines = {}; }
-    createPipeline(name, code) { if (!this.renderer || !this.renderer.device) throw new Error("WebGPU renderer is not initialized"); var module = this.renderer.device.createShaderModule({ code: code }); var pipeline = this.renderer.device.createComputePipeline({ layout: "auto", compute: { module: module, entryPoint: "main" } }); this.pipelines[name] = pipeline; return pipeline; }
-    pipeline(name) { return this.pipelines[name] || null; }
-    device() { if (!this.renderer || !this.renderer.device) throw new Error("WebGPU renderer is not initialized"); return this.renderer.device; }
-    storage(data, usage) { var device = this.device(); var isSize = typeof data === "number"; var byteLength = isSize ? data : data.byteLength; var flags = (usage === undefined ? GPUBufferUsage.STORAGE : usage) | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC; var buffer = device.createBuffer({ size: Math.max(16, (byteLength + 3) & ~3), usage: flags, mappedAtCreation: !isSize }); if (!isSize) { var target = new Uint8Array(buffer.getMappedRange()); var source = data.buffer ? new Uint8Array(data.buffer, data.byteOffset || 0, data.byteLength) : new Uint8Array(data); target.set(source); buffer.unmap(); } return buffer; }
-    uniformBuffer(byteLength) { var device = this.device(); return device.createBuffer({ size: Math.max(16, (byteLength + 15) & ~15), usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); }
-    write(buffer, data, offset) { this.device().queue.writeBuffer(buffer, offset || 0, data.buffer ? data : data); return this; }
-    read(buffer, byteLength) { var device = this.device(); var size = Math.max(4, (byteLength + 3) & ~3); var staging = device.createBuffer({ size: size, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }); var encoder = device.createCommandEncoder(); encoder.copyBufferToBuffer(buffer, 0, staging, 0, size); device.queue.submit([encoder.finish()]); return staging.mapAsync(GPUMapMode.READ).then(function() { var copy = staging.getMappedRange().slice(0, byteLength); staging.unmap(); staging.destroy(); return copy; }); }
-    bindGroup(pipeline, groupIndex, entries) { var device = this.device(); return device.createBindGroup({ layout: pipeline.getBindGroupLayout(groupIndex || 0), entries: entries }); }
-    dispatch(name, code, workgroups, bindGroups) { var pipeline = this.pipelines[name] || this.createPipeline(name, code); var encoder = this.device().createCommandEncoder(); var pass = encoder.beginComputePass(); pass.setPipeline(pipeline); if (bindGroups) for (var i = 0; i < bindGroups.length; i++) pass.setBindGroup(i, bindGroups[i]); pass.dispatchWorkgroups(workgroups[0] || 1, workgroups[1] || 1, workgroups[2] || 1); pass.end(); this.device().queue.submit([encoder.finish()]); return this; }
+    constructor(zauia) {
+        this.renderer = zauia;
+        this.pipelines = {};
+    }
+    createPipeline(zauia, zauib) {
+        if (!this.renderer || !this.renderer.device) throw new Error("WebGPU renderer is not initialized");
+        var zauic = this.renderer.device.createShaderModule({
+            code: zauib
+        });
+        var zauid = this.renderer.device.createComputePipeline({
+            layout: "auto",
+            compute: {
+                module: zauic,
+                entryPoint: "main"
+            }
+        });
+        this.pipelines[zauia] = zauid;
+        return zauid;
+    }
+    pipeline(zauia) {
+        return this.pipelines[zauia] || null;
+    }
+    device() {
+        if (!this.renderer || !this.renderer.device) throw new Error("WebGPU renderer is not initialized");
+        return this.renderer.device;
+    }
+    storage(zauia, zauib) {
+        var zauic = this.device();
+        var zauid = typeof zauia === "number";
+        var zauie = zauid ? zauia : zauia.byteLength;
+        var zauif = (zauib === undefined ? GPUBufferUsage.STORAGE : zauib) | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
+        var zauig = zauic.createBuffer({
+            size: Math.max(16, zauie + 3 & ~3),
+            usage: zauif,
+            mappedAtCreation: !zauid
+        });
+        if (!zauid) {
+            var zauih = new Uint8Array(zauig.getMappedRange());
+            var zauii = zauia.buffer ? new Uint8Array(zauia.buffer, zauia.byteOffset || 0, zauia.byteLength) : new Uint8Array(zauia);
+            zauih.set(zauii);
+            zauig.unmap();
+        }
+        return zauig;
+    }
+    uniformBuffer(zauia) {
+        var zauib = this.device();
+        return zauib.createBuffer({
+            size: Math.max(16, zauia + 15 & ~15),
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+    }
+    write(zauia, zauib, zauic) {
+        this.device().queue.writeBuffer(zauia, zauic || 0, zauib.buffer ? zauib : zauib);
+        return this;
+    }
+    read(zauia, zauib) {
+        var zauic = this.device();
+        var zauid = Math.max(4, zauib + 3 & ~3);
+        var zauie = zauic.createBuffer({
+            size: zauid,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        var zauif = zauic.createCommandEncoder();
+        zauif.copyBufferToBuffer(zauia, 0, zauie, 0, zauid);
+        zauic.queue.submit([ zauif.finish() ]);
+        return zauie.mapAsync(GPUMapMode.READ).then(function() {
+            var zauia = zauie.getMappedRange().slice(0, zauib);
+            zauie.unmap();
+            zauie.destroy();
+            return zauia;
+        });
+    }
+    bindGroup(zauia, zauib, zauic) {
+        var zauid = this.device();
+        return zauid.createBindGroup({
+            layout: zauia.getBindGroupLayout(zauib || 0),
+            entries: zauic
+        });
+    }
+    dispatch(zauia, zauib, zauic, zauid) {
+        var zauie = this.pipelines[zauia] || this.createPipeline(zauia, zauib);
+        var zauif = this.device().createCommandEncoder();
+        var zauig = zauif.beginComputePass();
+        zauig.setPipeline(zauie);
+        if (zauid) for (var zauih = 0; zauih < zauid.length; zauih++) zauig.setBindGroup(zauih, zauid[zauih]);
+        zauig.dispatchWorkgroups(zauic[0] || 1, zauic[1] || 1, zauic[2] || 1);
+        zauig.end();
+        this.device().queue.submit([ zauif.finish() ]);
+        return this;
+    }
 }
 
 export { WebGPUCompute };

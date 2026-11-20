@@ -1,21 +1,89 @@
 import { faoxomvalue } from "./faoxomvalue.js";
 
 class Vector4 {
-    constructor(x, y, z, w) { this.x = faoxomvalue(x, 0); this.y = faoxomvalue(y, 0); this.z = faoxomvalue(z, 0); this.w = faoxomvalue(w, 0); }
-    set(x, y, z, w) { this.x = x; this.y = y; this.z = z; this.w = w; return this; }
-    clone() { return new Vector4(this.x, this.y, this.z, this.w); }
-    copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; this.w = v.w; return this; }
-    add(v) { this.x += v.x; this.y += v.y; this.z += v.z; this.w += v.w; return this; }
-    sub(v) { this.x -= v.x; this.y -= v.y; this.z -= v.z; this.w -= v.w; return this; }
-    multiplyScalar(s) { this.x *= s; this.y *= s; this.z *= s; this.w *= s; return this; }
-    divideScalar(s) { return this.multiplyScalar(s === 0 ? 0 : 1 / s); }
-    dot(v) { return this.x * v.x + this.y * v.y + this.z * v.z + this.w * v.w; }
-    lengthSq() { return this.dot(this); }
-    length() { return Math.sqrt(this.lengthSq()); }
-    normalize() { return this.divideScalar(this.length() || 1); }
-    lerp(v, alpha) { this.x += (v.x - this.x) * alpha; this.y += (v.y - this.y) * alpha; this.z += (v.z - this.z) * alpha; this.w += (v.w - this.w) * alpha; return this; }
-    fromArray(a, offset) { var i = faoxomvalue(offset, 0); this.x = a[i] || 0; this.y = a[i + 1] || 0; this.z = a[i + 2] || 0; this.w = a[i + 3] || 0; return this; }
-    toArray(a, offset) { var out = a || []; var i = faoxomvalue(offset, 0); out[i] = this.x; out[i + 1] = this.y; out[i + 2] = this.z; out[i + 3] = this.w; return out; }
+    constructor(zaoxa, zaoxb, zaoxc, zaoxd) {
+        this.x = faoxomvalue(zaoxa, 0);
+        this.y = faoxomvalue(zaoxb, 0);
+        this.z = faoxomvalue(zaoxc, 0);
+        this.w = faoxomvalue(zaoxd, 0);
+    }
+    set(zaoxa, zaoxb, zaoxc, zaoxd) {
+        this.x = zaoxa;
+        this.y = zaoxb;
+        this.z = zaoxc;
+        this.w = zaoxd;
+        return this;
+    }
+    clone() {
+        return new Vector4(this.x, this.y, this.z, this.w);
+    }
+    copy(zaoxa) {
+        this.x = zaoxa.x;
+        this.y = zaoxa.y;
+        this.z = zaoxa.z;
+        this.w = zaoxa.w;
+        return this;
+    }
+    add(zaoxa) {
+        this.x += zaoxa.x;
+        this.y += zaoxa.y;
+        this.z += zaoxa.z;
+        this.w += zaoxa.w;
+        return this;
+    }
+    sub(zaoxa) {
+        this.x -= zaoxa.x;
+        this.y -= zaoxa.y;
+        this.z -= zaoxa.z;
+        this.w -= zaoxa.w;
+        return this;
+    }
+    multiplyScalar(zaoxa) {
+        this.x *= zaoxa;
+        this.y *= zaoxa;
+        this.z *= zaoxa;
+        this.w *= zaoxa;
+        return this;
+    }
+    divideScalar(zaoxa) {
+        return this.multiplyScalar(zaoxa === 0 ? 0 : 1 / zaoxa);
+    }
+    dot(zaoxa) {
+        return this.x * zaoxa.x + this.y * zaoxa.y + this.z * zaoxa.z + this.w * zaoxa.w;
+    }
+    lengthSq() {
+        return this.dot(this);
+    }
+    length() {
+        return Math.sqrt(this.lengthSq());
+    }
+    normalize() {
+        return this.divideScalar(this.length() || 1);
+    }
+    lerp(zaoxa, zaoxb) {
+        this.x += (zaoxa.x - this.x) * zaoxb;
+        this.y += (zaoxa.y - this.y) * zaoxb;
+        this.z += (zaoxa.z - this.z) * zaoxb;
+        this.w += (zaoxa.w - this.w) * zaoxb;
+        return this;
+    }
+    fromArray(zaoxa, zaoxb) {
+        var zaoxc = faoxomvalue(zaoxb, 0);
+        this.x = zaoxa[zaoxc] || 0;
+        this.y = zaoxa[zaoxc + 1] || 0;
+        this.z = zaoxa[zaoxc + 2] || 0;
+        this.w = zaoxa[zaoxc + 3] || 0;
+        return this;
+    }
+    toArray(zaoxa, zaoxb) {
+        var zaoxc = zaoxa || [];
+        var zaoxd = faoxomvalue(zaoxb, 0);
+        zaoxc[zaoxd] = this.x;
+        zaoxc[zaoxd + 1] = this.y;
+        zaoxc[zaoxd + 2] = this.z;
+        zaoxc[zaoxd + 3] = this.w;
+        return zaoxc;
+    }
 }
 
 export { Vector4 };

@@ -1,304 +1,317 @@
 import { faoxomworlduvgenerator } from "../core/index.js";
+
 import { Shape, ShapeUtils, Vector2 } from "../math/index.js";
+
 import { Geometry } from "./Geometry.js";
 
 class ExtrudeGeometry extends Geometry {
-    constructor(shapes, options) {
+    constructor(zakfa, zakfb) {
         super();
         this.type = "ExtrudeGeometry";
-        if (shapes === undefined) shapes = new Shape([new Vector2(0.5, 0.5), new Vector2(-0.5, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]);
-        if (typeof options === "number") options = { depth: options };
-        options = options || {};
-        this.parameters = { shapes: shapes, options: options };
-        if (options.extrudePath) console.warn("ExtrudeGeometry: extrudePath is not supported; extruding along +z.");
-        var shapeList = Array.isArray(shapes) ? shapes : [shapes];
-        var scope = this;
-        var verticesArray = [];
-        var uvArray = [];
-        function addShape(shape) {
-            var placeholder = [];
-            var curveSegments = options.curveSegments !== undefined ? options.curveSegments : 12;
-            var steps = options.steps !== undefined ? options.steps : 1;
-            var depth = options.depth !== undefined ? options.depth : 1;
-            var bevelEnabled = options.bevelEnabled !== undefined ? options.bevelEnabled : true;
-            var bevelThickness = options.bevelThickness !== undefined ? options.bevelThickness : 0.2;
-            var bevelSize = options.bevelSize !== undefined ? options.bevelSize : bevelThickness - 0.1;
-            var bevelOffset = options.bevelOffset !== undefined ? options.bevelOffset : 0;
-            var bevelSegments = options.bevelSegments !== undefined ? options.bevelSegments : 3;
-            var uvgen = options.UVGenerator !== undefined ? options.UVGenerator : faoxomworlduvgenerator;
-            if (!bevelEnabled) {
-                bevelSegments = 0;
-                bevelThickness = 0;
-                bevelSize = 0;
-                bevelOffset = 0;
+        if (zakfa === undefined) zakfa = new Shape([ new Vector2(.5, .5), new Vector2(-.5, .5), new Vector2(-.5, -.5), new Vector2(.5, -.5) ]);
+        if (typeof zakfb === "number") zakfb = {
+            depth: zakfb
+        };
+        zakfb = zakfb || {};
+        this.parameters = {
+            shapes: zakfa,
+            options: zakfb
+        };
+        if (zakfb.extrudePath) console.warn("ExtrudeGeometry: extrudePath is not supported; extruding along +z.");
+        var zakfc = Array.isArray(zakfa) ? zakfa : [ zakfa ];
+        var zakfd = this;
+        var zakfe = [];
+        var zakff = [];
+        function zakfg(zakfa) {
+            var zakfc = [];
+            var zakfg = zakfb.curveSegments !== undefined ? zakfb.curveSegments : 12;
+            var zakfh = zakfb.steps !== undefined ? zakfb.steps : 1;
+            var zakfi = zakfb.depth !== undefined ? zakfb.depth : 1;
+            var zakfj = zakfb.bevelEnabled !== undefined ? zakfb.bevelEnabled : true;
+            var zakfk = zakfb.bevelThickness !== undefined ? zakfb.bevelThickness : .2;
+            var zakfl = zakfb.bevelSize !== undefined ? zakfb.bevelSize : zakfk - .1;
+            var zakfm = zakfb.bevelOffset !== undefined ? zakfb.bevelOffset : 0;
+            var zakfn = zakfb.bevelSegments !== undefined ? zakfb.bevelSegments : 3;
+            var zakfo = zakfb.UVGenerator !== undefined ? zakfb.UVGenerator : faoxomworlduvgenerator;
+            if (!zakfj) {
+                zakfn = 0;
+                zakfk = 0;
+                zakfl = 0;
+                zakfm = 0;
             }
-            var shapePoints = shape.extractPoints(curveSegments);
-            var vertices = shapePoints.shape;
-            var holes = shapePoints.holes;
-            var reverse = !ShapeUtils.isClockWise(vertices);
-            if (reverse) {
-                vertices = vertices.reverse();
-                for (var h = 0, hl = holes.length; h < hl; h++) {
-                    var ahole = holes[h];
-                    if (ShapeUtils.isClockWise(ahole)) holes[h] = ahole.reverse();
+            var zakfp = zakfa.extractPoints(zakfg);
+            var zakfq = zakfp.shape;
+            var zakfr = zakfp.holes;
+            var zakfs = !ShapeUtils.isClockWise(zakfq);
+            if (zakfs) {
+                zakfq = zakfq.reverse();
+                for (var zakft = 0, zakfu = zakfr.length; zakft < zakfu; zakft++) {
+                    var zakfv = zakfr[zakft];
+                    if (ShapeUtils.isClockWise(zakfv)) zakfr[zakft] = zakfv.reverse();
                 }
             }
-            function mergeOverlappingPoints(points) {
-                var THRESHOLD = 1e-10;
-                var THRESHOLD_SQ = THRESHOLD * THRESHOLD;
-                var prevPos = points[0];
-                for (var i = 1; i <= points.length; i++) {
-                    var currentIndex = i % points.length;
-                    var currentPos = points[currentIndex];
-                    var dx = currentPos.x - prevPos.x;
-                    var dy = currentPos.y - prevPos.y;
-                    var distSq = dx * dx + dy * dy;
-                    var scalingFactorSqrt = Math.max(Math.abs(currentPos.x), Math.abs(currentPos.y), Math.abs(prevPos.x), Math.abs(prevPos.y));
-                    var thresholdSqScaled = THRESHOLD_SQ * scalingFactorSqrt * scalingFactorSqrt;
-                    if (distSq <= thresholdSqScaled) {
-                        points.splice(currentIndex, 1);
-                        i--;
+            function zakfw(zakfa) {
+                var zakfb = 1e-10;
+                var zakfc = zakfb * zakfb;
+                var zakfd = zakfa[0];
+                for (var zakfe = 1; zakfe <= zakfa.length; zakfe++) {
+                    var zakff = zakfe % zakfa.length;
+                    var zakfg = zakfa[zakff];
+                    var zakfh = zakfg.x - zakfd.x;
+                    var zakfi = zakfg.y - zakfd.y;
+                    var zakfj = zakfh * zakfh + zakfi * zakfi;
+                    var zakfk = Math.max(Math.abs(zakfg.x), Math.abs(zakfg.y), Math.abs(zakfd.x), Math.abs(zakfd.y));
+                    var zakfl = zakfc * zakfk * zakfk;
+                    if (zakfj <= zakfl) {
+                        zakfa.splice(zakff, 1);
+                        zakfe--;
                         continue;
                     }
-                    prevPos = currentPos;
+                    zakfd = zakfg;
                 }
             }
-            mergeOverlappingPoints(vertices);
-            holes.forEach(mergeOverlappingPoints);
-            var numHoles = holes.length;
-            var contour = vertices;
-            for (var h2 = 0; h2 < numHoles; h2++) vertices = vertices.concat(holes[h2]);
-            function scalePt2(pt, vec, size) {
-                if (!vec) console.error("ExtrudeGeometry: vec does not exist");
-                return pt.clone().addScaledVector(vec, size);
+            zakfw(zakfq);
+            zakfr.forEach(zakfw);
+            var zakfx = zakfr.length;
+            var zakfy = zakfq;
+            for (var zakfz = 0; zakfz < zakfx; zakfz++) zakfq = zakfq.concat(zakfr[zakfz]);
+            function zakfaa(zakfa, zakfb, zakfc) {
+                if (!zakfb) console.error("ExtrudeGeometry: vec does not exist");
+                return zakfa.clone().addScaledVector(zakfb, zakfc);
             }
-            var vlen = vertices.length;
-            function getBevelVec(inPt, inPrev, inNext) {
-                var v_trans_x, v_trans_y, shrink_by;
-                var v_prev_x = inPt.x - inPrev.x, v_prev_y = inPt.y - inPrev.y;
-                var v_next_x = inNext.x - inPt.x, v_next_y = inNext.y - inPt.y;
-                var v_prev_lensq = (v_prev_x * v_prev_x + v_prev_y * v_prev_y);
-                var collinear0 = (v_prev_x * v_next_y - v_prev_y * v_next_x);
-                if (Math.abs(collinear0) > Number.EPSILON) {
-                    var v_prev_len = Math.sqrt(v_prev_lensq);
-                    var v_next_len = Math.sqrt(v_next_x * v_next_x + v_next_y * v_next_y);
-                    var ptPrevShift_x = (inPrev.x - v_prev_y / v_prev_len);
-                    var ptPrevShift_y = (inPrev.y + v_prev_x / v_prev_len);
-                    var ptNextShift_x = (inNext.x - v_next_y / v_next_len);
-                    var ptNextShift_y = (inNext.y + v_next_x / v_next_len);
-                    var sf = ((ptNextShift_x - ptPrevShift_x) * v_next_y -
-                            (ptNextShift_y - ptPrevShift_y) * v_next_x) /
-                            (v_prev_x * v_next_y - v_prev_y * v_next_x);
-                    v_trans_x = (ptPrevShift_x + v_prev_x * sf - inPt.x);
-                    v_trans_y = (ptPrevShift_y + v_prev_y * sf - inPt.y);
-                    var v_trans_lensq = (v_trans_x * v_trans_x + v_trans_y * v_trans_y);
-                    if (v_trans_lensq <= 2) {
-                        return new Vector2(v_trans_x, v_trans_y);
+            var zakfab = zakfq.length;
+            function zakfac(zakfa, zakfb, zakfc) {
+                var zakfd, zakfe, zakff;
+                var zakfg = zakfa.x - zakfb.x, zakfh = zakfa.y - zakfb.y;
+                var zakfi = zakfc.x - zakfa.x, zakfj = zakfc.y - zakfa.y;
+                var zakfk = zakfg * zakfg + zakfh * zakfh;
+                var zakfl = zakfg * zakfj - zakfh * zakfi;
+                if (Math.abs(zakfl) > Number.EPSILON) {
+                    var zakfm = Math.sqrt(zakfk);
+                    var zakfn = Math.sqrt(zakfi * zakfi + zakfj * zakfj);
+                    var zakfo = zakfb.x - zakfh / zakfm;
+                    var zakfp = zakfb.y + zakfg / zakfm;
+                    var zakfq = zakfc.x - zakfj / zakfn;
+                    var zakfr = zakfc.y + zakfi / zakfn;
+                    var zakfs = ((zakfq - zakfo) * zakfj - (zakfr - zakfp) * zakfi) / (zakfg * zakfj - zakfh * zakfi);
+                    zakfd = zakfo + zakfg * zakfs - zakfa.x;
+                    zakfe = zakfp + zakfh * zakfs - zakfa.y;
+                    var zakft = zakfd * zakfd + zakfe * zakfe;
+                    if (zakft <= 2) {
+                        return new Vector2(zakfd, zakfe);
                     } else {
-                        shrink_by = Math.sqrt(v_trans_lensq / 2);
+                        zakff = Math.sqrt(zakft / 2);
                     }
                 } else {
-                    var direction_eq = false;
-                    if (v_prev_x > Number.EPSILON) {
-                        if (v_next_x > Number.EPSILON) { direction_eq = true; }
+                    var zakfu = false;
+                    if (zakfg > Number.EPSILON) {
+                        if (zakfi > Number.EPSILON) {
+                            zakfu = true;
+                        }
                     } else {
-                        if (v_prev_x < -Number.EPSILON) {
-                            if (v_next_x < -Number.EPSILON) { direction_eq = true; }
+                        if (zakfg < -Number.EPSILON) {
+                            if (zakfi < -Number.EPSILON) {
+                                zakfu = true;
+                            }
                         } else {
-                            if (Math.sign(v_prev_y) === Math.sign(v_next_y)) { direction_eq = true; }
+                            if (Math.sign(zakfh) === Math.sign(zakfj)) {
+                                zakfu = true;
+                            }
                         }
                     }
-                    if (direction_eq) {
-                        v_trans_x = -v_prev_y;
-                        v_trans_y = v_prev_x;
-                        shrink_by = Math.sqrt(v_prev_lensq);
+                    if (zakfu) {
+                        zakfd = -zakfh;
+                        zakfe = zakfg;
+                        zakff = Math.sqrt(zakfk);
                     } else {
-                        v_trans_x = v_prev_x;
-                        v_trans_y = v_prev_y;
-                        shrink_by = Math.sqrt(v_prev_lensq / 2);
+                        zakfd = zakfg;
+                        zakfe = zakfh;
+                        zakff = Math.sqrt(zakfk / 2);
                     }
                 }
-                return new Vector2(v_trans_x / shrink_by, v_trans_y / shrink_by);
+                return new Vector2(zakfd / zakff, zakfe / zakff);
             }
-            var contourMovements = [];
-            for (var i = 0, il = contour.length, j = il - 1, k = i + 1; i < il; i++, j++, k++) {
-                if (j === il) j = 0;
-                if (k === il) k = 0;
-                contourMovements[i] = getBevelVec(contour[i], contour[j], contour[k]);
+            var zakfad = [];
+            for (var zakfae = 0, zakfaf = zakfy.length, zakfag = zakfaf - 1, zakfah = zakfae + 1; zakfae < zakfaf; zakfae++,
+            zakfag++, zakfah++) {
+                if (zakfag === zakfaf) zakfag = 0;
+                if (zakfah === zakfaf) zakfah = 0;
+                zakfad[zakfae] = zakfac(zakfy[zakfae], zakfy[zakfag], zakfy[zakfah]);
             }
-            var holesMovements = [];
-            var oneHoleMovements, verticesMovements = contourMovements.concat();
-            for (var h3 = 0, hl3 = numHoles; h3 < hl3; h3++) {
-                var ahole3 = holes[h3];
-                oneHoleMovements = [];
-                for (var i2 = 0, il2 = ahole3.length, j2 = il2 - 1, k2 = i2 + 1; i2 < il2; i2++, j2++, k2++) {
-                    if (j2 === il2) j2 = 0;
-                    if (k2 === il2) k2 = 0;
-                    oneHoleMovements[i2] = getBevelVec(ahole3[i2], ahole3[j2], ahole3[k2]);
+            var zakfai = [];
+            var zakfaj, zakfak = zakfad.concat();
+            for (var zakfal = 0, zakfam = zakfx; zakfal < zakfam; zakfal++) {
+                var zakfan = zakfr[zakfal];
+                zakfaj = [];
+                for (var zakfao = 0, zakfap = zakfan.length, zakfaq = zakfap - 1, zakfar = zakfao + 1; zakfao < zakfap; zakfao++,
+                zakfaq++, zakfar++) {
+                    if (zakfaq === zakfap) zakfaq = 0;
+                    if (zakfar === zakfap) zakfar = 0;
+                    zakfaj[zakfao] = zakfac(zakfan[zakfao], zakfan[zakfaq], zakfan[zakfar]);
                 }
-                holesMovements.push(oneHoleMovements);
-                verticesMovements = verticesMovements.concat(oneHoleMovements);
+                zakfai.push(zakfaj);
+                zakfak = zakfak.concat(zakfaj);
             }
-            var faces;
-            if (bevelSegments === 0) {
-                faces = ShapeUtils.triangulateShape(contour, holes);
+            var zakfas;
+            if (zakfn === 0) {
+                zakfas = ShapeUtils.triangulateShape(zakfy, zakfr);
             } else {
-                var contractedContourVertices = [];
-                var expandedHoleVertices = [];
-                for (var b = 0; b < bevelSegments; b++) {
-                    var t = b / bevelSegments;
-                    var z = bevelThickness * Math.cos(t * Math.PI / 2);
-                    var bs = bevelSize * Math.sin(t * Math.PI / 2) + bevelOffset;
-                    for (var i3 = 0, il3 = contour.length; i3 < il3; i3++) {
-                        var vert = scalePt2(contour[i3], contourMovements[i3], bs);
-                        v(vert.x, vert.y, -z);
-                        if (t === 0) contractedContourVertices.push(vert);
+                var zakfat = [];
+                var zakfau = [];
+                for (var zakfav = 0; zakfav < zakfn; zakfav++) {
+                    var zakfaw = zakfav / zakfn;
+                    var zakfax = zakfk * Math.cos(zakfaw * Math.PI / 2);
+                    var zakfay = zakfl * Math.sin(zakfaw * Math.PI / 2) + zakfm;
+                    for (var zakfaz = 0, zakfba = zakfy.length; zakfaz < zakfba; zakfaz++) {
+                        var zakfbb = zakfaa(zakfy[zakfaz], zakfad[zakfaz], zakfay);
+                        zakfcg(zakfbb.x, zakfbb.y, -zakfax);
+                        if (zakfaw === 0) zakfat.push(zakfbb);
                     }
-                    for (var h4 = 0, hl4 = numHoles; h4 < hl4; h4++) {
-                        var ahole4 = holes[h4];
-                        oneHoleMovements = holesMovements[h4];
-                        var oneHoleVertices = [];
-                        for (var i4 = 0, il4 = ahole4.length; i4 < il4; i4++) {
-                            var vert4 = scalePt2(ahole4[i4], oneHoleMovements[i4], bs);
-                            v(vert4.x, vert4.y, -z);
-                            if (t === 0) oneHoleVertices.push(vert4);
+                    for (var zakfbc = 0, zakfbd = zakfx; zakfbc < zakfbd; zakfbc++) {
+                        var zakfbe = zakfr[zakfbc];
+                        zakfaj = zakfai[zakfbc];
+                        var zakfbf = [];
+                        for (var zakfbg = 0, zakfbh = zakfbe.length; zakfbg < zakfbh; zakfbg++) {
+                            var zakfbi = zakfaa(zakfbe[zakfbg], zakfaj[zakfbg], zakfay);
+                            zakfcg(zakfbi.x, zakfbi.y, -zakfax);
+                            if (zakfaw === 0) zakfbf.push(zakfbi);
                         }
-                        if (t === 0) expandedHoleVertices.push(oneHoleVertices);
+                        if (zakfaw === 0) zakfau.push(zakfbf);
                     }
                 }
-                faces = ShapeUtils.triangulateShape(contractedContourVertices, expandedHoleVertices);
+                zakfas = ShapeUtils.triangulateShape(zakfat, zakfau);
             }
-            var flen = faces.length;
-            var bs2 = bevelSize + bevelOffset;
-            var i5;
-            for (i5 = 0; i5 < vlen; i5++) {
-                var vert5 = bevelEnabled ? scalePt2(vertices[i5], verticesMovements[i5], bs2) : vertices[i5];
-                v(vert5.x, vert5.y, 0);
+            var zakfbj = zakfas.length;
+            var zakfbk = zakfl + zakfm;
+            var zakfbl;
+            for (zakfbl = 0; zakfbl < zakfab; zakfbl++) {
+                var zakfbm = zakfj ? zakfaa(zakfq[zakfbl], zakfak[zakfbl], zakfbk) : zakfq[zakfbl];
+                zakfcg(zakfbm.x, zakfbm.y, 0);
             }
-            var s;
-            for (s = 1; s <= steps; s++) {
-                for (var i6 = 0; i6 < vlen; i6++) {
-                    var vert6 = bevelEnabled ? scalePt2(vertices[i6], verticesMovements[i6], bs2) : vertices[i6];
-                    v(vert6.x, vert6.y, depth / steps * s);
+            var zakfbn;
+            for (zakfbn = 1; zakfbn <= zakfh; zakfbn++) {
+                for (var zakfbo = 0; zakfbo < zakfab; zakfbo++) {
+                    var zakfbp = zakfj ? zakfaa(zakfq[zakfbo], zakfak[zakfbo], zakfbk) : zakfq[zakfbo];
+                    zakfcg(zakfbp.x, zakfbp.y, zakfi / zakfh * zakfbn);
                 }
             }
-            var b2;
-            for (b2 = bevelSegments - 1; b2 >= 0; b2--) {
-                var t2 = b2 / bevelSegments;
-                var z2 = bevelThickness * Math.cos(t2 * Math.PI / 2);
-                var bs3 = bevelSize * Math.sin(t2 * Math.PI / 2) + bevelOffset;
-                for (var i7 = 0, il7 = contour.length; i7 < il7; i7++) {
-                    var vert7 = scalePt2(contour[i7], contourMovements[i7], bs3);
-                    v(vert7.x, vert7.y, depth + z2);
+            var zakfbq;
+            for (zakfbq = zakfn - 1; zakfbq >= 0; zakfbq--) {
+                var zakfbr = zakfbq / zakfn;
+                var zakfbs = zakfk * Math.cos(zakfbr * Math.PI / 2);
+                var zakfbt = zakfl * Math.sin(zakfbr * Math.PI / 2) + zakfm;
+                for (var zakfbu = 0, zakfbv = zakfy.length; zakfbu < zakfbv; zakfbu++) {
+                    var zakfbw = zakfaa(zakfy[zakfbu], zakfad[zakfbu], zakfbt);
+                    zakfcg(zakfbw.x, zakfbw.y, zakfi + zakfbs);
                 }
-                for (var h5 = 0, hl5 = numHoles; h5 < hl5; h5++) {
-                    var ahole5 = holes[h5];
-                    oneHoleMovements = holesMovements[h5];
-                    for (var i8 = 0, il8 = ahole5.length; i8 < il8; i8++) {
-                        var vert8 = scalePt2(ahole5[i8], oneHoleMovements[i8], bs3);
-                        v(vert8.x, vert8.y, depth + z2);
+                for (var zakfbx = 0, zakfby = zakfx; zakfbx < zakfby; zakfbx++) {
+                    var zakfbz = zakfr[zakfbx];
+                    zakfaj = zakfai[zakfbx];
+                    for (var zakfca = 0, zakfcb = zakfbz.length; zakfca < zakfcb; zakfca++) {
+                        var zakfcc = zakfaa(zakfbz[zakfca], zakfaj[zakfca], zakfbt);
+                        zakfcg(zakfcc.x, zakfcc.y, zakfi + zakfbs);
                     }
                 }
             }
-            function buildLidFaces() {
-                var start = verticesArray.length / 3;
-                if (bevelEnabled) {
-                    var layer = 0;
-                    var offset = vlen * layer;
-                    for (var i = 0; i < flen; i++) {
-                        var face = faces[i];
-                        f3(face[2] + offset, face[1] + offset, face[0] + offset);
+            function zakfcd() {
+                var zakfa = zakfe.length / 3;
+                if (zakfj) {
+                    var zakfb = 0;
+                    var zakfc = zakfab * zakfb;
+                    for (var zakff = 0; zakff < zakfbj; zakff++) {
+                        var zakfg = zakfas[zakff];
+                        zakfch(zakfg[2] + zakfc, zakfg[1] + zakfc, zakfg[0] + zakfc);
                     }
-                    layer = steps + bevelSegments * 2;
-                    offset = vlen * layer;
-                    for (var i9 = 0; i9 < flen; i9++) {
-                        var face2 = faces[i9];
-                        f3(face2[0] + offset, face2[1] + offset, face2[2] + offset);
+                    zakfb = zakfh + zakfn * 2;
+                    zakfc = zakfab * zakfb;
+                    for (var zakfi = 0; zakfi < zakfbj; zakfi++) {
+                        var zakfk = zakfas[zakfi];
+                        zakfch(zakfk[0] + zakfc, zakfk[1] + zakfc, zakfk[2] + zakfc);
                     }
                 } else {
-                    for (var i10 = 0; i10 < flen; i10++) {
-                        var face3 = faces[i10];
-                        f3(face3[2], face3[1], face3[0]);
+                    for (var zakfl = 0; zakfl < zakfbj; zakfl++) {
+                        var zakfm = zakfas[zakfl];
+                        zakfch(zakfm[2], zakfm[1], zakfm[0]);
                     }
-                    for (var i11 = 0; i11 < flen; i11++) {
-                        var face4 = faces[i11];
-                        f3(face4[0] + vlen * steps, face4[1] + vlen * steps, face4[2] + vlen * steps);
-                    }
-                }
-                scope.addGroup(start, verticesArray.length / 3 - start, 0);
-            }
-            function buildSideFaces() {
-                var start = verticesArray.length / 3;
-                var layeroffset = 0;
-                sidewalls(contour, layeroffset);
-                layeroffset += contour.length;
-                for (var h = 0, hl = holes.length; h < hl; h++) {
-                    var ahole = holes[h];
-                    sidewalls(ahole, layeroffset);
-                    layeroffset += ahole.length;
-                }
-                scope.addGroup(start, verticesArray.length / 3 - start, 1);
-            }
-            function sidewalls(contour, layeroffset) {
-                var i = contour.length;
-                while (--i >= 0) {
-                    var j = i;
-                    var k = i - 1;
-                    if (k < 0) k = contour.length - 1;
-                    for (var s = 0, sl = (steps + bevelSegments * 2); s < sl; s++) {
-                        var slen1 = vlen * s;
-                        var slen2 = vlen * (s + 1);
-                        var a = layeroffset + j + slen1, b = layeroffset + k + slen1, c = layeroffset + k + slen2, d = layeroffset + j + slen2;
-                        f4(a, b, c, d);
+                    for (var zakfo = 0; zakfo < zakfbj; zakfo++) {
+                        var zakfp = zakfas[zakfo];
+                        zakfch(zakfp[0] + zakfab * zakfh, zakfp[1] + zakfab * zakfh, zakfp[2] + zakfab * zakfh);
                     }
                 }
+                zakfd.addGroup(zakfa, zakfe.length / 3 - zakfa, 0);
             }
-            function v(x, y, z) {
-                placeholder.push(x);
-                placeholder.push(y);
-                placeholder.push(z);
+            function zakfce() {
+                var zakfa = zakfe.length / 3;
+                var zakfb = 0;
+                zakfcf(zakfy, zakfb);
+                zakfb += zakfy.length;
+                for (var zakfc = 0, zakff = zakfr.length; zakfc < zakff; zakfc++) {
+                    var zakfg = zakfr[zakfc];
+                    zakfcf(zakfg, zakfb);
+                    zakfb += zakfg.length;
+                }
+                zakfd.addGroup(zakfa, zakfe.length / 3 - zakfa, 1);
             }
-            function f3(a, b, c) {
-                addVertex(a);
-                addVertex(b);
-                addVertex(c);
-                var nextIndex = verticesArray.length / 3;
-                var uvs = uvgen.generateTopUV(scope, verticesArray, nextIndex - 3, nextIndex - 2, nextIndex - 1);
-                addUV(uvs[0]);
-                addUV(uvs[1]);
-                addUV(uvs[2]);
+            function zakfcf(zakfa, zakfb) {
+                var zakfc = zakfa.length;
+                while (--zakfc >= 0) {
+                    var zakfd = zakfc;
+                    var zakfe = zakfc - 1;
+                    if (zakfe < 0) zakfe = zakfa.length - 1;
+                    for (var zakff = 0, zakfg = zakfh + zakfn * 2; zakff < zakfg; zakff++) {
+                        var zakfi = zakfab * zakff;
+                        var zakfj = zakfab * (zakff + 1);
+                        var zakfk = zakfb + zakfd + zakfi, zakfl = zakfb + zakfe + zakfi, zakfm = zakfb + zakfe + zakfj, zakfo = zakfb + zakfd + zakfj;
+                        zakfci(zakfk, zakfl, zakfm, zakfo);
+                    }
+                }
             }
-            function f4(a, b, c, d) {
-                addVertex(a);
-                addVertex(b);
-                addVertex(d);
-                addVertex(b);
-                addVertex(c);
-                addVertex(d);
-                var nextIndex = verticesArray.length / 3;
-                var uvs = uvgen.generateSideWallUV(scope, verticesArray, nextIndex - 6, nextIndex - 3, nextIndex - 2, nextIndex - 1);
-                addUV(uvs[0]);
-                addUV(uvs[1]);
-                addUV(uvs[3]);
-                addUV(uvs[1]);
-                addUV(uvs[2]);
-                addUV(uvs[3]);
+            function zakfcg(zakfa, zakfb, zakfd) {
+                zakfc.push(zakfa);
+                zakfc.push(zakfb);
+                zakfc.push(zakfd);
             }
-            function addVertex(index) {
-                verticesArray.push(placeholder[index * 3 + 0]);
-                verticesArray.push(placeholder[index * 3 + 1]);
-                verticesArray.push(placeholder[index * 3 + 2]);
+            function zakfch(zakfa, zakfb, zakfc) {
+                zakfcj(zakfa);
+                zakfcj(zakfb);
+                zakfcj(zakfc);
+                var zakff = zakfe.length / 3;
+                var zakfg = zakfo.generateTopUV(zakfd, zakfe, zakff - 3, zakff - 2, zakff - 1);
+                zakfck(zakfg[0]);
+                zakfck(zakfg[1]);
+                zakfck(zakfg[2]);
             }
-            function addUV(vector2) {
-                uvArray.push(vector2.x);
-                uvArray.push(vector2.y);
+            function zakfci(zakfa, zakfb, zakfc, zakff) {
+                zakfcj(zakfa);
+                zakfcj(zakfb);
+                zakfcj(zakff);
+                zakfcj(zakfb);
+                zakfcj(zakfc);
+                zakfcj(zakff);
+                var zakfg = zakfe.length / 3;
+                var zakfh = zakfo.generateSideWallUV(zakfd, zakfe, zakfg - 6, zakfg - 3, zakfg - 2, zakfg - 1);
+                zakfck(zakfh[0]);
+                zakfck(zakfh[1]);
+                zakfck(zakfh[3]);
+                zakfck(zakfh[1]);
+                zakfck(zakfh[2]);
+                zakfck(zakfh[3]);
             }
-            buildLidFaces();
-            buildSideFaces();
+            function zakfcj(zakfa) {
+                zakfe.push(zakfc[zakfa * 3 + 0]);
+                zakfe.push(zakfc[zakfa * 3 + 1]);
+                zakfe.push(zakfc[zakfa * 3 + 2]);
+            }
+            function zakfck(zakfa) {
+                zakff.push(zakfa.x);
+                zakff.push(zakfa.y);
+            }
+            zakfcd();
+            zakfce();
         }
-        for (var si = 0; si < shapeList.length; si++) addShape(shapeList[si]);
-        this.setAttribute("position", new Float32Array(verticesArray), 3);
-        this.setAttribute("uv", new Float32Array(uvArray), 2);
+        for (var zakfh = 0; zakfh < zakfc.length; zakfh++) zakfg(zakfc[zakfh]);
+        this.setAttribute("position", new Float32Array(zakfe), 3);
+        this.setAttribute("uv", new Float32Array(zakff), 2);
         this.computeVertexNormals();
         this.computeBoundingBox();
         this.computeBoundingSphere();

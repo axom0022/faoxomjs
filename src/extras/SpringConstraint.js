@@ -1,7 +1,12 @@
 import { DistanceConstraint } from "./DistanceConstraint.js";
 
 class SpringConstraint extends DistanceConstraint {
-    constructor(a, b, distance, stiffness, damping) { super(a, b, distance, { stiffness: stiffness, damping: damping }); }
+    constructor(zajba, zajbb, zajbc, zajbd, zajbe) {
+        super(zajba, zajbb, zajbc, {
+            stiffness: zajbd,
+            damping: zajbe
+        });
+    }
 }
 
 export { SpringConstraint };

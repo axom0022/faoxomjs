@@ -1,11 +1,11 @@
-function faoxomearcutmiddleinside(a, b) {
-    var p = a, inside = false;
-    var px = (a.x + b.x) / 2, py = (a.y + b.y) / 2;
+function faoxomearcutmiddleinside(zapwa, zapwb) {
+    var zapwc = zapwa, zapwd = false;
+    var zapwe = (zapwa.x + zapwb.x) / 2, zapwf = (zapwa.y + zapwb.y) / 2;
     do {
-        if (((p.y > py) !== (p.next.y > py)) && p.next.y !== p.y && (px < (p.next.x - p.x) * (py - p.y) / (p.next.y - p.y) + p.x)) inside = !inside;
-        p = p.next;
-    } while (p !== a);
-    return inside;
+        if (zapwc.y > zapwf !== zapwc.next.y > zapwf && zapwc.next.y !== zapwc.y && zapwe < (zapwc.next.x - zapwc.x) * (zapwf - zapwc.y) / (zapwc.next.y - zapwc.y) + zapwc.x) zapwd = !zapwd;
+        zapwc = zapwc.next;
+    } while (zapwc !== zapwa);
+    return zapwd;
 }
 
 export { faoxomearcutmiddleinside };

@@ -1,3 +1,5 @@
-function faoxomfbxname(value) { return String(value === undefined || value === null ? "" : value).split("::").pop(); }
+function faoxomfbxname(zaeoa) {
+    return String(zaeoa === undefined || zaeoa === null ? "" : zaeoa).split("::").pop();
+}
 
 export { faoxomfbxname };

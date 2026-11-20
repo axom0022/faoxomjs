@@ -1,72 +1,128 @@
-function faoxomdecodetga(buffer) {
-    var bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-    if (bytes.length < 18) throw new Error("TGA header missing");
-    var idLength = bytes[0], colorMapType = bytes[1], imageType = bytes[2];
-    var colorMapOrigin = bytes[3] | (bytes[4] << 8), colorMapLength = bytes[5] | (bytes[6] << 8), colorMapDepth = bytes[7];
-    var width = bytes[12] | (bytes[13] << 8), height = bytes[14] | (bytes[15] << 8);
-    var depth = bytes[16], descriptor = bytes[17];
-    var rle = imageType === 9 || imageType === 10 || imageType === 11;
-    var mapped = imageType === 1 || imageType === 9;
-    var gray = imageType === 3 || imageType === 11;
-    if (imageType !== 1 && imageType !== 2 && imageType !== 3 && imageType !== 9 && imageType !== 10 && imageType !== 11) throw new Error("Unsupported TGA image type " + imageType);
-    if (mapped && colorMapType !== 1) throw new Error("Colormapped TGA without a color map");
-    if (!mapped && colorMapType === 1) throw new Error("Unexpected TGA color map on unmapped image");
-    var offset = 18 + idLength;
-    var colorMap = null;
-    if (colorMapType === 1) {
-        var entryBytes = Math.max(1, colorMapDepth >> 3);
-        colorMap = new Uint8Array(colorMapLength * 4);
-        for (var cm = 0; cm < colorMapLength; cm++) {
-            var cp = offset + cm * entryBytes;
-            if (entryBytes === 4) { colorMap[cm * 4] = bytes[cp + 2]; colorMap[cm * 4 + 1] = bytes[cp + 1]; colorMap[cm * 4 + 2] = bytes[cp]; colorMap[cm * 4 + 3] = bytes[cp + 3]; }
-            else if (entryBytes === 3) { colorMap[cm * 4] = bytes[cp + 2]; colorMap[cm * 4 + 1] = bytes[cp + 1]; colorMap[cm * 4 + 2] = bytes[cp]; colorMap[cm * 4 + 3] = 255; }
-            else if (entryBytes === 2) { var cv = bytes[cp] | (bytes[cp + 1] << 8); colorMap[cm * 4] = ((cv >> 10) & 31) * 255 / 31; colorMap[cm * 4 + 1] = ((cv >> 5) & 63) * 255 / 63; colorMap[cm * 4 + 2] = (cv & 31) * 255 / 31; colorMap[cm * 4 + 3] = (cv >> 15) ? 0 : 255; }
-            else { colorMap[cm * 4] = bytes[cp]; colorMap[cm * 4 + 1] = bytes[cp]; colorMap[cm * 4 + 2] = bytes[cp]; colorMap[cm * 4 + 3] = 255; }
+function faoxomdecodetga(zadwa) {
+    var zadwb = zadwa instanceof Uint8Array ? zadwa : new Uint8Array(zadwa);
+    if (zadwb.length < 18) throw new Error("TGA header missing");
+    var zadwc = zadwb[0], zadwd = zadwb[1], zadwe = zadwb[2];
+    var zadwf = zadwb[3] | zadwb[4] << 8, zadwg = zadwb[5] | zadwb[6] << 8, zadwh = zadwb[7];
+    var zadwi = zadwb[12] | zadwb[13] << 8, zadwj = zadwb[14] | zadwb[15] << 8;
+    var zadwk = zadwb[16], zadwl = zadwb[17];
+    var zadwm = zadwe === 9 || zadwe === 10 || zadwe === 11;
+    var zadwn = zadwe === 1 || zadwe === 9;
+    var zadwo = zadwe === 3 || zadwe === 11;
+    if (zadwe !== 1 && zadwe !== 2 && zadwe !== 3 && zadwe !== 9 && zadwe !== 10 && zadwe !== 11) throw new Error("Unsupported TGA image type " + zadwe);
+    if (zadwn && zadwd !== 1) throw new Error("Colormapped TGA without a color map");
+    if (!zadwn && zadwd === 1) throw new Error("Unexpected TGA color map on unmapped image");
+    var zadwp = 18 + zadwc;
+    var zadwq = null;
+    if (zadwd === 1) {
+        var zadwr = Math.max(1, zadwh >> 3);
+        zadwq = new Uint8Array(zadwg * 4);
+        for (var zadws = 0; zadws < zadwg; zadws++) {
+            var zadwt = zadwp + zadws * zadwr;
+            if (zadwr === 4) {
+                zadwq[zadws * 4] = zadwb[zadwt + 2];
+                zadwq[zadws * 4 + 1] = zadwb[zadwt + 1];
+                zadwq[zadws * 4 + 2] = zadwb[zadwt];
+                zadwq[zadws * 4 + 3] = zadwb[zadwt + 3];
+            } else if (zadwr === 3) {
+                zadwq[zadws * 4] = zadwb[zadwt + 2];
+                zadwq[zadws * 4 + 1] = zadwb[zadwt + 1];
+                zadwq[zadws * 4 + 2] = zadwb[zadwt];
+                zadwq[zadws * 4 + 3] = 255;
+            } else if (zadwr === 2) {
+                var zadwu = zadwb[zadwt] | zadwb[zadwt + 1] << 8;
+                zadwq[zadws * 4] = (zadwu >> 10 & 31) * 255 / 31;
+                zadwq[zadws * 4 + 1] = (zadwu >> 5 & 63) * 255 / 63;
+                zadwq[zadws * 4 + 2] = (zadwu & 31) * 255 / 31;
+                zadwq[zadws * 4 + 3] = zadwu >> 15 ? 0 : 255;
+            } else {
+                zadwq[zadws * 4] = zadwb[zadwt];
+                zadwq[zadws * 4 + 1] = zadwb[zadwt];
+                zadwq[zadws * 4 + 2] = zadwb[zadwt];
+                zadwq[zadws * 4 + 3] = 255;
+            }
         }
-        offset += colorMapLength * entryBytes;
+        zadwp += zadwg * zadwr;
     }
-    var bytesPerPixel = gray ? 1 : Math.max(1, depth >> 3);
-    if (!gray && !mapped && depth !== 16 && depth !== 24 && depth !== 32) throw new Error("Unsupported TGA depth " + depth);
-    if (mapped && bytesPerPixel !== 1 && bytesPerPixel !== 2) throw new Error("Unsupported TGA colormap index size");
-    var pixelCount = width * height;
-    var raw = new Uint8Array(pixelCount * bytesPerPixel);
-    if (rle) {
-        var write = 0;
-        while (write < raw.length && offset < bytes.length) {
-            var packet = bytes[offset++];
-            var count = (packet & 127) + 1;
-            if (write + count * bytesPerPixel > raw.length) count = Math.floor((raw.length - write) / bytesPerPixel);
-            if (packet & 128) { for (var run = 0; run < count; run++) for (var rb = 0; rb < bytesPerPixel; rb++) raw[write++] = bytes[offset + rb]; offset += bytesPerPixel; }
-            else { for (var lit = 0; lit < count; lit++) for (var lb = 0; lb < bytesPerPixel; lb++) raw[write++] = offset < bytes.length ? bytes[offset++] : 0; }
+    var zadwv = zadwo ? 1 : Math.max(1, zadwk >> 3);
+    if (!zadwo && !zadwn && zadwk !== 16 && zadwk !== 24 && zadwk !== 32) throw new Error("Unsupported TGA depth " + zadwk);
+    if (zadwn && zadwv !== 1 && zadwv !== 2) throw new Error("Unsupported TGA colormap index size");
+    var zadww = zadwi * zadwj;
+    var zadwx = new Uint8Array(zadww * zadwv);
+    if (zadwm) {
+        var zadwy = 0;
+        while (zadwy < zadwx.length && zadwp < zadwb.length) {
+            var zadwz = zadwb[zadwp++];
+            var zadwaa = (zadwz & 127) + 1;
+            if (zadwy + zadwaa * zadwv > zadwx.length) zadwaa = Math.floor((zadwx.length - zadwy) / zadwv);
+            if (zadwz & 128) {
+                for (var zadwab = 0; zadwab < zadwaa; zadwab++) for (var zadwac = 0; zadwac < zadwv; zadwac++) zadwx[zadwy++] = zadwb[zadwp + zadwac];
+                zadwp += zadwv;
+            } else {
+                for (var zadwad = 0; zadwad < zadwaa; zadwad++) for (var zadwae = 0; zadwae < zadwv; zadwae++) zadwx[zadwy++] = zadwp < zadwb.length ? zadwb[zadwp++] : 0;
+            }
         }
     } else {
-        var available = Math.min(raw.length, bytes.length - offset);
-        for (var direct = 0; direct < available; direct++) raw[direct] = bytes[offset + direct];
+        var zadwaf = Math.min(zadwx.length, zadwb.length - zadwp);
+        for (var zadwag = 0; zadwag < zadwaf; zadwag++) zadwx[zadwag] = zadwb[zadwp + zadwag];
     }
-    var rgba = new Uint8Array(pixelCount * 4);
-    for (var px = 0; px < pixelCount; px++) {
-        var base = px * bytesPerPixel;
-        if (mapped) {
-            var index = (raw[base] | (bytesPerPixel === 2 ? raw[base + 1] << 8 : 0)) - colorMapOrigin;
-            if (index >= 0 && index < colorMapLength) { rgba[px * 4] = colorMap[index * 4]; rgba[px * 4 + 1] = colorMap[index * 4 + 1]; rgba[px * 4 + 2] = colorMap[index * 4 + 2]; rgba[px * 4 + 3] = colorMap[index * 4 + 3]; }
-            else { rgba[px * 4] = 0; rgba[px * 4 + 1] = 0; rgba[px * 4 + 2] = 0; rgba[px * 4 + 3] = 255; }
-        } else if (gray) { rgba[px * 4] = raw[base]; rgba[px * 4 + 1] = raw[base]; rgba[px * 4 + 2] = raw[base]; rgba[px * 4 + 3] = 255; }
-        else if (bytesPerPixel === 2) { var v16 = raw[base] | (raw[base + 1] << 8); rgba[px * 4] = ((v16 >> 10) & 31) * 255 / 31; rgba[px * 4 + 1] = ((v16 >> 5) & 63) * 255 / 63; rgba[px * 4 + 2] = (v16 & 31) * 255 / 31; rgba[px * 4 + 3] = (v16 >> 15) ? 0 : 255; }
-        else if (bytesPerPixel === 3) { rgba[px * 4] = raw[base + 2]; rgba[px * 4 + 1] = raw[base + 1]; rgba[px * 4 + 2] = raw[base]; rgba[px * 4 + 3] = 255; }
-        else { rgba[px * 4] = raw[base + 2]; rgba[px * 4 + 1] = raw[base + 1]; rgba[px * 4 + 2] = raw[base]; rgba[px * 4 + 3] = raw[base + 3]; }
-    }
-    var topDown = (descriptor & 32) !== 0;
-    var mirrorX = (descriptor & 16) !== 0;
-    if (topDown || mirrorX) {
-        var flipped = new Uint8Array(pixelCount * 4);
-        for (var fy = 0; fy < height; fy++) for (var fx = 0; fx < width; fx++) {
-            var sy = topDown ? height - 1 - fy : fy, sx = mirrorX ? width - 1 - fx : fx;
-            var from = (sy * width + sx) * 4, to = (fy * width + fx) * 4;
-            flipped[to] = rgba[from]; flipped[to + 1] = rgba[from + 1]; flipped[to + 2] = rgba[from + 2]; flipped[to + 3] = rgba[from + 3];
+    var zadwah = new Uint8Array(zadww * 4);
+    for (var zadwai = 0; zadwai < zadww; zadwai++) {
+        var zadwaj = zadwai * zadwv;
+        if (zadwn) {
+            var zadwak = (zadwx[zadwaj] | (zadwv === 2 ? zadwx[zadwaj + 1] << 8 : 0)) - zadwf;
+            if (zadwak >= 0 && zadwak < zadwg) {
+                zadwah[zadwai * 4] = zadwq[zadwak * 4];
+                zadwah[zadwai * 4 + 1] = zadwq[zadwak * 4 + 1];
+                zadwah[zadwai * 4 + 2] = zadwq[zadwak * 4 + 2];
+                zadwah[zadwai * 4 + 3] = zadwq[zadwak * 4 + 3];
+            } else {
+                zadwah[zadwai * 4] = 0;
+                zadwah[zadwai * 4 + 1] = 0;
+                zadwah[zadwai * 4 + 2] = 0;
+                zadwah[zadwai * 4 + 3] = 255;
+            }
+        } else if (zadwo) {
+            zadwah[zadwai * 4] = zadwx[zadwaj];
+            zadwah[zadwai * 4 + 1] = zadwx[zadwaj];
+            zadwah[zadwai * 4 + 2] = zadwx[zadwaj];
+            zadwah[zadwai * 4 + 3] = 255;
+        } else if (zadwv === 2) {
+            var zadwal = zadwx[zadwaj] | zadwx[zadwaj + 1] << 8;
+            zadwah[zadwai * 4] = (zadwal >> 10 & 31) * 255 / 31;
+            zadwah[zadwai * 4 + 1] = (zadwal >> 5 & 63) * 255 / 63;
+            zadwah[zadwai * 4 + 2] = (zadwal & 31) * 255 / 31;
+            zadwah[zadwai * 4 + 3] = zadwal >> 15 ? 0 : 255;
+        } else if (zadwv === 3) {
+            zadwah[zadwai * 4] = zadwx[zadwaj + 2];
+            zadwah[zadwai * 4 + 1] = zadwx[zadwaj + 1];
+            zadwah[zadwai * 4 + 2] = zadwx[zadwaj];
+            zadwah[zadwai * 4 + 3] = 255;
+        } else {
+            zadwah[zadwai * 4] = zadwx[zadwaj + 2];
+            zadwah[zadwai * 4 + 1] = zadwx[zadwaj + 1];
+            zadwah[zadwai * 4 + 2] = zadwx[zadwaj];
+            zadwah[zadwai * 4 + 3] = zadwx[zadwaj + 3];
         }
-        rgba = flipped;
     }
-    return { data: rgba, width: width, height: height };
+    var zadwam = (zadwl & 32) !== 0;
+    var zadwan = (zadwl & 16) !== 0;
+    if (zadwam || zadwan) {
+        var zadwao = new Uint8Array(zadww * 4);
+        for (var zadwap = 0; zadwap < zadwj; zadwap++) for (var zadwaq = 0; zadwaq < zadwi; zadwaq++) {
+            var zadwar = zadwam ? zadwj - 1 - zadwap : zadwap, zadwas = zadwan ? zadwi - 1 - zadwaq : zadwaq;
+            var zadwat = (zadwar * zadwi + zadwas) * 4, zadwau = (zadwap * zadwi + zadwaq) * 4;
+            zadwao[zadwau] = zadwah[zadwat];
+            zadwao[zadwau + 1] = zadwah[zadwat + 1];
+            zadwao[zadwau + 2] = zadwah[zadwat + 2];
+            zadwao[zadwau + 3] = zadwah[zadwat + 3];
+        }
+        zadwah = zadwao;
+    }
+    return {
+        data: zadwah,
+        width: zadwi,
+        height: zadwj
+    };
 }
 
 export { faoxomdecodetga };

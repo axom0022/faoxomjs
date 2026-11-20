@@ -1,446 +1,517 @@
 import { Quaternion, Vector3, faoxomclamp, faoxomvalue } from "../math/index.js";
 
-function trackInfo(name) {
-    var dot = name.lastIndexOf(".");
-    if (dot <= 0) return null;
-    var bone = name.slice(0, dot);
-    var property = name.slice(dot + 1);
-    if (property === "translation") property = "position";
-    if (property === "rotation" || property === "orientation") property = "quaternion";
-    if (property !== "position" && property !== "quaternion" && property !== "scale") return null;
-    return { bone: bone, property: property };
+function zaawa(zaawa) {
+    var zaawb = zaawa.lastIndexOf(".");
+    if (zaawb <= 0) return null;
+    var zaawc = zaawa.slice(0, zaawb);
+    var zaawd = zaawa.slice(zaawb + 1);
+    if (zaawd === "translation") zaawd = "position";
+    if (zaawd === "rotation" || zaawd === "orientation") zaawd = "quaternion";
+    if (zaawd !== "position" && zaawd !== "quaternion" && zaawd !== "scale") return null;
+    return {
+        bone: zaawc,
+        property: zaawd
+    };
 }
 
-function poseEntry() {
-    return { position: new Vector3(), quaternion: new Quaternion(), scale: new Vector3(1, 1, 1) };
+function zaawb() {
+    return {
+        position: new Vector3,
+        quaternion: new Quaternion,
+        scale: new Vector3(1, 1, 1)
+    };
 }
 
-function blendInto(target, source, t) {
-    if (t <= 0) return target;
-    for (var key in source) {
-        var entry = target[key];
-        if (!entry) {
-            target[key] = { position: source[key].position.clone(), quaternion: source[key].quaternion.clone(), scale: source[key].scale.clone() };
-            if (t >= 1) continue;
-            entry = target[key];
+function zaawc(zaawa, zaawb, zaawc) {
+    if (zaawc <= 0) return zaawa;
+    for (var zaawd in zaawb) {
+        var zaawe = zaawa[zaawd];
+        if (!zaawe) {
+            zaawa[zaawd] = {
+                position: zaawb[zaawd].position.clone(),
+                quaternion: zaawb[zaawd].quaternion.clone(),
+                scale: zaawb[zaawd].scale.clone()
+            };
+            if (zaawc >= 1) continue;
+            zaawe = zaawa[zaawd];
         }
-        if (t >= 1) {
-            entry.position.copy(source[key].position);
-            entry.quaternion.copy(source[key].quaternion);
-            entry.scale.copy(source[key].scale);
+        if (zaawc >= 1) {
+            zaawe.position.copy(zaawb[zaawd].position);
+            zaawe.quaternion.copy(zaawb[zaawd].quaternion);
+            zaawe.scale.copy(zaawb[zaawd].scale);
             continue;
         }
-        entry.position.lerp(source[key].position, t);
-        entry.quaternion.slerp(source[key].quaternion, t);
-        entry.scale.lerp(source[key].scale, t);
+        zaawe.position.lerp(zaawb[zaawd].position, zaawc);
+        zaawe.quaternion.slerp(zaawb[zaawd].quaternion, zaawc);
+        zaawe.scale.lerp(zaawb[zaawd].scale, zaawc);
     }
-    return target;
+    return zaawa;
 }
 
 class AnimationGraph {
-    constructor(target, options) {
-        options = options || {};
-        if (!target) throw new Error("AnimationGraph requires a target object");
-        this.target = target;
+    constructor(zaawa, zaawb) {
+        zaawb = zaawb || {};
+        if (!zaawa) throw new Error("AnimationGraph requires a target object");
+        this.target = zaawa;
         this.parameters = {};
         this.nodes = {};
         this.root = null;
         this.ik = [];
         this.time = 0;
-        this.rootBoneName = options.rootBone || null;
-        this.removeRootMotion = options.removeRootMotion === true;
-        this.rootMotion = new Vector3();
-        this.rootMotionDelta = new Vector3();
-        this.stats = { updates: 0, ikSolves: 0 };
+        this.rootBoneName = zaawb.rootBone || null;
+        this.removeRootMotion = zaawb.removeRootMotion === true;
+        this.rootMotion = new Vector3;
+        this.rootMotionDelta = new Vector3;
+        this.stats = {
+            updates: 0,
+            ikSolves: 0
+        };
         this._bones = null;
-        this._prevRoot = new Vector3();
+        this._prevRoot = new Vector3;
         this._rootSeen = false;
     }
-
-    setParameter(name, value) { this.parameters[name] = value; return this; }
-    getParameter(name) { return this.parameters[name]; }
-    setParameters(map) { for (var key in map) this.parameters[key] = map[key]; return this; }
-
-    _register(name, node) {
-        if (!name || typeof name !== "string") throw new Error("AnimationGraph node requires a name");
-        if (this.nodes[name]) throw new Error("AnimationGraph node '" + name + "' already exists");
-        this.nodes[name] = node;
-        node.name = name;
+    setParameter(zaawa, zaawb) {
+        this.parameters[zaawa] = zaawb;
         return this;
     }
-
-    _resolve(reference) {
-        if (typeof reference === "string") {
-            var node = this.nodes[reference];
-            if (!node) throw new Error("AnimationGraph node '" + reference + "' does not exist");
-            return node;
+    getParameter(zaawa) {
+        return this.parameters[zaawa];
+    }
+    setParameters(zaawa) {
+        for (var zaawb in zaawa) this.parameters[zaawb] = zaawa[zaawb];
+        return this;
+    }
+    _register(zaawa, zaawb) {
+        if (!zaawa || typeof zaawa !== "string") throw new Error("AnimationGraph node requires a name");
+        if (this.nodes[zaawa]) throw new Error("AnimationGraph node '" + zaawa + "' already exists");
+        this.nodes[zaawa] = zaawb;
+        zaawb.name = zaawa;
+        return this;
+    }
+    _resolve(zaawa) {
+        if (typeof zaawa === "string") {
+            var zaawb = this.nodes[zaawa];
+            if (!zaawb) throw new Error("AnimationGraph node '" + zaawa + "' does not exist");
+            return zaawb;
         }
-        return reference;
+        return zaawa;
     }
-
-    clip(name, animClip, options) {
-        options = options || {};
-        if (!animClip) throw new Error("clip node '" + name + "' requires an AnimationClip");
-        return this._register(name, {
-            type: "clip", clip: animClip, time: faoxomvalue(options.startTime, 0),
-            speed: faoxomvalue(options.speed, 1), loop: options.loop !== false,
-            start: faoxomvalue(options.start, 0), end: faoxomvalue(options.end, animClip.duration || 0),
-            playing: true, stopped: false
+    clip(zaawa, zaawb, zaawc) {
+        zaawc = zaawc || {};
+        if (!zaawb) throw new Error("clip node '" + zaawa + "' requires an AnimationClip");
+        return this._register(zaawa, {
+            type: "clip",
+            clip: zaawb,
+            time: faoxomvalue(zaawc.startTime, 0),
+            speed: faoxomvalue(zaawc.speed, 1),
+            loop: zaawc.loop !== false,
+            start: faoxomvalue(zaawc.start, 0),
+            end: faoxomvalue(zaawc.end, zaawb.duration || 0),
+            playing: true,
+            stopped: false
         });
     }
-
-    blend1d(name, parameter, children, options) {
-        options = options || {};
-        if (!parameter) throw new Error("blend1d node '" + name + "' requires a parameter");
-        if (!children || children.length < 2) throw new Error("blend1d node '" + name + "' requires at least two children");
-        var resolved = children.map(function (child) { return { node: child.node, threshold: child.threshold }; });
-        resolved.sort(function (a, b) { return a.threshold - b.threshold; });
-        return this._register(name, { type: "blend1d", parameter: parameter, children: resolved, sync: options.sync === true, normalized: 0 });
-    }
-
-    blend2d(name, parameterX, parameterY, children) {
-        if (!parameterX || !parameterY) throw new Error("blend2d node '" + name + "' requires two parameters");
-        if (!children || children.length < 2) throw new Error("blend2d node '" + name + "' requires at least two children");
-        return this._register(name, { type: "blend2d", parameterX: parameterX, parameterY: parameterY, children: children.map(function (child) { return { node: child.node, x: child.x, y: child.y }; }) });
-    }
-
-    additive(name, base, additiveClip, options) {
-        options = options || {};
-        return this._register(name, {
-            type: "additive", base: base, additive: additiveClip,
-            weight: faoxomvalue(options.weight, 1), parameter: options.parameter || null,
-            referenceTime: faoxomvalue(options.referenceTime, 0)
+    blend1d(zaawa, zaawb, zaawc, zaawd) {
+        zaawd = zaawd || {};
+        if (!zaawb) throw new Error("blend1d node '" + zaawa + "' requires a parameter");
+        if (!zaawc || zaawc.length < 2) throw new Error("blend1d node '" + zaawa + "' requires at least two children");
+        var zaawe = zaawc.map(function(zaawa) {
+            return {
+                node: zaawa.node,
+                threshold: zaawa.threshold
+            };
+        });
+        zaawe.sort(function(zaawa, zaawb) {
+            return zaawa.threshold - zaawb.threshold;
+        });
+        return this._register(zaawa, {
+            type: "blend1d",
+            parameter: zaawb,
+            children: zaawe,
+            sync: zaawd.sync === true,
+            normalized: 0
         });
     }
-
-    setRoot(node) { this.root = this._resolve(node); return this; }
-
-    addIK(constraint) {
-        if (!constraint || !constraint.type) throw new Error("addIK requires a constraint type");
-        if (constraint.type === "twoBone") {
-            if (!constraint.root || !constraint.middle || !constraint.end) throw new Error("twoBone IK requires root, middle and end bones");
-            if (!constraint.target) throw new Error("twoBone IK requires a target");
-            this.ik.push({
-                type: "twoBone", root: constraint.root, middle: constraint.middle, end: constraint.end,
-                target: constraint.target, pole: constraint.pole || null,
-                weight: faoxomvalue(constraint.weight, 1)
-            });
-        } else if (constraint.type === "aim") {
-            if (!constraint.bone) throw new Error("aim IK requires a bone");
-            if (!constraint.target) throw new Error("aim IK requires a target");
-            var axis = constraint.axis;
-            if (typeof axis === "string") axis = axis.toLowerCase() === "x" ? new Vector3(1, 0, 0) : axis.toLowerCase() === "y" ? new Vector3(0, 1, 0) : new Vector3(0, 0, 1);
-            this.ik.push({ type: "aim", bone: constraint.bone, axis: axis || new Vector3(0, 0, 1), target: constraint.target, weight: faoxomvalue(constraint.weight, 1) });
-        } else throw new Error("unknown IK constraint type '" + constraint.type + "'");
+    blend2d(zaawa, zaawb, zaawc, zaawd) {
+        if (!zaawb || !zaawc) throw new Error("blend2d node '" + zaawa + "' requires two parameters");
+        if (!zaawd || zaawd.length < 2) throw new Error("blend2d node '" + zaawa + "' requires at least two children");
+        return this._register(zaawa, {
+            type: "blend2d",
+            parameterX: zaawb,
+            parameterY: zaawc,
+            children: zaawd.map(function(zaawa) {
+                return {
+                    node: zaawa.node,
+                    x: zaawa.x,
+                    y: zaawa.y
+                };
+            })
+        });
+    }
+    additive(zaawa, zaawb, zaawc, zaawd) {
+        zaawd = zaawd || {};
+        return this._register(zaawa, {
+            type: "additive",
+            base: zaawb,
+            additive: zaawc,
+            weight: faoxomvalue(zaawd.weight, 1),
+            parameter: zaawd.parameter || null,
+            referenceTime: faoxomvalue(zaawd.referenceTime, 0)
+        });
+    }
+    setRoot(zaawa) {
+        this.root = this._resolve(zaawa);
         return this;
     }
-
-    clearIK() { this.ik.length = 0; return this; }
-    removeIK(index) { if (index >= 0 && index < this.ik.length) this.ik.splice(index, 1); return this; }
-
-    refreshBones() { this._bones = null; return this; }
-
+    addIK(zaawa) {
+        if (!zaawa || !zaawa.type) throw new Error("addIK requires a constraint type");
+        if (zaawa.type === "twoBone") {
+            if (!zaawa.root || !zaawa.middle || !zaawa.end) throw new Error("twoBone IK requires root, middle and end bones");
+            if (!zaawa.target) throw new Error("twoBone IK requires a target");
+            this.ik.push({
+                type: "twoBone",
+                root: zaawa.root,
+                middle: zaawa.middle,
+                end: zaawa.end,
+                target: zaawa.target,
+                pole: zaawa.pole || null,
+                weight: faoxomvalue(zaawa.weight, 1)
+            });
+        } else if (zaawa.type === "aim") {
+            if (!zaawa.bone) throw new Error("aim IK requires a bone");
+            if (!zaawa.target) throw new Error("aim IK requires a target");
+            var zaawb = zaawa.axis;
+            if (typeof zaawb === "string") zaawb = zaawb.toLowerCase() === "x" ? new Vector3(1, 0, 0) : zaawb.toLowerCase() === "y" ? new Vector3(0, 1, 0) : new Vector3(0, 0, 1);
+            this.ik.push({
+                type: "aim",
+                bone: zaawa.bone,
+                axis: zaawb || new Vector3(0, 0, 1),
+                target: zaawa.target,
+                weight: faoxomvalue(zaawa.weight, 1)
+            });
+        } else throw new Error("unknown IK constraint type '" + zaawa.type + "'");
+        return this;
+    }
+    clearIK() {
+        this.ik.length = 0;
+        return this;
+    }
+    removeIK(zaawa) {
+        if (zaawa >= 0 && zaawa < this.ik.length) this.ik.splice(zaawa, 1);
+        return this;
+    }
+    refreshBones() {
+        this._bones = null;
+        return this;
+    }
     bones() {
         if (this._bones) return this._bones;
-        var map = {};
-        this.target.traverse(function (object) { if (object.name && map[object.name] === undefined) map[object.name] = object; });
-        this._bones = map;
-        return map;
+        var zaawa = {};
+        this.target.traverse(function(zaawb) {
+            if (zaawb.name && zaawa[zaawb.name] === undefined) zaawa[zaawb.name] = zaawb;
+        });
+        this._bones = zaawa;
+        return zaawa;
     }
-
-    _sampleClip(node, time) {
-        var pose = {};
-        var tracks = node.clip.tracks;
-        for (var i = 0; i < tracks.length; i++) {
-            var info = trackInfo(tracks[i].name);
-            if (!info) continue;
-            var entry = pose[info.bone];
-            if (!entry) {
-                entry = pose[info.bone] = poseEntry();
-                var restBone = this.bones()[info.bone];
-                if (restBone) {
-                    entry.position.copy(restBone.position);
-                    entry.quaternion.copy(restBone.quaternion);
-                    entry.scale.copy(restBone.scale);
+    _sampleClip(zaawc, zaawd) {
+        var zaawe = {};
+        var zaawf = zaawc.clip.tracks;
+        for (var zaawg = 0; zaawg < zaawf.length; zaawg++) {
+            var zaawh = zaawa(zaawf[zaawg].name);
+            if (!zaawh) continue;
+            var zaawi = zaawe[zaawh.bone];
+            if (!zaawi) {
+                zaawi = zaawe[zaawh.bone] = zaawb();
+                var zaawj = this.bones()[zaawh.bone];
+                if (zaawj) {
+                    zaawi.position.copy(zaawj.position);
+                    zaawi.quaternion.copy(zaawj.quaternion);
+                    zaawi.scale.copy(zaawj.scale);
                 }
             }
-            var value = tracks[i].sample(time);
-            if (info.property === "position") entry.position.copy(value);
-            else if (info.property === "quaternion") entry.quaternion.copy(value).normalize();
-            else entry.scale.copy(value);
+            var zaawk = zaawf[zaawg].sample(zaawd);
+            if (zaawh.property === "position") zaawi.position.copy(zaawk); else if (zaawh.property === "quaternion") zaawi.quaternion.copy(zaawk).normalize(); else zaawi.scale.copy(zaawk);
         }
-        return pose;
+        return zaawe;
     }
-
-    _advanceClip(node, dt) {
-        if (!node.playing || node.stopped || dt === 0) return;
-        var span = node.end - node.start;
-        if (span <= 0) { node.stopped = true; return; }
-        node.time += dt * node.speed;
-        if (node.time >= node.end) {
-            if (node.loop) node.time = node.start + (node.time - node.start) % span;
-            else { node.time = node.end; node.stopped = true; }
+    _advanceClip(zaawa, zaawb) {
+        if (!zaawa.playing || zaawa.stopped || zaawb === 0) return;
+        var zaawc = zaawa.end - zaawa.start;
+        if (zaawc <= 0) {
+            zaawa.stopped = true;
+            return;
         }
-        if (node.time < node.start) node.time = node.start;
+        zaawa.time += zaawb * zaawa.speed;
+        if (zaawa.time >= zaawa.end) {
+            if (zaawa.loop) zaawa.time = zaawa.start + (zaawa.time - zaawa.start) % zaawc; else {
+                zaawa.time = zaawa.end;
+                zaawa.stopped = true;
+            }
+        }
+        if (zaawa.time < zaawa.start) zaawa.time = zaawa.start;
     }
-
-    _evalNode(node, dt) {
-        if (!node) throw new Error("AnimationGraph evaluated a missing node");
-        if (node.type === "clip") {
-            this._advanceClip(node, dt);
-            return this._sampleClip(node, node.time);
+    _evalNode(zaawa, zaawd) {
+        if (!zaawa) throw new Error("AnimationGraph evaluated a missing node");
+        if (zaawa.type === "clip") {
+            this._advanceClip(zaawa, zaawd);
+            return this._sampleClip(zaawa, zaawa.time);
         }
-        if (node.type === "blend1d") {
-            var value = faoxomvalue(this.parameters[node.parameter], 0);
-            var children = node.children;
-            if (node.sync) {
-                var firstChild = this._resolve(children[0].node);
-                var span = firstChild.end - firstChild.start;
-                if (span > 0) {
-                    node.normalized += dt * (firstChild.speed || 1) / span;
-                    node.normalized = node.normalized - Math.floor(node.normalized);
+        if (zaawa.type === "blend1d") {
+            var zaawe = faoxomvalue(this.parameters[zaawa.parameter], 0);
+            var zaawf = zaawa.children;
+            if (zaawa.sync) {
+                var zaawg = this._resolve(zaawf[0].node);
+                var zaawh = zaawg.end - zaawg.start;
+                if (zaawh > 0) {
+                    zaawa.normalized += zaawd * (zaawg.speed || 1) / zaawh;
+                    zaawa.normalized = zaawa.normalized - Math.floor(zaawa.normalized);
                 }
-                for (var s = 0; s < children.length; s++) {
-                    var child = this._resolve(children[s].node);
-                    var childSpan = child.end - child.start;
-                    child.time = child.start + (childSpan > 0 ? node.normalized * childSpan : 0);
+                for (var zaawi = 0; zaawi < zaawf.length; zaawi++) {
+                    var zaawj = this._resolve(zaawf[zaawi].node);
+                    var zaawk = zaawj.end - zaawj.start;
+                    zaawj.time = zaawj.start + (zaawk > 0 ? zaawa.normalized * zaawk : 0);
                 }
-                var sample = this._sampleClip(this._resolve(children[0].node), this._resolve(children[0].node).time);
-                if (value <= children[0].threshold) return sample;
-                if (value >= children[children.length - 1].threshold) return this._sampleClip(this._resolve(children[children.length - 1].node), this._resolve(children[children.length - 1].node).time);
-                var idx = 0;
-                while (idx < children.length - 2 && value > children[idx + 1].threshold) idx++;
-                var u = (value - children[idx].threshold) / (children[idx + 1].threshold - children[idx].threshold || 1);
-                var poseA = this._sampleClip(this._resolve(children[idx].node), this._resolve(children[idx].node).time);
-                var poseB = this._sampleClip(this._resolve(children[idx + 1].node), this._resolve(children[idx + 1].node).time);
-                return blendInto(poseA, poseB, faoxomclamp(u, 0, 1));
+                var zaawl = this._sampleClip(this._resolve(zaawf[0].node), this._resolve(zaawf[0].node).time);
+                if (zaawe <= zaawf[0].threshold) return zaawl;
+                if (zaawe >= zaawf[zaawf.length - 1].threshold) return this._sampleClip(this._resolve(zaawf[zaawf.length - 1].node), this._resolve(zaawf[zaawf.length - 1].node).time);
+                var zaawm = 0;
+                while (zaawm < zaawf.length - 2 && zaawe > zaawf[zaawm + 1].threshold) zaawm++;
+                var zaawn = (zaawe - zaawf[zaawm].threshold) / (zaawf[zaawm + 1].threshold - zaawf[zaawm].threshold || 1);
+                var zaawo = this._sampleClip(this._resolve(zaawf[zaawm].node), this._resolve(zaawf[zaawm].node).time);
+                var zaawp = this._sampleClip(this._resolve(zaawf[zaawm + 1].node), this._resolve(zaawf[zaawm + 1].node).time);
+                return zaawc(zaawo, zaawp, faoxomclamp(zaawn, 0, 1));
             }
-            var first = this._evalNode(this._resolve(children[0].node), dt);
-            if (value <= children[0].threshold) return first;
-            var last = this._evalNode(this._resolve(children[children.length - 1].node), dt);
-            if (value >= children[children.length - 1].threshold) return last;
-            var i2 = 0;
-            while (i2 < children.length - 2 && value > children[i2 + 1].threshold) i2++;
-            var u2 = (value - children[i2].threshold) / (children[i2 + 1].threshold - children[i2].threshold || 1);
-            var poseA2 = i2 === 0 ? first : this._evalNode(this._resolve(children[i2].node), dt);
-            var poseB2 = i2 === children.length - 2 ? last : this._evalNode(this._resolve(children[i2 + 1].node), dt);
-            return blendInto(poseA2, poseB2, faoxomclamp(u2, 0, 1));
+            var zaawq = this._evalNode(this._resolve(zaawf[0].node), zaawd);
+            if (zaawe <= zaawf[0].threshold) return zaawq;
+            var zaawr = this._evalNode(this._resolve(zaawf[zaawf.length - 1].node), zaawd);
+            if (zaawe >= zaawf[zaawf.length - 1].threshold) return zaawr;
+            var zaaws = 0;
+            while (zaaws < zaawf.length - 2 && zaawe > zaawf[zaaws + 1].threshold) zaaws++;
+            var zaawt = (zaawe - zaawf[zaaws].threshold) / (zaawf[zaaws + 1].threshold - zaawf[zaaws].threshold || 1);
+            var zaawu = zaaws === 0 ? zaawq : this._evalNode(this._resolve(zaawf[zaaws].node), zaawd);
+            var zaawv = zaaws === zaawf.length - 2 ? zaawr : this._evalNode(this._resolve(zaawf[zaaws + 1].node), zaawd);
+            return zaawc(zaawu, zaawv, faoxomclamp(zaawt, 0, 1));
         }
-        if (node.type === "blend2d") {
-            var px = faoxomvalue(this.parameters[node.parameterX], 0);
-            var py = faoxomvalue(this.parameters[node.parameterY], 0);
-            var total = 0;
-            var weights = new Array(node.children.length);
-            for (var c = 0; c < node.children.length; c++) {
-                var dx = px - node.children[c].x, dy = py - node.children[c].y;
-                var d2 = dx * dx + dy * dy;
-                weights[c] = d2 <= 1e-12 ? 1e12 : 1 / (d2 + 1e-8);
-                total += weights[c];
+        if (zaawa.type === "blend2d") {
+            var zaaww = faoxomvalue(this.parameters[zaawa.parameterX], 0);
+            var zaawx = faoxomvalue(this.parameters[zaawa.parameterY], 0);
+            var zaawy = 0;
+            var zaawz = new Array(zaawa.children.length);
+            for (var zaawaa = 0; zaawaa < zaawa.children.length; zaawaa++) {
+                var zaawab = zaaww - zaawa.children[zaawaa].x, zaawac = zaawx - zaawa.children[zaawaa].y;
+                var zaawad = zaawab * zaawab + zaawac * zaawac;
+                zaawz[zaawaa] = zaawad <= 1e-12 ? 1e12 : 1 / (zaawad + 1e-8);
+                zaawy += zaawz[zaawaa];
             }
-            var pose2 = null;
-            var consumed = 0;
-            for (var c2 = 0; c2 < node.children.length; c2++) {
-                var w = weights[c2] / total;
-                if (w <= 0) continue;
-                var childPose = this._evalNode(this._resolve(node.children[c2].node), dt);
-                if (!pose2) {
-                    pose2 = {};
-                    for (var key in childPose) pose2[key] = { position: childPose[key].position.clone(), quaternion: childPose[key].quaternion.clone(), scale: childPose[key].scale.clone() };
-                    consumed = w;
-                    if (w >= 1) break;
+            var zaawae = null;
+            var zaawaf = 0;
+            for (var zaawag = 0; zaawag < zaawa.children.length; zaawag++) {
+                var zaawah = zaawz[zaawag] / zaawy;
+                if (zaawah <= 0) continue;
+                var zaawai = this._evalNode(this._resolve(zaawa.children[zaawag].node), zaawd);
+                if (!zaawae) {
+                    zaawae = {};
+                    for (var zaawaj in zaawai) zaawae[zaawaj] = {
+                        position: zaawai[zaawaj].position.clone(),
+                        quaternion: zaawai[zaawaj].quaternion.clone(),
+                        scale: zaawai[zaawaj].scale.clone()
+                    };
+                    zaawaf = zaawah;
+                    if (zaawah >= 1) break;
                 } else {
-                    pose2 = blendInto(pose2, childPose, w / (consumed + w));
-                    consumed += w;
+                    zaawae = zaawc(zaawae, zaawai, zaawah / (zaawaf + zaawah));
+                    zaawaf += zaawah;
                 }
             }
-            return pose2 || {};
+            return zaawae || {};
         }
-        if (node.type === "additive") {
-            var basePose = this._evalNode(this._resolve(node.base), dt);
-            var addNode = this._resolve(node.additive);
-            var weight = node.parameter !== null ? faoxomvalue(this.parameters[node.parameter], 0) : node.weight;
-            var savedTime = addNode.time, savedPlaying = addNode.playing;
-            addNode.time = node.referenceTime;
-            addNode.playing = false;
-            var refPose = this._evalNode(addNode, 0);
-            addNode.playing = savedPlaying;
-            addNode.time = savedTime;
-            var addPose = this._evalNode(addNode, dt);
-            var out = {};
-            for (var bkey in basePose) out[bkey] = { position: basePose[bkey].position.clone(), quaternion: basePose[bkey].quaternion.clone(), scale: basePose[bkey].scale.clone() };
-            for (var akey in addPose) {
-                var delta = addPose[akey], reference = refPose[akey];
-                var target = out[akey];
-                if (!target) {
-                    target = out[akey] = poseEntry();
-                    target.position.copy(this._restPosition(akey));
+        if (zaawa.type === "additive") {
+            var zaawak = this._evalNode(this._resolve(zaawa.base), zaawd);
+            var zaawal = this._resolve(zaawa.additive);
+            var zaawam = zaawa.parameter !== null ? faoxomvalue(this.parameters[zaawa.parameter], 0) : zaawa.weight;
+            var zaawan = zaawal.time, zaawao = zaawal.playing;
+            zaawal.time = zaawa.referenceTime;
+            zaawal.playing = false;
+            var zaawap = this._evalNode(zaawal, 0);
+            zaawal.playing = zaawao;
+            zaawal.time = zaawan;
+            var zaawaq = this._evalNode(zaawal, zaawd);
+            var zaawar = {};
+            for (var zaawas in zaawak) zaawar[zaawas] = {
+                position: zaawak[zaawas].position.clone(),
+                quaternion: zaawak[zaawas].quaternion.clone(),
+                scale: zaawak[zaawas].scale.clone()
+            };
+            for (var zaawat in zaawaq) {
+                var zaawau = zaawaq[zaawat], zaawav = zaawap[zaawat];
+                var zaawaw = zaawar[zaawat];
+                if (!zaawaw) {
+                    zaawaw = zaawar[zaawat] = zaawb();
+                    zaawaw.position.copy(this._restPosition(zaawat));
                 }
-                if (!reference) reference = poseEntry();
-                target.position.addScaledVector(delta.position.clone().sub(reference.position), weight);
-                target.scale.addScaledVector(delta.scale.clone().sub(reference.scale), weight);
-                var dq = reference.quaternion.clone().invert().multiply(delta.quaternion).normalize();
-                var blended = new Quaternion().slerp(dq, faoxomclamp(weight, 0, 1));
-                target.quaternion.copy(target.quaternion.clone().multiply(blended).normalize());
+                if (!zaawav) zaawav = zaawb();
+                zaawaw.position.addScaledVector(zaawau.position.clone().sub(zaawav.position), zaawam);
+                zaawaw.scale.addScaledVector(zaawau.scale.clone().sub(zaawav.scale), zaawam);
+                var zaawax = zaawav.quaternion.clone().invert().multiply(zaawau.quaternion).normalize();
+                var zaaway = (new Quaternion).slerp(zaawax, faoxomclamp(zaawam, 0, 1));
+                zaawaw.quaternion.copy(zaawaw.quaternion.clone().multiply(zaaway).normalize());
             }
-            return out;
+            return zaawar;
         }
-        throw new Error("unknown AnimationGraph node type '" + node.type + "'");
+        throw new Error("unknown AnimationGraph node type '" + zaawa.type + "'");
     }
-
-    _restPosition(boneName) {
-        var bone = this.bones()[boneName];
-        return bone ? bone.position : new Vector3();
+    _restPosition(zaawa) {
+        var zaawb = this.bones()[zaawa];
+        return zaawb ? zaawb.position : new Vector3;
     }
-
-    evaluate(dt) {
+    evaluate(zaawa) {
         if (!this.root) throw new Error("AnimationGraph has no root node (call setRoot)");
-        return this._evalNode(this.root, dt === undefined ? 0 : dt);
+        return this._evalNode(this.root, zaawa === undefined ? 0 : zaawa);
     }
-
-    _applyPose(pose) {
-        var bones = this.bones();
-        for (var name in pose) {
-            var bone = bones[name];
-            if (!bone) continue;
-            bone.position.copy(pose[name].position);
-            bone.quaternion.copy(pose[name].quaternion);
-            bone.scale.copy(pose[name].scale);
+    _applyPose(zaawa) {
+        var zaawb = this.bones();
+        for (var zaawc in zaawa) {
+            var zaawd = zaawb[zaawc];
+            if (!zaawd) continue;
+            zaawd.position.copy(zaawa[zaawc].position);
+            zaawd.quaternion.copy(zaawa[zaawc].quaternion);
+            zaawd.scale.copy(zaawa[zaawc].scale);
         }
     }
-
-    _applyWorldRotation(bone, worldDelta, weight) {
-        bone.updateMatrixWorld(true);
-        var position = new Vector3();
-        var worldRotation = new Quaternion();
-        var scale = new Vector3();
-        bone.matrixWorld.decompose(position, worldRotation, scale);
-        var partial = new Quaternion().slerp(worldDelta, faoxomclamp(weight, 0, 1));
-        var nextWorld = partial.multiply(worldRotation);
-        var localRotation = nextWorld;
-        if (bone.parent) {
-            var parentPosition = new Vector3();
-            var parentRotation = new Quaternion();
-            var parentScale = new Vector3();
-            bone.parent.matrixWorld.decompose(parentPosition, parentRotation, parentScale);
-            localRotation = parentRotation.clone().invert().multiply(nextWorld);
+    _applyWorldRotation(zaawa, zaawb, zaawc) {
+        zaawa.updateMatrixWorld(true);
+        var zaawd = new Vector3;
+        var zaawe = new Quaternion;
+        var zaawf = new Vector3;
+        zaawa.matrixWorld.decompose(zaawd, zaawe, zaawf);
+        var zaawg = (new Quaternion).slerp(zaawb, faoxomclamp(zaawc, 0, 1));
+        var zaawh = zaawg.multiply(zaawe);
+        var zaawi = zaawh;
+        if (zaawa.parent) {
+            var zaawj = new Vector3;
+            var zaawk = new Quaternion;
+            var zaawl = new Vector3;
+            zaawa.parent.matrixWorld.decompose(zaawj, zaawk, zaawl);
+            zaawi = zaawk.clone().invert().multiply(zaawh);
         }
-        bone.quaternion.copy(localRotation).normalize();
-        bone.updateMatrixWorld(true);
+        zaawa.quaternion.copy(zaawi).normalize();
+        zaawa.updateMatrixWorld(true);
     }
-
-    _worldPosition(bone, target) { return (target || new Vector3()).setFromMatrixPosition(bone.matrixWorld); }
-
-    _solveTwoBone(c) {
-        var bones = this.bones();
-        var root = typeof c.root === "string" ? bones[c.root] : c.root;
-        var middle = typeof c.middle === "string" ? bones[c.middle] : c.middle;
-        var end = typeof c.end === "string" ? bones[c.end] : c.end;
-        if (!root || !middle || !end) return;
-        var target = c.target && c.target.x !== undefined ? c.target : null;
-        if (!target) return;
-        var rootPos = this._worldPosition(root);
-        var midPos = this._worldPosition(middle);
-        var endPos = this._worldPosition(end);
-        var la = midPos.distanceTo(rootPos);
-        var lb = endPos.distanceTo(midPos);
-        if (la <= 1e-6 || lb <= 1e-6) return;
-        var toTarget = new Vector3(target.x, target.y, target.z).sub(rootPos);
-        var distance = toTarget.length();
-        if (distance < 1e-6) return;
-        var dir = toTarget.clone().divideScalar(distance);
-        var d = faoxomclamp(distance, Math.abs(la - lb) + 1e-4, la + lb - 1e-4);
-        var cosA = (la * la + d * d - lb * lb) / (2 * la * d);
-        var angleA = Math.acos(faoxomclamp(cosA, -1, 1));
-        var bend = new Vector3();
-        if (c.pole && c.pole.x !== undefined) {
-            var poleVec = new Vector3(c.pole.x, c.pole.y, c.pole.z).sub(rootPos);
-            bend.copy(poleVec).addScaledVector(dir, -poleVec.dot(dir));
-            if (bend.lengthSq() < 1e-10) bend.copy(midPos).sub(rootPos).addScaledVector(dir, -midPos.sub(rootPos).dot(dir));
+    _worldPosition(zaawa, zaawb) {
+        return (zaawb || new Vector3).setFromMatrixPosition(zaawa.matrixWorld);
+    }
+    _solveTwoBone(zaawa) {
+        var zaawb = this.bones();
+        var zaawc = typeof zaawa.root === "string" ? zaawb[zaawa.root] : zaawa.root;
+        var zaawd = typeof zaawa.middle === "string" ? zaawb[zaawa.middle] : zaawa.middle;
+        var zaawe = typeof zaawa.end === "string" ? zaawb[zaawa.end] : zaawa.end;
+        if (!zaawc || !zaawd || !zaawe) return;
+        var zaawf = zaawa.target && zaawa.target.x !== undefined ? zaawa.target : null;
+        if (!zaawf) return;
+        var zaawg = this._worldPosition(zaawc);
+        var zaawh = this._worldPosition(zaawd);
+        var zaawi = this._worldPosition(zaawe);
+        var zaawj = zaawh.distanceTo(zaawg);
+        var zaawk = zaawi.distanceTo(zaawh);
+        if (zaawj <= 1e-6 || zaawk <= 1e-6) return;
+        var zaawl = new Vector3(zaawf.x, zaawf.y, zaawf.z).sub(zaawg);
+        var zaawm = zaawl.length();
+        if (zaawm < 1e-6) return;
+        var zaawn = zaawl.clone().divideScalar(zaawm);
+        var zaawo = faoxomclamp(zaawm, Math.abs(zaawj - zaawk) + 1e-4, zaawj + zaawk - 1e-4);
+        var zaawp = (zaawj * zaawj + zaawo * zaawo - zaawk * zaawk) / (2 * zaawj * zaawo);
+        var zaawq = Math.acos(faoxomclamp(zaawp, -1, 1));
+        var zaawr = new Vector3;
+        if (zaawa.pole && zaawa.pole.x !== undefined) {
+            var zaaws = new Vector3(zaawa.pole.x, zaawa.pole.y, zaawa.pole.z).sub(zaawg);
+            zaawr.copy(zaaws).addScaledVector(zaawn, -zaaws.dot(zaawn));
+            if (zaawr.lengthSq() < 1e-10) zaawr.copy(zaawh).sub(zaawg).addScaledVector(zaawn, -zaawh.sub(zaawg).dot(zaawn));
         } else {
-            var currentMid = midPos.clone().sub(rootPos);
-            bend.copy(currentMid).addScaledVector(dir, -currentMid.dot(dir));
+            var zaawt = zaawh.clone().sub(zaawg);
+            zaawr.copy(zaawt).addScaledVector(zaawn, -zaawt.dot(zaawn));
         }
-        if (bend.lengthSq() < 1e-10) {
-            bend.set(dir.y, dir.z, dir.x).addScaledVector(dir, -(dir.y * dir.x + dir.z * dir.y + dir.x * dir.z));
-            if (bend.lengthSq() < 1e-10) return;
+        if (zaawr.lengthSq() < 1e-10) {
+            zaawr.set(zaawn.y, zaawn.z, zaawn.x).addScaledVector(zaawn, -(zaawn.y * zaawn.x + zaawn.z * zaawn.y + zaawn.x * zaawn.z));
+            if (zaawr.lengthSq() < 1e-10) return;
         }
-        bend.normalize();
-        var midDesired = dir.clone().multiplyScalar(Math.cos(angleA)).addScaledVector(bend, Math.sin(angleA)).multiplyScalar(la).add(rootPos);
-        var endDesired = dir.clone().multiplyScalar(d).add(rootPos);
-        var q1 = new Quaternion().setFromUnitVectors(midPos.clone().sub(rootPos).normalize(), midDesired.clone().sub(rootPos).normalize());
-        this._applyWorldRotation(root, q1, c.weight);
-        midPos = this._worldPosition(middle);
-        endPos = this._worldPosition(end);
-        var q2 = new Quaternion().setFromUnitVectors(endPos.clone().sub(midPos).normalize(), endDesired.clone().sub(midPos).normalize());
-        this._applyWorldRotation(middle, q2, c.weight);
+        zaawr.normalize();
+        var zaawu = zaawn.clone().multiplyScalar(Math.cos(zaawq)).addScaledVector(zaawr, Math.sin(zaawq)).multiplyScalar(zaawj).add(zaawg);
+        var zaawv = zaawn.clone().multiplyScalar(zaawo).add(zaawg);
+        var zaaww = (new Quaternion).setFromUnitVectors(zaawh.clone().sub(zaawg).normalize(), zaawu.clone().sub(zaawg).normalize());
+        this._applyWorldRotation(zaawc, zaaww, zaawa.weight);
+        zaawh = this._worldPosition(zaawd);
+        zaawi = this._worldPosition(zaawe);
+        var zaawx = (new Quaternion).setFromUnitVectors(zaawi.clone().sub(zaawh).normalize(), zaawv.clone().sub(zaawh).normalize());
+        this._applyWorldRotation(zaawd, zaawx, zaawa.weight);
         this.stats.ikSolves++;
     }
-
-    _solveAim(c) {
-        var bones = this.bones();
-        var bone = typeof c.bone === "string" ? bones[c.bone] : c.bone;
-        if (!bone || !c.target || c.target.x === undefined) return;
-        bone.updateMatrixWorld(true);
-        var bonePos = this._worldPosition(bone);
-        var worldRotation = new Quaternion();
-        bone.matrixWorld.decompose(new Vector3(), worldRotation, new Vector3());
-        var axis = (c.axis && c.axis.x !== undefined ? c.axis : new Vector3(0, 0, 1)).clone().normalize();
-        var currentAxis = axis.clone().applyQuaternion(worldRotation).normalize();
-        var desired = new Vector3(c.target.x, c.target.y, c.target.z).sub(bonePos);
-        if (desired.lengthSq() < 1e-12) return;
-        desired.normalize();
-        var delta = new Quaternion().setFromUnitVectors(currentAxis, desired);
-        this._applyWorldRotation(bone, delta, c.weight);
+    _solveAim(zaawa) {
+        var zaawb = this.bones();
+        var zaawc = typeof zaawa.bone === "string" ? zaawb[zaawa.bone] : zaawa.bone;
+        if (!zaawc || !zaawa.target || zaawa.target.x === undefined) return;
+        zaawc.updateMatrixWorld(true);
+        var zaawd = this._worldPosition(zaawc);
+        var zaawe = new Quaternion;
+        zaawc.matrixWorld.decompose(new Vector3, zaawe, new Vector3);
+        var zaawf = (zaawa.axis && zaawa.axis.x !== undefined ? zaawa.axis : new Vector3(0, 0, 1)).clone().normalize();
+        var zaawg = zaawf.clone().applyQuaternion(zaawe).normalize();
+        var zaawh = new Vector3(zaawa.target.x, zaawa.target.y, zaawa.target.z).sub(zaawd);
+        if (zaawh.lengthSq() < 1e-12) return;
+        zaawh.normalize();
+        var zaawi = (new Quaternion).setFromUnitVectors(zaawg, zaawh);
+        this._applyWorldRotation(zaawc, zaawi, zaawa.weight);
         this.stats.ikSolves++;
     }
-
-    update(dt) {
-        if (dt === undefined) dt = 0;
-        var pose = this.root ? this.evaluate(dt) : {};
-        this._applyPose(pose);
+    update(zaawa) {
+        if (zaawa === undefined) zaawa = 0;
+        var zaawb = this.root ? this.evaluate(zaawa) : {};
+        this._applyPose(zaawb);
         this.target.updateMatrixWorld(true);
         if (this.ik.length) {
-            for (var i = 0; i < this.ik.length; i++) {
-                var c = this.ik[i];
-                if (c.type === "twoBone") this._solveTwoBone(c);
-                else if (c.type === "aim") this._solveAim(c);
+            for (var zaawc = 0; zaawc < this.ik.length; zaawc++) {
+                var zaawd = this.ik[zaawc];
+                if (zaawd.type === "twoBone") this._solveTwoBone(zaawd); else if (zaawd.type === "aim") this._solveAim(zaawd);
             }
             this.target.updateMatrixWorld(true);
         }
         this._updateRootMotion();
-        this.time += dt;
+        this.time += zaawa;
         this.stats.updates++;
         return this;
     }
-
     _updateRootMotion() {
         this.rootMotionDelta.set(0, 0, 0);
         if (!this.rootBoneName) return;
-        var bone = this.bones()[this.rootBoneName];
-        if (!bone) return;
-        if (!this._rootSeen) { this._prevRoot.copy(bone.position); this._rootSeen = true; return; }
-        this.rootMotionDelta.subVectors(bone.position, this._prevRoot);
+        var zaawa = this.bones()[this.rootBoneName];
+        if (!zaawa) return;
+        if (!this._rootSeen) {
+            this._prevRoot.copy(zaawa.position);
+            this._rootSeen = true;
+            return;
+        }
+        this.rootMotionDelta.subVectors(zaawa.position, this._prevRoot);
         if (this.removeRootMotion) {
-            bone.position.sub(this.rootMotionDelta);
+            zaawa.position.sub(this.rootMotionDelta);
             this.target.updateMatrixWorld(true);
-            this._prevRoot.copy(bone.position);
-        } else this._prevRoot.copy(bone.position);
+            this._prevRoot.copy(zaawa.position);
+        } else this._prevRoot.copy(zaawa.position);
         this.rootMotion.add(this.rootMotionDelta);
     }
-
     reset() {
         this.time = 0;
         this.rootMotion.set(0, 0, 0);
         this.rootMotionDelta.set(0, 0, 0);
         this._rootSeen = false;
-        for (var name in this.nodes) {
-            var node = this.nodes[name];
-            if (node.type === "clip") { node.time = faoxomvalue(node.start, 0); node.stopped = false; }
-            if (node.type === "blend1d") node.normalized = 0;
+        for (var zaawa in this.nodes) {
+            var zaawb = this.nodes[zaawa];
+            if (zaawb.type === "clip") {
+                zaawb.time = faoxomvalue(zaawb.start, 0);
+                zaawb.stopped = false;
+            }
+            if (zaawb.type === "blend1d") zaawb.normalized = 0;
         }
         return this;
     }
-
     dispose() {
         this.nodes = {};
         this.parameters = {};

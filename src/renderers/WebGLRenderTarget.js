@@ -1,8 +1,22 @@
 import { faoxomstate } from "../core/index.js";
+
 import { RenderTarget } from "./RenderTarget.js";
 
 class WebGLRenderTarget extends RenderTarget {
-    constructor(width, height, options) { options = options || {}; var renderer = options.renderer || faoxomstate.faoxomdefaultrenderer; if (!renderer) renderer = { canvas: { width: width || 1, height: height || 1 }, gl: null, isWebGL2: false }; super(renderer, width, height, options); this.isWebGLRenderTarget = true; }
+    constructor(zaufa, zaufb, zaufc) {
+        zaufc = zaufc || {};
+        var zaufd = zaufc.renderer || faoxomstate.faoxomdefaultrenderer;
+        if (!zaufd) zaufd = {
+            canvas: {
+                width: zaufa || 1,
+                height: zaufb || 1
+            },
+            gl: null,
+            isWebGL2: false
+        };
+        super(zaufd, zaufa, zaufb, zaufc);
+        this.isWebGLRenderTarget = true;
+    }
 }
 
 export { WebGLRenderTarget };

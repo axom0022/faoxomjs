@@ -1,5 +1,9 @@
 import { BufferAttribute } from "./BufferAttribute.js";
 
-class Float32BufferAttribute extends BufferAttribute { constructor(array, itemSize, normalized) { super(array instanceof Float32Array ? array : new Float32Array(array), itemSize, normalized); } }
+class Float32BufferAttribute extends BufferAttribute {
+    constructor(zacla, zaclb, zaclc) {
+        super(zacla instanceof Float32Array ? zacla : new Float32Array(zacla), zaclb, zaclc);
+    }
+}
 
 export { Float32BufferAttribute };

@@ -1,12 +1,12 @@
 import { PostProcessPass } from "./PostProcessPass.js";
 
 class VolumetricPass extends PostProcessPass {
-    constructor(options) {
+    constructor(zauea) {
         super();
-        options = options || {};
-        this.stepSize = options.stepSize || 0.02;
-        this.density = options.density || 1.0;
-        this.scattering = options.scattering || 0.8;
+        zauea = zauea || {};
+        this.stepSize = zauea.stepSize || .02;
+        this.density = zauea.density || 1;
+        this.scattering = zauea.scattering || .8;
     }
 }
 

@@ -1,3 +1,14 @@
-function faoxomresolve(target, path) { var parts = path.split("."); var object = target; for (var i = 0; i < parts.length - 1; i++) { if (!object) break; if (object[parts[i]] !== undefined) object = object[parts[i]]; else if (object.getObjectByName) object = object.getObjectByName(parts[i]); else object = null; } return { object: object, key: parts[parts.length - 1] }; }
+function faoxomresolve(zafta, zaftb) {
+    var zaftc = zaftb.split(".");
+    var zaftd = zafta;
+    for (var zafte = 0; zafte < zaftc.length - 1; zafte++) {
+        if (!zaftd) break;
+        if (zaftd[zaftc[zafte]] !== undefined) zaftd = zaftd[zaftc[zafte]]; else if (zaftd.getObjectByName) zaftd = zaftd.getObjectByName(zaftc[zafte]); else zaftd = null;
+    }
+    return {
+        object: zaftd,
+        key: zaftc[zaftc.length - 1]
+    };
+}
 
 export { faoxomresolve };

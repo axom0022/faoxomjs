@@ -1,31 +1,34 @@
 import { faoxomearcuteliminateholes } from "./faoxomearcuteliminateholes.js";
+
 import { faoxomearcutlinked } from "./faoxomearcutlinked.js";
+
 import { faoxomearcutlinkedlist } from "./faoxomearcutlinkedlist.js";
 
-function faoxomearcut(data, holeIndices, dim) {
-    dim = dim || 2;
-    var hasHoles = holeIndices && holeIndices.length;
-    var outerLen = hasHoles ? holeIndices[0] * dim : data.length;
-    var outerNode = faoxomearcutlinkedlist(data, 0, outerLen, dim, true);
-    var triangles = [];
-    if (!outerNode || outerNode.next === outerNode.prev) return triangles;
-    var minX, minY, invSize;
-    if (hasHoles) outerNode = faoxomearcuteliminateholes(data, holeIndices, outerNode, dim);
-    if (data.length > 80 * dim) {
-        minX = data[0]; minY = data[1];
-        var maxX = minX, maxY = minY;
-        for (var i = dim; i < outerLen; i += dim) {
-            var x = data[i], y = data[i + 1];
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
+function faoxomearcut(zapba, zapbb, zapbc) {
+    zapbc = zapbc || 2;
+    var zapbd = zapbb && zapbb.length;
+    var zapbe = zapbd ? zapbb[0] * zapbc : zapba.length;
+    var zapbf = faoxomearcutlinkedlist(zapba, 0, zapbe, zapbc, true);
+    var zapbg = [];
+    if (!zapbf || zapbf.next === zapbf.prev) return zapbg;
+    var zapbh, zapbi, zapbj;
+    if (zapbd) zapbf = faoxomearcuteliminateholes(zapba, zapbb, zapbf, zapbc);
+    if (zapba.length > 80 * zapbc) {
+        zapbh = zapba[0];
+        zapbi = zapba[1];
+        var zapbk = zapbh, zapbl = zapbi;
+        for (var zapbm = zapbc; zapbm < zapbe; zapbm += zapbc) {
+            var zapbn = zapba[zapbm], zapbo = zapba[zapbm + 1];
+            if (zapbn < zapbh) zapbh = zapbn;
+            if (zapbo < zapbi) zapbi = zapbo;
+            if (zapbn > zapbk) zapbk = zapbn;
+            if (zapbo > zapbl) zapbl = zapbo;
         }
-        invSize = Math.max(maxX - minX, maxY - minY);
-        invSize = invSize !== 0 ? 32767 / invSize : 0;
+        zapbj = Math.max(zapbk - zapbh, zapbl - zapbi);
+        zapbj = zapbj !== 0 ? 32767 / zapbj : 0;
     }
-    faoxomearcutlinked(outerNode, triangles, dim, minX, minY, invSize, 0);
-    return triangles;
+    faoxomearcutlinked(zapbf, zapbg, zapbc, zapbh, zapbi, zapbj, 0);
+    return zapbg;
 }
 
 export { faoxomearcut };

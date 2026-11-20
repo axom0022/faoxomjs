@@ -1,13 +1,58 @@
 import { AssetLoader } from "./AssetLoader.js";
 
 class GLTFLoader {
-    constructor(manager) { this.manager = manager || new AssetLoader(); this.dracoLoader = null; this.ktx2Loader = null; this.meshoptDecoder = null; this.extensions = {}; }
-    setDRACOLoader(loader) { this.dracoLoader = loader; return this; }
-    setKTX2Loader(loader) { this.ktx2Loader = loader; return this; }
-    setMeshoptDecoder(decoder) { this.meshoptDecoder = decoder; return this; }
-    register(callback) { if (callback) { var extension = callback(this); if (extension && extension.name) this.extensions[extension.name] = extension; } return this; }
-    load(url, onLoad, onProgress, onError) { var self = this; return this.manager.loadModel(url).then(function(result) { if (onLoad) onLoad(result); return result; }).catch(function(error) { if (onError) onError(error); else throw error; }); }
-    parse(data, path, onLoad, onError) { var self = this; try { var isBinary = data instanceof ArrayBuffer; var result = isBinary ? this.manager.parseGLB(data, path || "") : this.manager.parseGLTF(typeof data === "string" ? JSON.parse(data) : data, path || "", []); var promise = Promise.resolve(result).then(function(value) { return self.manager.prepareCompressedTextures(value); }); return promise.then(function(value) { if (onLoad) onLoad(value); return value; }); } catch (error) { if (onError) onError(error); return Promise.reject(error); } }
+    constructor(zamga) {
+        this.manager = zamga || new AssetLoader;
+        this.dracoLoader = null;
+        this.ktx2Loader = null;
+        this.meshoptDecoder = null;
+        this.extensions = {};
+    }
+    setDRACOLoader(zamga) {
+        this.dracoLoader = zamga;
+        return this;
+    }
+    setKTX2Loader(zamga) {
+        this.ktx2Loader = zamga;
+        return this;
+    }
+    setMeshoptDecoder(zamga) {
+        this.meshoptDecoder = zamga;
+        return this;
+    }
+    register(zamga) {
+        if (zamga) {
+            var zamgb = zamga(this);
+            if (zamgb && zamgb.name) this.extensions[zamgb.name] = zamgb;
+        }
+        return this;
+    }
+    load(zamga, zamgb, zamgc, zamgd) {
+        var zamge = this;
+        return this.manager.loadModel(zamga).then(function(zamga) {
+            if (zamgb) zamgb(zamga);
+            return zamga;
+        }).catch(function(zamga) {
+            if (zamgd) zamgd(zamga); else throw zamga;
+        });
+    }
+    parse(zamga, zamgb, zamgc, zamgd) {
+        var zamge = this;
+        try {
+            var zamgf = zamga instanceof ArrayBuffer;
+            var zamgg = zamgf ? this.manager.parseGLB(zamga, zamgb || "") : this.manager.parseGLTF(typeof zamga === "string" ? JSON.parse(zamga) : zamga, zamgb || "", []);
+            var zamgh = Promise.resolve(zamgg).then(function(zamga) {
+                return zamge.manager.prepareCompressedTextures(zamga);
+            });
+            return zamgh.then(function(zamga) {
+                if (zamgc) zamgc(zamga);
+                return zamga;
+            });
+        } catch (zamga) {
+            if (zamgd) zamgd(zamga);
+            return Promise.reject(zamga);
+        }
+    }
 }
 
 export { GLTFLoader };

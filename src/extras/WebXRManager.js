@@ -1,21 +1,129 @@
 import { Camera } from "../camera/index.js";
+
 import { WebXRInputVisualizer } from "./WebXRInputVisualizer.js";
 
 class WebXRManager {
-    constructor(app) { this.app = app; this.session = null; this.referenceSpace = null; this.baseLayer = null; this.mode = null; this.frame = null; this.views = []; this.inputs = []; this.visualizers = []; this.callbacks = {}; }
-    async isSupported(mode) { return typeof navigator !== "undefined" && navigator.xr && navigator.xr.isSessionSupported ? navigator.xr.isSessionSupported(mode || "immersive-vr") : false; }
-    async request(mode, options) { if (!navigator.xr) throw new Error("WebXR is not available"); this.mode = mode || "immersive-vr"; var sessionOptions = options || {}; if (!sessionOptions.requiredFeatures) sessionOptions.requiredFeatures = ["local-floor"]; var renderer = this.app && this.app.renderer; if (renderer && renderer.gl && renderer.gl.makeXRCompatible) await renderer.gl.makeXRCompatible(); this.session = await navigator.xr.requestSession(this.mode, sessionOptions); this.referenceSpace = await this.session.requestReferenceSpace(sessionOptions.referenceSpaceType || "local-floor"); if (renderer && renderer.gl && typeof XRWebGLLayer !== "undefined") { this.baseLayer = new XRWebGLLayer(this.session, renderer.gl); this.session.updateRenderState({ baseLayer: this.baseLayer }); } var self = this; this.session.addEventListener("end", function() { self.session = null; self.referenceSpace = null; self.baseLayer = null; self.frame = null; self.emit("end"); }); var frameLoop = function(time, frame) { self.frame = frame; self.inputs = frame.session.inputSources ? Array.prototype.slice.call(frame.session.inputSources) : []; self.renderFrame(time, frame); self.emit("frame", time, frame); if (self.session) self.session.requestAnimationFrame(frameLoop); }; this.session.requestAnimationFrame(frameLoop); this.emit("start", this.session); return this.session; }
-    renderFrame(time, frame) { if (!this.baseLayer || !this.referenceSpace || !this.app || !this.app.activeScene) return; var pose = frame.getViewerPose(this.referenceSpace); if (!pose) return; for (var visualizerIndex = 0; visualizerIndex < this.visualizers.length; visualizerIndex++) this.visualizers[visualizerIndex].update(frame, this.referenceSpace); var views = []; for (var i = 0; i < pose.views.length; i++) { var view = pose.views[i], camera = new Camera(); camera.projectionMatrix.fromArray(view.projectionMatrix); camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); camera.matrixWorld.fromArray(view.transform.matrix); camera.matrixWorldInverse.fromArray(view.transform.inverse.matrix); camera.position.set(camera.matrixWorld.elements[12], camera.matrixWorld.elements[13], camera.matrixWorld.elements[14]); var viewport = this.baseLayer.getViewport(view); if (viewport && this.app.renderer && this.app.renderer.renderXRView) this.app.renderer.renderXRView(this.app.activeScene, camera, this.baseLayer.framebuffer, viewport, i === 0); views.push({ view: view, camera: camera, viewport: viewport }); } this.views = views; }
-    on(event, callback) { if (!this.callbacks[event]) this.callbacks[event] = []; this.callbacks[event].push(callback); return this; }
-    emit(event) { var list = this.callbacks[event] || []; var args = Array.prototype.slice.call(arguments, 1); for (var i = 0; i < list.length; i++) list[i].apply(this, args); }
-    createInputVisualizer(scene, options) { var visualizer = new WebXRInputVisualizer(this, options); this.visualizers.push(visualizer); if (scene) scene.add(visualizer); return visualizer; }
-    removeInputVisualizer(visualizer) { var index = this.visualizers.indexOf(visualizer); if (index !== -1) this.visualizers.splice(index, 1); if (visualizer && visualizer.dispose) visualizer.dispose(); return this; }
-    getInputSources() { return this.inputs.slice(); }
-    getViews() { return this.views.slice(); }
-    getControllerPose(inputSource) { if (!this.frame || !this.referenceSpace || !inputSource || !inputSource.gripSpace) return null; return this.frame.getPose(inputSource.gripSpace, this.referenceSpace); }
-    getHandJoints(inputSource) { if (!inputSource || !inputSource.hand) return []; var joints = []; inputSource.hand.forEach(function(jointSpace, jointName) { joints.push({ name: jointName, space: jointSpace }); }); return joints; }
-    getViewerPose() { return this.frame && this.referenceSpace ? this.frame.getViewerPose(this.referenceSpace) : null; }
-    end() { return this.session ? this.session.end() : Promise.resolve(); }
+    constructor(zajqa) {
+        this.app = zajqa;
+        this.session = null;
+        this.referenceSpace = null;
+        this.baseLayer = null;
+        this.mode = null;
+        this.frame = null;
+        this.views = [];
+        this.inputs = [];
+        this.visualizers = [];
+        this.callbacks = {};
+    }
+    async isSupported(zajqa) {
+        return typeof navigator !== "undefined" && navigator.xr && navigator.xr.isSessionSupported ? navigator.xr.isSessionSupported(zajqa || "immersive-vr") : false;
+    }
+    async request(zajqa, zajqb) {
+        if (!navigator.xr) throw new Error("WebXR is not available");
+        this.mode = zajqa || "immersive-vr";
+        var zajqc = zajqb || {};
+        if (!zajqc.requiredFeatures) zajqc.requiredFeatures = [ "local-floor" ];
+        var zajqd = this.app && this.app.renderer;
+        if (zajqd && zajqd.gl && zajqd.gl.makeXRCompatible) await zajqd.gl.makeXRCompatible();
+        this.session = await navigator.xr.requestSession(this.mode, zajqc);
+        this.referenceSpace = await this.session.requestReferenceSpace(zajqc.referenceSpaceType || "local-floor");
+        if (zajqd && zajqd.gl && typeof XRWebGLLayer !== "undefined") {
+            this.baseLayer = new XRWebGLLayer(this.session, zajqd.gl);
+            this.session.updateRenderState({
+                baseLayer: this.baseLayer
+            });
+        }
+        var zajqe = this;
+        this.session.addEventListener("end", function() {
+            zajqe.session = null;
+            zajqe.referenceSpace = null;
+            zajqe.baseLayer = null;
+            zajqe.frame = null;
+            zajqe.emit("end");
+        });
+        var zajqf = function(zajqa, zajqb) {
+            zajqe.frame = zajqb;
+            zajqe.inputs = zajqb.session.inputSources ? Array.prototype.slice.call(zajqb.session.inputSources) : [];
+            zajqe.renderFrame(zajqa, zajqb);
+            zajqe.emit("frame", zajqa, zajqb);
+            if (zajqe.session) zajqe.session.requestAnimationFrame(zajqf);
+        };
+        this.session.requestAnimationFrame(zajqf);
+        this.emit("start", this.session);
+        return this.session;
+    }
+    renderFrame(zajqa, zajqb) {
+        if (!this.baseLayer || !this.referenceSpace || !this.app || !this.app.activeScene) return;
+        var zajqc = zajqb.getViewerPose(this.referenceSpace);
+        if (!zajqc) return;
+        for (var zajqd = 0; zajqd < this.visualizers.length; zajqd++) this.visualizers[zajqd].update(zajqb, this.referenceSpace);
+        var zajqe = [];
+        for (var zajqf = 0; zajqf < zajqc.views.length; zajqf++) {
+            var zajqg = zajqc.views[zajqf], zajqh = new Camera;
+            zajqh.projectionMatrix.fromArray(zajqg.projectionMatrix);
+            zajqh.projectionMatrixInverse.copy(zajqh.projectionMatrix).invert();
+            zajqh.matrixWorld.fromArray(zajqg.transform.matrix);
+            zajqh.matrixWorldInverse.fromArray(zajqg.transform.inverse.matrix);
+            zajqh.position.set(zajqh.matrixWorld.elements[12], zajqh.matrixWorld.elements[13], zajqh.matrixWorld.elements[14]);
+            var zajqi = this.baseLayer.getViewport(zajqg);
+            if (zajqi && this.app.renderer && this.app.renderer.renderXRView) this.app.renderer.renderXRView(this.app.activeScene, zajqh, this.baseLayer.framebuffer, zajqi, zajqf === 0);
+            zajqe.push({
+                view: zajqg,
+                camera: zajqh,
+                viewport: zajqi
+            });
+        }
+        this.views = zajqe;
+    }
+    on(zajqa, zajqb) {
+        if (!this.callbacks[zajqa]) this.callbacks[zajqa] = [];
+        this.callbacks[zajqa].push(zajqb);
+        return this;
+    }
+    emit(zajqa) {
+        var zajqb = this.callbacks[zajqa] || [];
+        var zajqc = Array.prototype.slice.call(arguments, 1);
+        for (var zajqd = 0; zajqd < zajqb.length; zajqd++) zajqb[zajqd].apply(this, zajqc);
+    }
+    createInputVisualizer(zajqa, zajqb) {
+        var zajqc = new WebXRInputVisualizer(this, zajqb);
+        this.visualizers.push(zajqc);
+        if (zajqa) zajqa.add(zajqc);
+        return zajqc;
+    }
+    removeInputVisualizer(zajqa) {
+        var zajqb = this.visualizers.indexOf(zajqa);
+        if (zajqb !== -1) this.visualizers.splice(zajqb, 1);
+        if (zajqa && zajqa.dispose) zajqa.dispose();
+        return this;
+    }
+    getInputSources() {
+        return this.inputs.slice();
+    }
+    getViews() {
+        return this.views.slice();
+    }
+    getControllerPose(zajqa) {
+        if (!this.frame || !this.referenceSpace || !zajqa || !zajqa.gripSpace) return null;
+        return this.frame.getPose(zajqa.gripSpace, this.referenceSpace);
+    }
+    getHandJoints(zajqa) {
+        if (!zajqa || !zajqa.hand) return [];
+        var zajqb = [];
+        zajqa.hand.forEach(function(zajqa, zajqc) {
+            zajqb.push({
+                name: zajqc,
+                space: zajqa
+            });
+        });
+        return zajqb;
+    }
+    getViewerPose() {
+        return this.frame && this.referenceSpace ? this.frame.getViewerPose(this.referenceSpace) : null;
+    }
+    end() {
+        return this.session ? this.session.end() : Promise.resolve();
+    }
 }
 
 export { WebXRManager };

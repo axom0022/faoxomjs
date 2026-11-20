@@ -1,21 +1,22 @@
 import { Curve } from "./Curve.js";
+
 import { Vector3 } from "./Vector3.js";
 
 class QuadraticBezierCurve3 extends Curve {
-    constructor(v0, v1, v2) {
+    constructor(zaoma, zaomb, zaomc) {
         super();
         this.type = "QuadraticBezierCurve3";
-        this.v0 = v0 || new Vector3();
-        this.v1 = v1 || new Vector3();
-        this.v2 = v2 || new Vector3();
+        this.v0 = zaoma || new Vector3;
+        this.v1 = zaomb || new Vector3;
+        this.v2 = zaomc || new Vector3;
     }
-    getPoint(t, optionalTarget) {
-        var point = optionalTarget || new Vector3();
-        var u = 1 - t;
-        point.x = u * u * this.v0.x + 2 * u * t * this.v1.x + t * t * this.v2.x;
-        point.y = u * u * this.v0.y + 2 * u * t * this.v1.y + t * t * this.v2.y;
-        point.z = u * u * this.v0.z + 2 * u * t * this.v1.z + t * t * this.v2.z;
-        return point;
+    getPoint(zaoma, zaomb) {
+        var zaomc = zaomb || new Vector3;
+        var zaomd = 1 - zaoma;
+        zaomc.x = zaomd * zaomd * this.v0.x + 2 * zaomd * zaoma * this.v1.x + zaoma * zaoma * this.v2.x;
+        zaomc.y = zaomd * zaomd * this.v0.y + 2 * zaomd * zaoma * this.v1.y + zaoma * zaoma * this.v2.y;
+        zaomc.z = zaomd * zaomd * this.v0.z + 2 * zaomd * zaoma * this.v1.z + zaoma * zaoma * this.v2.z;
+        return zaomc;
     }
 }
 

@@ -1,9 +1,31 @@
 import { faoxomvalue } from "../math/index.js";
+
 import { Texture } from "./Texture.js";
 
 class DataArrayTexture extends Texture {
-    constructor(data, width, height, depth, options) { options = options || {}; super(null, options); this.isArrayTexture = true; this.data = data || null; this.width = Math.max(1, Math.floor(width || 1)); this.height = Math.max(1, Math.floor(height || 1)); this.depth = Math.max(1, Math.floor(depth || 1)); this.format = faoxomvalue(options.format, "rgba"); this.type = faoxomvalue(options.type, "unsignedByte"); this.colorSpace = faoxomvalue(options.colorSpace, "linear"); this.flipY = false; this.minFilter = faoxomvalue(options.minFilter, "nearest"); this.magFilter = faoxomvalue(options.magFilter, "nearest"); this.generateMipmaps = false; this.loaded = true; this.needsUpdate = true; }
-    setData(data) { this.data = data || this.data; this.needsUpdate = true; return this; }
+    constructor(zauxa, zauxb, zauxc, zauxd, zauxe) {
+        zauxe = zauxe || {};
+        super(null, zauxe);
+        this.isArrayTexture = true;
+        this.data = zauxa || null;
+        this.width = Math.max(1, Math.floor(zauxb || 1));
+        this.height = Math.max(1, Math.floor(zauxc || 1));
+        this.depth = Math.max(1, Math.floor(zauxd || 1));
+        this.format = faoxomvalue(zauxe.format, "rgba");
+        this.type = faoxomvalue(zauxe.type, "unsignedByte");
+        this.colorSpace = faoxomvalue(zauxe.colorSpace, "linear");
+        this.flipY = false;
+        this.minFilter = faoxomvalue(zauxe.minFilter, "nearest");
+        this.magFilter = faoxomvalue(zauxe.magFilter, "nearest");
+        this.generateMipmaps = false;
+        this.loaded = true;
+        this.needsUpdate = true;
+    }
+    setData(zauxa) {
+        this.data = zauxa || this.data;
+        this.needsUpdate = true;
+        return this;
+    }
 }
 
 export { DataArrayTexture };

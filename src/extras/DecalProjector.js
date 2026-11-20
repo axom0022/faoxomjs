@@ -1,193 +1,168 @@
 import { Object3D } from "../core/index.js";
+
 import { Raycaster } from "../core/Raycaster.js";
+
 import { Geometry } from "../geometries/index.js";
+
 import { Vector3 } from "../math/index.js";
+
 import { Mesh } from "../objects/index.js";
+
 import { ShaderMaterial } from "../materials/index.js";
 
-// DecalProjector - projected decals with normal conformance (roadmap item 17).
-//
-// Renders a decal by projecting a grid of rays along the projector's local
-// -Z axis onto the target meshes, keeping only hits inside the projector's
-// depth range. Surface triangles steeper than angleFade are dropped, and a
-// soft fade is applied between the facing limit and the cutoff, so decals
-// wrap convincingly over curved surfaces and let go at grazing angles:
-//
-//   const projector = new DecalProjector()
-//   projector.position.set(0, 3, 0)
-//   projector.lookAt(0, 0, 0)          // -Z aims at the surface
-//   projector.setSize(2, 2, 4)         // width, height, max depth
-//   scene.add(projector.project(groundMesh, { texture: splatTexture }))
-//
-// project() returns the projector itself with a decal mesh child (also
-// available as .decal). Re-project any time the surface or pose changes.
 class DecalProjector extends Object3D {
-    constructor(options) {
-        options = options || {};
+    constructor(zagza) {
+        zagza = zagza || {};
         super();
         this.type = "DecalProjector";
-        this.width = options.width || 1;
-        this.height = options.height || 1;
-        this.depth = options.depth || 4;
-        this.resolution = Math.max(4, Math.floor(options.resolution || 16));
-        this.angleFade = options.angleFade === undefined ? 0.35 : options.angleFade; // dot cutoff
-        this.material = options.material || null;
-        this.texture = options.texture || null;
-        this.opacity = options.opacity === undefined ? 1 : options.opacity;
+        this.width = zagza.width || 1;
+        this.height = zagza.height || 1;
+        this.depth = zagza.depth || 4;
+        this.resolution = Math.max(4, Math.floor(zagza.resolution || 16));
+        this.angleFade = zagza.angleFade === undefined ? .35 : zagza.angleFade;
+        this.material = zagza.material || null;
+        this.texture = zagza.texture || null;
+        this.opacity = zagza.opacity === undefined ? 1 : zagza.opacity;
         this.decal = null;
         this.isDecalProjector = true;
     }
-
-    setSize(width, height, depth) {
-        this.width = width;
-        this.height = height;
-        if (depth !== undefined) this.depth = depth;
+    setSize(zagza, zagzb, zagzc) {
+        this.width = zagza;
+        this.height = zagzb;
+        if (zagzc !== undefined) this.depth = zagzc;
         return this;
     }
-
     _defaultMaterial() {
-        var self = this;
+        var zagza = this;
         return new ShaderMaterial({
             transparent: true,
             depthWrite: false,
             side: "double",
             uniforms: {
-                map: { value: this.texture },
-                uOpacity: { value: this.opacity }
+                map: {
+                    value: this.texture
+                },
+                uOpacity: {
+                    value: this.opacity
+                }
             },
-            vertexShader:
-                "varying vec2 vUvDecal; varying float vFade;" +
-                "void main(){ vUvDecal = uv; vFade = color.r; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }",
-            fragmentShader:
-                "precision highp float; uniform sampler2D map; uniform float uOpacity; varying vec2 vUvDecal; varying float vFade;" +
-                "void main(){ vec4 texel = texture2D(map, vUvDecal); gl_FragColor = vec4(texel.rgb, texel.a * vFade * uOpacity); if (gl_FragColor.a < 0.02) discard; }"
+            vertexShader: "varying vec2 vUvDecal; varying float vFade;" + "void main(){ vUvDecal = uv; vFade = color.r; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }",
+            fragmentShader: "precision highp float; uniform sampler2D map; uniform float uOpacity; varying vec2 vUvDecal; varying float vFade;" + "void main(){ vec4 texel = texture2D(map, vUvDecal); gl_FragColor = vec4(texel.rgb, texel.a * vFade * uOpacity); if (gl_FragColor.a < 0.02) discard; }"
         });
     }
-
-    _faceNormal(object, faceIndex, target) {
-        var geometry = object.geometry;
-        var position = geometry.attributes.position;
-        if (!position) return null;
-        var index = geometry.index;
-        var itemSize = position.itemSize || 3;
-        var i0 = index ? index[faceIndex * 3] : faceIndex * 3;
-        var i1 = index ? index[faceIndex * 3 + 1] : faceIndex * 3 + 1;
-        var i2 = index ? index[faceIndex * 3 + 2] : faceIndex * 3 + 2;
-        var a = new Vector3(position.array[i0 * itemSize], position.array[i0 * itemSize + 1], position.array[i0 * itemSize + 2]);
-        var b = new Vector3(position.array[i1 * itemSize], position.array[i1 * itemSize + 1], position.array[i1 * itemSize + 2]);
-        var c = new Vector3(position.array[i2 * itemSize], position.array[i2 * itemSize + 1], position.array[i2 * itemSize + 2]);
-        var normal = target || new Vector3();
-        normal.subVectors(c, b).cross(new Vector3().subVectors(a, b)).normalize();
-        // to world (rotation/scale-tolerant enough for fade purposes)
-        var elements = object.matrixWorld ? object.matrixWorld.elements : null;
-        if (elements) {
-            normal.set(
-                elements[0] * normal.x + elements[4] * normal.y + elements[8] * normal.z,
-                elements[1] * normal.x + elements[5] * normal.y + elements[9] * normal.z,
-                elements[2] * normal.x + elements[6] * normal.y + elements[10] * normal.z
-            ).normalize();
+    _faceNormal(zagza, zagzb, zagzc) {
+        var zagzd = zagza.geometry;
+        var zagze = zagzd.attributes.position;
+        if (!zagze) return null;
+        var zagzf = zagzd.index;
+        var zagzg = zagze.itemSize || 3;
+        var zagzh = zagzf ? zagzf[zagzb * 3] : zagzb * 3;
+        var zagzi = zagzf ? zagzf[zagzb * 3 + 1] : zagzb * 3 + 1;
+        var zagzj = zagzf ? zagzf[zagzb * 3 + 2] : zagzb * 3 + 2;
+        var zagzk = new Vector3(zagze.array[zagzh * zagzg], zagze.array[zagzh * zagzg + 1], zagze.array[zagzh * zagzg + 2]);
+        var zagzl = new Vector3(zagze.array[zagzi * zagzg], zagze.array[zagzi * zagzg + 1], zagze.array[zagzi * zagzg + 2]);
+        var zagzm = new Vector3(zagze.array[zagzj * zagzg], zagze.array[zagzj * zagzg + 1], zagze.array[zagzj * zagzg + 2]);
+        var zagzn = zagzc || new Vector3;
+        zagzn.subVectors(zagzm, zagzl).cross((new Vector3).subVectors(zagzk, zagzl)).normalize();
+        var zagzo = zagza.matrixWorld ? zagza.matrixWorld.elements : null;
+        if (zagzo) {
+            zagzn.set(zagzo[0] * zagzn.x + zagzo[4] * zagzn.y + zagzo[8] * zagzn.z, zagzo[1] * zagzn.x + zagzo[5] * zagzn.y + zagzo[9] * zagzn.z, zagzo[2] * zagzn.x + zagzo[6] * zagzn.y + zagzo[10] * zagzn.z).normalize();
         }
-        return normal;
+        return zagzn;
     }
-
-    project(targets, options) {
-        options = options || {};
-        var targetList = Array.isArray(targets) ? targets : [targets];
+    project(zagza, zagzb) {
+        zagzb = zagzb || {};
+        var zagzc = Array.isArray(zagza) ? zagza : [ zagza ];
         this.updateMatrixWorld(true);
-        for (var targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
-            if (targetList[targetIndex] && targetList[targetIndex].updateMatrixWorld) targetList[targetIndex].updateMatrixWorld(true);
+        for (var zagzd = 0; zagzd < zagzc.length; zagzd++) {
+            if (zagzc[zagzd] && zagzc[zagzd].updateMatrixWorld) zagzc[zagzd].updateMatrixWorld(true);
         }
-        // projection axis: projector local -Z in world space
-        var elements = this.matrixWorld.elements;
-        var axis = new Vector3(-elements[8], -elements[9], -elements[10]).normalize();
-        var right = new Vector3(elements[0], elements[1], elements[2]).normalize();
-        var up = new Vector3(elements[4], elements[5], elements[6]).normalize();
-        var origin = new Vector3().setFromMatrixPosition(this.matrixWorld);
-
-        var resolution = options.resolution || this.resolution;
-        var raycaster = new Raycaster(new Vector3(), new Vector3(0, 0, -1), 0, this.depth);
-        var hits = new Array(resolution * resolution);
-        var uvs = new Array(resolution * resolution);
-        var fades = new Float32Array(resolution * resolution);
-
-        var gridCenter = (resolution - 1) / 2;
-        for (var gy = 0; gy < resolution; gy++) {
-            for (var gx = 0; gx < resolution; gx++) {
-                var index = gy * resolution + gx;
-                var offsetX = (gx - gridCenter) / gridCenter * this.width * 0.5;
-                var offsetY = (gy - gridCenter) / gridCenter * this.height * 0.5;
-                var rayOrigin = origin.clone()
-                    .addScaledVector(right, offsetX)
-                    .addScaledVector(up, offsetY);
-                raycaster.ray.origin.copy(rayOrigin);
-                raycaster.ray.direction.copy(axis);
-                var results = raycaster.intersectObjects(targetList, false);
-                var hit = null;
-                for (var r = 0; r < results.length; r++) {
-                    if (results[r].distance <= this.depth) { hit = results[r]; break; }
+        var zagze = this.matrixWorld.elements;
+        var zagzf = new Vector3(-zagze[8], -zagze[9], -zagze[10]).normalize();
+        var zagzg = new Vector3(zagze[0], zagze[1], zagze[2]).normalize();
+        var zagzh = new Vector3(zagze[4], zagze[5], zagze[6]).normalize();
+        var zagzi = (new Vector3).setFromMatrixPosition(this.matrixWorld);
+        var zagzj = zagzb.resolution || this.resolution;
+        var zagzk = new Raycaster(new Vector3, new Vector3(0, 0, -1), 0, this.depth);
+        var zagzl = new Array(zagzj * zagzj);
+        var zagzm = new Array(zagzj * zagzj);
+        var zagzn = new Float32Array(zagzj * zagzj);
+        var zagzo = (zagzj - 1) / 2;
+        for (var zagzp = 0; zagzp < zagzj; zagzp++) {
+            for (var zagzq = 0; zagzq < zagzj; zagzq++) {
+                var zagzr = zagzp * zagzj + zagzq;
+                var zagzs = (zagzq - zagzo) / zagzo * this.width * .5;
+                var zagzt = (zagzp - zagzo) / zagzo * this.height * .5;
+                var zagzu = zagzi.clone().addScaledVector(zagzg, zagzs).addScaledVector(zagzh, zagzt);
+                zagzk.ray.origin.copy(zagzu);
+                zagzk.ray.direction.copy(zagzf);
+                var zagzv = zagzk.intersectObjects(zagzc, false);
+                var zagzw = null;
+                for (var zagzx = 0; zagzx < zagzv.length; zagzx++) {
+                    if (zagzv[zagzx].distance <= this.depth) {
+                        zagzw = zagzv[zagzx];
+                        break;
+                    }
                 }
-                if (hit && hit.faceIndex !== undefined && hit.object) {
-                    var surfaceNormal = this._faceNormal(hit.object, hit.faceIndex);
-                    var facing = surfaceNormal ? surfaceNormal.dot(axis) : 1;
-                    if (facing < 0) facing = -facing;
-                    // normal conformance: full weight facing the projector,
-                    // soft fade down to the cutoff, hard drop beyond it
-                    var fade = (facing - this.angleFade) / (1 - this.angleFade);
-                    if (fade <= 0) { hits[index] = null; continue; }
-                    fades[index] = Math.min(1, fade);
-                } else if (hit) {
-                    fades[index] = 1;
+                if (zagzw && zagzw.faceIndex !== undefined && zagzw.object) {
+                    var zagzy = this._faceNormal(zagzw.object, zagzw.faceIndex);
+                    var zagzz = zagzy ? zagzy.dot(zagzf) : 1;
+                    if (zagzz < 0) zagzz = -zagzz;
+                    var zagzaa = (zagzz - this.angleFade) / (1 - this.angleFade);
+                    if (zagzaa <= 0) {
+                        zagzl[zagzr] = null;
+                        continue;
+                    }
+                    zagzn[zagzr] = Math.min(1, zagzaa);
+                } else if (zagzw) {
+                    zagzn[zagzr] = 1;
                 } else {
-                    hits[index] = null;
+                    zagzl[zagzr] = null;
                     continue;
                 }
-                // lift off the surface slightly to avoid z-fighting
-                var lifted = hit.point.clone().addScaledVector(hit.object ? this._faceNormal(hit.object, hit.faceIndex) || axis : axis, 0.003);
-                // store in the projector's local frame (the decal is its child)
-                hits[index] = this.worldToLocal(lifted);
-                uvs[index] = [gx / (resolution - 1), gy / (resolution - 1)];
+                var zagzab = zagzw.point.clone().addScaledVector(zagzw.object ? this._faceNormal(zagzw.object, zagzw.faceIndex) || zagzf : zagzf, .003);
+                zagzl[zagzr] = this.worldToLocal(zagzab);
+                zagzm[zagzr] = [ zagzq / (zagzj - 1), zagzp / (zagzj - 1) ];
             }
         }
-
-        // build triangles between valid neighbouring grid cells
-        var positions = [], uvArray = [], colorArray = [], indices = [];
-        var vertexIndex = 0;
-        var vertexAt = {};
-        for (var y = 0; y < resolution; y++) {
-            for (var x = 0; x < resolution; x++) {
-                var i = y * resolution + x;
-                if (hits[i]) {
-                    vertexAt[i] = vertexIndex++;
-                    positions.push(hits[i].x, hits[i].y, hits[i].z);
-                    uvArray.push(uvs[i][0], uvs[i][1]);
-                    // fade rides the engine-bound vertex colour attribute
-                    colorArray.push(fades[i], fades[i], fades[i]);
+        var zagzac = [], zagzad = [], zagzae = [], zagzaf = [];
+        var zagzag = 0;
+        var zagzah = {};
+        for (var zagzai = 0; zagzai < zagzj; zagzai++) {
+            for (var zagzaj = 0; zagzaj < zagzj; zagzaj++) {
+                var zagzak = zagzai * zagzj + zagzaj;
+                if (zagzl[zagzak]) {
+                    zagzah[zagzak] = zagzag++;
+                    zagzac.push(zagzl[zagzak].x, zagzl[zagzak].y, zagzl[zagzak].z);
+                    zagzad.push(zagzm[zagzak][0], zagzm[zagzak][1]);
+                    zagzae.push(zagzn[zagzak], zagzn[zagzak], zagzn[zagzak]);
                 }
             }
         }
-        for (var yy = 0; yy < resolution - 1; yy++) {
-            for (var xx = 0; xx < resolution - 1; xx++) {
-                var a = yy * resolution + xx;
-                var b = yy * resolution + xx + 1;
-                var c = (yy + 1) * resolution + xx + 1;
-                var d = (yy + 1) * resolution + xx;
-                if (hits[a] && hits[b] && hits[c] && hits[d]) {
-                    indices.push(vertexAt[a], vertexAt[b], vertexAt[c], vertexAt[a], vertexAt[c], vertexAt[d]);
+        for (var zagzal = 0; zagzal < zagzj - 1; zagzal++) {
+            for (var zagzam = 0; zagzam < zagzj - 1; zagzam++) {
+                var zagzan = zagzal * zagzj + zagzam;
+                var zagzao = zagzal * zagzj + zagzam + 1;
+                var zagzap = (zagzal + 1) * zagzj + zagzam + 1;
+                var zagzaq = (zagzal + 1) * zagzj + zagzam;
+                if (zagzl[zagzan] && zagzl[zagzao] && zagzl[zagzap] && zagzl[zagzaq]) {
+                    zagzaf.push(zagzah[zagzan], zagzah[zagzao], zagzah[zagzap], zagzah[zagzan], zagzah[zagzap], zagzah[zagzaq]);
                 }
             }
         }
-
-        if (this.decal) { this.remove(this.decal); this.decal = null; }
-        if (!indices.length) return this;
-
-        var geometry = new Geometry();
-        geometry.setAttribute("position", new Float32Array(positions), 3);
-        geometry.setAttribute("uv", new Float32Array(uvArray), 2);
-        geometry.setAttribute("color", new Float32Array(colorArray), 3);
-        geometry.setIndex(new Uint16Array(indices));
-        geometry.computeBounds();
-        var material = this.material || this._defaultMaterial();
-        this.decal = new Mesh(geometry, material);
+        if (this.decal) {
+            this.remove(this.decal);
+            this.decal = null;
+        }
+        if (!zagzaf.length) return this;
+        var zagzar = new Geometry;
+        zagzar.setAttribute("position", new Float32Array(zagzac), 3);
+        zagzar.setAttribute("uv", new Float32Array(zagzad), 2);
+        zagzar.setAttribute("color", new Float32Array(zagzae), 3);
+        zagzar.setIndex(new Uint16Array(zagzaf));
+        zagzar.computeBounds();
+        var zagzas = this.material || this._defaultMaterial();
+        this.decal = new Mesh(zagzar, zagzas);
         this.decal.renderOrder = 20;
         this.add(this.decal);
         return this;

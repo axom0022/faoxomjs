@@ -1,19 +1,19 @@
 import { Constraint } from "./Constraint.js";
 
 class DistanceJoint extends Constraint {
-    constructor(bodyA, bodyB, distance) {
-        super(bodyA, bodyB);
-        this.distance = distance !== undefined ? distance : bodyA.position.distanceTo(bodyB.position);
-        this.stiffness = 1.0;
+    constructor(zahca, zahcb, zahcc) {
+        super(zahca, zahcb);
+        this.distance = zahcc !== undefined ? zahcc : zahca.position.distanceTo(zahcb.position);
+        this.stiffness = 1;
     }
-    solve(dt) {
-        var delta = this.bodyB.position.clone().sub(this.bodyA.position);
-        var currentDist = delta.length();
-        if (currentDist === 0) return;
-        var diff = (currentDist - this.distance) / currentDist;
-        var correction = delta.multiplyScalar(diff * 0.5 * this.stiffness);
-        if (!this.bodyA.isStatic) this.bodyA.position.add(correction);
-        if (!this.bodyB.isStatic) this.bodyB.position.sub(correction);
+    solve(zahca) {
+        var zahcb = this.bodyB.position.clone().sub(this.bodyA.position);
+        var zahcc = zahcb.length();
+        if (zahcc === 0) return;
+        var zahcd = (zahcc - this.distance) / zahcc;
+        var zahce = zahcb.multiplyScalar(zahcd * .5 * this.stiffness);
+        if (!this.bodyA.isStatic) this.bodyA.position.add(zahce);
+        if (!this.bodyB.isStatic) this.bodyB.position.sub(zahce);
     }
 }
 

@@ -1,14 +1,44 @@
 import { BufferAttribute } from "./BufferAttribute.js";
 
 class InstancedBufferAttribute extends BufferAttribute {
-    constructor(array, itemSize, normalized) { super(array, itemSize, normalized); this.isInstancedBufferAttribute = true; }
-    setUsage(usage) { this.usage = usage; return this; }
-    setX(index, value) { this.array[index * this.itemSize] = value; this.needsUpdate = true; this.version++; return this; }
-    setY(index, value) { this.array[index * this.itemSize + 1] = value; this.needsUpdate = true; this.version++; return this; }
-    setZ(index, value) { this.array[index * this.itemSize + 2] = value; this.needsUpdate = true; this.version++; return this; }
-    setW(index, value) { this.array[index * this.itemSize + 3] = value; this.needsUpdate = true; this.version++; return this; }
-    setXY(index, x, y) { return this.setX(index, x).setY(index, y); }
-    setXYZ(index, x, y, z) { return this.setX(index, x).setY(index, y).setZ(index, z); }
+    constructor(zacra, zacrb, zacrc) {
+        super(zacra, zacrb, zacrc);
+        this.isInstancedBufferAttribute = true;
+    }
+    setUsage(zacra) {
+        this.usage = zacra;
+        return this;
+    }
+    setX(zacra, zacrb) {
+        this.array[zacra * this.itemSize] = zacrb;
+        this.needsUpdate = true;
+        this.version++;
+        return this;
+    }
+    setY(zacra, zacrb) {
+        this.array[zacra * this.itemSize + 1] = zacrb;
+        this.needsUpdate = true;
+        this.version++;
+        return this;
+    }
+    setZ(zacra, zacrb) {
+        this.array[zacra * this.itemSize + 2] = zacrb;
+        this.needsUpdate = true;
+        this.version++;
+        return this;
+    }
+    setW(zacra, zacrb) {
+        this.array[zacra * this.itemSize + 3] = zacrb;
+        this.needsUpdate = true;
+        this.version++;
+        return this;
+    }
+    setXY(zacra, zacrb, zacrc) {
+        return this.setX(zacra, zacrb).setY(zacra, zacrc);
+    }
+    setXYZ(zacra, zacrb, zacrc, zacrd) {
+        return this.setX(zacra, zacrb).setY(zacra, zacrc).setZ(zacra, zacrd);
+    }
 }
 
 export { InstancedBufferAttribute };

@@ -1,6 +1,18 @@
 import { faoxomvalue } from "../math/index.js";
+
 import { TorusGeometry } from "./TorusGeometry.js";
 
-class TorusKnotGeometry extends TorusGeometry { constructor(radius, tube, tubularSegments, radialSegments, p, q) { super(radius, tube, radialSegments, tubularSegments); p = faoxomvalue(p, 2); q = faoxomvalue(q, 3); var base = new TorusGeometry(radius, tube, radialSegments, tubularSegments); this.attributes = base.attributes; this.index = base.index; this.computeBoundingBox(); this.computeBoundingSphere(); } }
+class TorusKnotGeometry extends TorusGeometry {
+    constructor(zakua, zakub, zakuc, zakud, zakue, zakuf) {
+        super(zakua, zakub, zakud, zakuc);
+        zakue = faoxomvalue(zakue, 2);
+        zakuf = faoxomvalue(zakuf, 3);
+        var zakug = new TorusGeometry(zakua, zakub, zakud, zakuc);
+        this.attributes = zakug.attributes;
+        this.index = zakug.index;
+        this.computeBoundingBox();
+        this.computeBoundingSphere();
+    }
+}
 
 export { TorusKnotGeometry };

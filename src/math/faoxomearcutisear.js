@@ -1,15 +1,16 @@
 import { faoxomearcutarea } from "./faoxomearcutarea.js";
+
 import { faoxomearcutpointintriangleexceptfirst } from "./faoxomearcutpointintriangleexceptfirst.js";
 
-function faoxomearcutisear(ear) {
-    var a = ear.prev, b = ear, c = ear.next;
-    if (faoxomearcutarea(a, b, c) >= 0) return false;
-    var ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
-    var x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
-    var p = c.next;
-    while (p !== a) {
-        if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && faoxomearcutpointintriangleexceptfirst(ax, ay, bx, by, cx, cy, p.x, p.y) && faoxomearcutarea(p.prev, p, p.next) >= 0) return false;
-        p = p.next;
+function faoxomearcutisear(zapqa) {
+    var zapqb = zapqa.prev, zapqc = zapqa, zapqd = zapqa.next;
+    if (faoxomearcutarea(zapqb, zapqc, zapqd) >= 0) return false;
+    var zapqe = zapqb.x, zapqf = zapqc.x, zapqg = zapqd.x, zapqh = zapqb.y, zapqi = zapqc.y, zapqj = zapqd.y;
+    var zapqk = Math.min(zapqe, zapqf, zapqg), zapql = Math.min(zapqh, zapqi, zapqj), zapqm = Math.max(zapqe, zapqf, zapqg), zapqn = Math.max(zapqh, zapqi, zapqj);
+    var zapqo = zapqd.next;
+    while (zapqo !== zapqb) {
+        if (zapqo.x >= zapqk && zapqo.x <= zapqm && zapqo.y >= zapql && zapqo.y <= zapqn && faoxomearcutpointintriangleexceptfirst(zapqe, zapqh, zapqf, zapqi, zapqg, zapqj, zapqo.x, zapqo.y) && faoxomearcutarea(zapqo.prev, zapqo, zapqo.next) >= 0) return false;
+        zapqo = zapqo.next;
     }
     return true;
 }

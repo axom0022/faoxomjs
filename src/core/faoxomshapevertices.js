@@ -1,6 +1,11 @@
 import { Vector3 } from "../math/index.js";
+
 import { faoxomshapeextents } from "./faoxomshapeextents.js";
 
-function faoxomshapevertices(shape) { if (shape.vertices && shape.vertices.length) return shape.vertices; var e = faoxomshapeextents(shape); return [new Vector3(-e.x, -e.y, -e.z), new Vector3(e.x, -e.y, -e.z), new Vector3(-e.x, e.y, -e.z), new Vector3(e.x, e.y, -e.z), new Vector3(-e.x, -e.y, e.z), new Vector3(e.x, -e.y, e.z), new Vector3(-e.x, e.y, e.z), new Vector3(e.x, e.y, e.z)]; }
+function faoxomshapevertices(zafxa) {
+    if (zafxa.vertices && zafxa.vertices.length) return zafxa.vertices;
+    var zafxb = faoxomshapeextents(zafxa);
+    return [ new Vector3(-zafxb.x, -zafxb.y, -zafxb.z), new Vector3(zafxb.x, -zafxb.y, -zafxb.z), new Vector3(-zafxb.x, zafxb.y, -zafxb.z), new Vector3(zafxb.x, zafxb.y, -zafxb.z), new Vector3(-zafxb.x, -zafxb.y, zafxb.z), new Vector3(zafxb.x, -zafxb.y, zafxb.z), new Vector3(-zafxb.x, zafxb.y, zafxb.z), new Vector3(zafxb.x, zafxb.y, zafxb.z) ];
+}
 
 export { faoxomshapevertices };

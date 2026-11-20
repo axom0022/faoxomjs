@@ -1,17 +1,27 @@
 import { FileLoader } from "./FileLoader.js";
+
 import { faoxomdecodemd2 } from "./faoxomdecodemd2.js";
 
 class MD2Loader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var geometry = self.parse(buffer); if (onLoad) onLoad(geometry); } catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zamka) {
+        this.manager = zamka;
     }
-    parse(data) { return faoxomdecodemd2(data); }
+    load(zamka, zamkb, zamkc, zamkd) {
+        var zamke = this;
+        var zamkf = new FileLoader(this.manager);
+        zamkf.setResponseType("arraybuffer");
+        zamkf.load(zamka, function(zamka) {
+            try {
+                var zamkc = zamke.parse(zamka);
+                if (zamkb) zamkb(zamkc);
+            } catch (zamka) {
+                if (zamkd) zamkd(zamka);
+            }
+        }, zamkc, zamkd);
+    }
+    parse(zamka) {
+        return faoxomdecodemd2(zamka);
+    }
 }
 
 export { MD2Loader };

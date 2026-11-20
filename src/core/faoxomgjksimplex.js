@@ -1,5 +1,68 @@
 import { Vector3 } from "../math/index.js";
 
-function faoxomgjksimplex(simplex, direction) { var a = simplex[simplex.length - 1]; var ao = a.clone().negate(); if (simplex.length === 2) { var b = simplex[0]; var ab = b.clone().sub(a); if (ab.dot(ao) > 0) direction.copy(new Vector3().crossVectors(new Vector3().crossVectors(ab, ao), ab)); else { simplex.splice(0, 1); direction.copy(ao); } return false; } if (simplex.length === 3) { var b2 = simplex[1]; var c = simplex[0]; var ab2 = b2.clone().sub(a); var ac = c.clone().sub(a); var abc = new Vector3().crossVectors(ab2, ac); var abPerp = new Vector3().crossVectors(ab2, abc); if (abPerp.dot(ao) > 0) { simplex.splice(0, 1); direction.copy(new Vector3().crossVectors(new Vector3().crossVectors(ab2, ao), ab2)); return false; } var acPerp = new Vector3().crossVectors(abc, ac); if (acPerp.dot(ao) > 0) { simplex.splice(1, 1); direction.copy(new Vector3().crossVectors(new Vector3().crossVectors(ac, ao), ac)); return false; } if (abc.dot(ao) > 0) direction.copy(abc); else { var swap = simplex[0]; simplex[0] = simplex[1]; simplex[1] = swap; direction.copy(abc).negate(); } return false; } var b3 = simplex[2]; var c3 = simplex[1]; var d = simplex[0]; var ab3 = b3.clone().sub(a); var ac3 = c3.clone().sub(a); var ad3 = d.clone().sub(a); var abc3 = new Vector3().crossVectors(ab3, ac3); var acd3 = new Vector3().crossVectors(ac3, ad3); var adb3 = new Vector3().crossVectors(ad3, ab3); if (abc3.dot(ao) > 0) { simplex.splice(0, 1); direction.copy(abc3); return false; } if (acd3.dot(ao) > 0) { simplex.splice(2, 1); direction.copy(acd3); return false; } if (adb3.dot(ao) > 0) { simplex.splice(1, 1); direction.copy(adb3); return false; } return true; }
+function faoxomgjksimplex(zafaa, zafab) {
+    var zafac = zafaa[zafaa.length - 1];
+    var zafad = zafac.clone().negate();
+    if (zafaa.length === 2) {
+        var zafae = zafaa[0];
+        var zafaf = zafae.clone().sub(zafac);
+        if (zafaf.dot(zafad) > 0) zafab.copy((new Vector3).crossVectors((new Vector3).crossVectors(zafaf, zafad), zafaf)); else {
+            zafaa.splice(0, 1);
+            zafab.copy(zafad);
+        }
+        return false;
+    }
+    if (zafaa.length === 3) {
+        var zafag = zafaa[1];
+        var zafah = zafaa[0];
+        var zafai = zafag.clone().sub(zafac);
+        var zafaj = zafah.clone().sub(zafac);
+        var zafak = (new Vector3).crossVectors(zafai, zafaj);
+        var zafal = (new Vector3).crossVectors(zafai, zafak);
+        if (zafal.dot(zafad) > 0) {
+            zafaa.splice(0, 1);
+            zafab.copy((new Vector3).crossVectors((new Vector3).crossVectors(zafai, zafad), zafai));
+            return false;
+        }
+        var zafam = (new Vector3).crossVectors(zafak, zafaj);
+        if (zafam.dot(zafad) > 0) {
+            zafaa.splice(1, 1);
+            zafab.copy((new Vector3).crossVectors((new Vector3).crossVectors(zafaj, zafad), zafaj));
+            return false;
+        }
+        if (zafak.dot(zafad) > 0) zafab.copy(zafak); else {
+            var zafan = zafaa[0];
+            zafaa[0] = zafaa[1];
+            zafaa[1] = zafan;
+            zafab.copy(zafak).negate();
+        }
+        return false;
+    }
+    var zafao = zafaa[2];
+    var zafap = zafaa[1];
+    var zafaq = zafaa[0];
+    var zafar = zafao.clone().sub(zafac);
+    var zafas = zafap.clone().sub(zafac);
+    var zafat = zafaq.clone().sub(zafac);
+    var zafau = (new Vector3).crossVectors(zafar, zafas);
+    var zafav = (new Vector3).crossVectors(zafas, zafat);
+    var zafaw = (new Vector3).crossVectors(zafat, zafar);
+    if (zafau.dot(zafad) > 0) {
+        zafaa.splice(0, 1);
+        zafab.copy(zafau);
+        return false;
+    }
+    if (zafav.dot(zafad) > 0) {
+        zafaa.splice(2, 1);
+        zafab.copy(zafav);
+        return false;
+    }
+    if (zafaw.dot(zafad) > 0) {
+        zafaa.splice(1, 1);
+        zafab.copy(zafaw);
+        return false;
+    }
+    return true;
+}
 
 export { faoxomgjksimplex };

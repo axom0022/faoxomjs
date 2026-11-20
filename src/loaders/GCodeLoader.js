@@ -1,92 +1,132 @@
 import { FileLoader } from "./FileLoader.js";
+
 import { Geometry } from "../geometries/index.js";
+
 import { LineBasicMaterial } from "../materials/index.js";
+
 import { Group, LineSegments } from "../objects/index.js";
 
 class GCodeLoader {
-    constructor(manager) { this.manager = manager; this.splitLayer = false; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        new FileLoader(this.manager).load(url, function(text) {
-            try { var printed = self.parse(text); if (onLoad) onLoad(printed); } catch (error) { if (onError) onError(error); }
-        }, onProgress, onError);
+    constructor(zamea) {
+        this.manager = zamea;
+        this.splitLayer = false;
     }
-    parse(source) {
-        var head = { x: 0, y: 0, z: 0, e: 0, f: 0 };
-        var distanceMode = "absolute";
-        var extrusionMode = null;
-        var bands = [];
-        var active = null;
-        function resolve(axis, raw) {
-            if (raw === undefined) return head[axis];
-            var value = parseFloat(raw);
-            var relative = axis === "e" ? (extrusionMode || distanceMode) === "relative" : distanceMode === "relative";
-            return relative ? head[axis] + value : value;
-        }
-        function openBand(z) { active = { z: z, flow: [], travel: [] }; bands.push(active); }
-        var rows = String(source).split("\n");
-        for (var r = 0; r < rows.length; r++) {
-            var row = rows[r];
-            var comment = row.indexOf(";");
-            if (comment !== -1) row = row.slice(0, comment);
-            row = row.trim();
-            if (!row) continue;
-            var pieces = row.split(/\s+/);
-            var word = pieces[0].toUpperCase();
-            var fields = {};
-            for (var p = 1; p < pieces.length; p++) {
-                var piece = pieces[p];
-                if (piece.length > 1) fields[piece[0].toLowerCase()] = piece.slice(1);
+    load(zamea, zameb, zamec, zamed) {
+        var zamee = this;
+        new FileLoader(this.manager).load(zamea, function(zamea) {
+            try {
+                var zamec = zamee.parse(zamea);
+                if (zameb) zameb(zamec);
+            } catch (zamea) {
+                if (zamed) zamed(zamea);
             }
-            if (word === "G0" || word === "G1") {
-                var next = { x: resolve("x", fields.x), y: resolve("y", fields.y), z: resolve("z", fields.z), e: resolve("e", fields.e), f: resolve("f", fields.f) };
-                var deposited = distanceMode === "relative" ? next.e : next.e - head.e;
-                if (deposited > 0 && (active === null || next.z !== active.z)) openBand(next.z);
-                if (active === null) openBand(head.z);
-                var stream = deposited > 0 ? active.flow : active.travel;
-                stream.push(head.x, head.y, head.z, next.x, next.y, next.z);
-                head = next;
-            } else if (word === "G90") { distanceMode = "absolute"; extrusionMode = null; }
-            else if (word === "G91") { distanceMode = "relative"; extrusionMode = null; }
-            else if (word === "M82") { extrusionMode = "absolute"; }
-            else if (word === "M83") { extrusionMode = "relative"; }
-            else if (word === "G92") {
-                if (fields.x !== undefined) head.x = parseFloat(fields.x);
-                if (fields.y !== undefined) head.y = parseFloat(fields.y);
-                if (fields.z !== undefined) head.z = parseFloat(fields.z);
-                if (fields.e !== undefined) head.e = parseFloat(fields.e);
+        }, zamec, zamed);
+    }
+    parse(zamea) {
+        var zameb = {
+            x: 0,
+            y: 0,
+            z: 0,
+            e: 0,
+            f: 0
+        };
+        var zamec = "absolute";
+        var zamed = null;
+        var zamee = [];
+        var zamef = null;
+        function zameg(zamea, zamee) {
+            if (zamee === undefined) return zameb[zamea];
+            var zamef = parseFloat(zamee);
+            var zameg = zamea === "e" ? (zamed || zamec) === "relative" : zamec === "relative";
+            return zameg ? zameb[zamea] + zamef : zamef;
+        }
+        function zameh(zamea) {
+            zamef = {
+                z: zamea,
+                flow: [],
+                travel: []
+            };
+            zamee.push(zamef);
+        }
+        var zamei = String(zamea).split("\n");
+        for (var zamej = 0; zamej < zamei.length; zamej++) {
+            var zamek = zamei[zamej];
+            var zamel = zamek.indexOf(";");
+            if (zamel !== -1) zamek = zamek.slice(0, zamel);
+            zamek = zamek.trim();
+            if (!zamek) continue;
+            var zamem = zamek.split(/\s+/);
+            var zamen = zamem[0].toUpperCase();
+            var zameo = {};
+            for (var zamep = 1; zamep < zamem.length; zamep++) {
+                var zameq = zamem[zamep];
+                if (zameq.length > 1) zameo[zameq[0].toLowerCase()] = zameq.slice(1);
+            }
+            if (zamen === "G0" || zamen === "G1") {
+                var zamer = {
+                    x: zameg("x", zameo.x),
+                    y: zameg("y", zameo.y),
+                    z: zameg("z", zameo.z),
+                    e: zameg("e", zameo.e),
+                    f: zameg("f", zameo.f)
+                };
+                var zames = zamec === "relative" ? zamer.e : zamer.e - zameb.e;
+                if (zames > 0 && (zamef === null || zamer.z !== zamef.z)) zameh(zamer.z);
+                if (zamef === null) zameh(zameb.z);
+                var zamet = zames > 0 ? zamef.flow : zamef.travel;
+                zamet.push(zameb.x, zameb.y, zameb.z, zamer.x, zamer.y, zamer.z);
+                zameb = zamer;
+            } else if (zamen === "G90") {
+                zamec = "absolute";
+                zamed = null;
+            } else if (zamen === "G91") {
+                zamec = "relative";
+                zamed = null;
+            } else if (zamen === "M82") {
+                zamed = "absolute";
+            } else if (zamen === "M83") {
+                zamed = "relative";
+            } else if (zamen === "G92") {
+                if (zameo.x !== undefined) zameb.x = parseFloat(zameo.x);
+                if (zameo.y !== undefined) zameb.y = parseFloat(zameo.y);
+                if (zameo.z !== undefined) zameb.z = parseFloat(zameo.z);
+                if (zameo.e !== undefined) zameb.e = parseFloat(zameo.e);
             }
         }
-        var travelMaterial = new LineBasicMaterial({ color: 0xff0000 });
-        travelMaterial.name = "path";
-        var flowMaterial = new LineBasicMaterial({ color: 0x00ff00 });
-        flowMaterial.name = "extruded";
-        var printed = new Group();
-        printed.name = "gcode";
-        function addPiece(stream, flowing, index) {
-            if (!stream.length) return;
-            var geometry = new Geometry();
-            geometry.setAttribute("position", new Float32Array(stream), 3);
-            var piece = new LineSegments(geometry, flowing ? flowMaterial : travelMaterial);
-            piece.name = "layer" + index;
-            printed.add(piece);
+        var zameu = new LineBasicMaterial({
+            color: 16711680
+        });
+        zameu.name = "path";
+        var zamev = new LineBasicMaterial({
+            color: 65280
+        });
+        zamev.name = "extruded";
+        var zamew = new Group;
+        zamew.name = "gcode";
+        function zamex(zamea, zameb, zamec) {
+            if (!zamea.length) return;
+            var zamed = new Geometry;
+            zamed.setAttribute("position", new Float32Array(zamea), 3);
+            var zamee = new LineSegments(zamed, zameb ? zamev : zameu);
+            zamee.name = "layer" + zamec;
+            zamew.add(zamee);
         }
         if (this && this.splitLayer) {
-            for (var b = 0; b < bands.length; b++) {
-                addPiece(bands[b].flow, true, b);
-                addPiece(bands[b].travel, false, b);
+            for (var zamey = 0; zamey < zamee.length; zamey++) {
+                zamex(zamee[zamey].flow, true, zamey);
+                zamex(zamee[zamey].travel, false, zamey);
             }
         } else {
-            var flow = [], travel = [];
-            for (var m = 0; m < bands.length; m++) {
-                flow = flow.concat(bands[m].flow);
-                travel = travel.concat(bands[m].travel);
+            var zamez = [], zameaa = [];
+            for (var zameab = 0; zameab < zamee.length; zameab++) {
+                zamez = zamez.concat(zamee[zameab].flow);
+                zameaa = zameaa.concat(zamee[zameab].travel);
             }
-            addPiece(flow, true, bands.length);
-            addPiece(travel, false, bands.length + 1);
+            zamex(zamez, true, zamee.length);
+            zamex(zameaa, false, zamee.length + 1);
         }
-        printed.rotation.x = -Math.PI / 2;
-        return printed;
+        zamew.rotation.x = -Math.PI / 2;
+        return zamew;
     }
 }
 

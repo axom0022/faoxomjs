@@ -1,297 +1,361 @@
 import { StandardMaterial } from "../materials/index.js";
+
 import { Matrix4 } from "../math/index.js";
+
 import { Quaternion } from "../math/index.js";
+
 import { Vector3 } from "../math/index.js";
+
 import { Group } from "../objects/index.js";
+
 import { InstancedMesh } from "../objects/index.js";
+
 import { PCGRandom } from "./PCGToolkit.js";
+
 import { faoxomvalue } from "../math/index.js";
 
-function scatterSampler(source) {
-    if (typeof source === "function") return { heightAt: function (x, z) { return source(x, z); } };
-    if (source && typeof source.heightAt === "function") return source;
-    if (source && typeof source.getHeight === "function") return { heightAt: function (x, z) { return source.getHeight(x, z); }, slopeAt: source.slopeAt, zoneAt: source.zoneAt };
+function zaiwa(zaiwa) {
+    if (typeof zaiwa === "function") return {
+        heightAt: function(zaiwb, zaiwc) {
+            return zaiwa(zaiwb, zaiwc);
+        }
+    };
+    if (zaiwa && typeof zaiwa.heightAt === "function") return zaiwa;
+    if (zaiwa && typeof zaiwa.getHeight === "function") return {
+        heightAt: function(zaiwb, zaiwc) {
+            return zaiwa.getHeight(zaiwb, zaiwc);
+        },
+        slopeAt: zaiwa.slopeAt,
+        zoneAt: zaiwa.zoneAt
+    };
     throw new Error("ScatterField source must be a function or expose heightAt/getHeight");
 }
 
-function chunkSeed(seed, cx, cz) {
-    var h = (seed | 0) ^ Math.imul(cx | 0, 374761393) ^ Math.imul(cz | 0, 668265263);
-    h = h ^ (h >>> 13); h = Math.imul(h, 1274126177); h = h ^ (h >>> 16);
-    return h | 0;
+function zaiwb(zaiwa, zaiwb, zaiwc) {
+    var zaiwd = (zaiwa | 0) ^ Math.imul(zaiwb | 0, 374761393) ^ Math.imul(zaiwc | 0, 668265263);
+    zaiwd = zaiwd ^ zaiwd >>> 13;
+    zaiwd = Math.imul(zaiwd, 1274126177);
+    zaiwd = zaiwd ^ zaiwd >>> 16;
+    return zaiwd | 0;
 }
 
 class ScatterField extends Group {
-    constructor(source, layers, options) {
+    constructor(zaiwb, zaiwc, zaiwd) {
         super();
-        options = options || {};
+        zaiwd = zaiwd || {};
         this.type = "ScatterField";
-        this.sampler = scatterSampler(source);
+        this.sampler = zaiwa(zaiwb);
         this.layers = [];
-        this.seed = faoxomvalue(options.seed, 1) | 0;
-        this.chunkSize = Math.max(0.001, faoxomvalue(options.chunkSize, 32));
-        this.viewChunks = Math.max(0, Math.floor(faoxomvalue(options.viewChunks, 8)));
-        this.maxChunksPerFrame = Math.max(0, faoxomvalue(options.maxChunksPerFrame, 2));
-        this.capacityMargin = Math.max(1, faoxomvalue(options.capacityMargin, 1.5));
-        this.normalEpsilon = Math.max(0.0001, faoxomvalue(options.normalEpsilon, 0.5));
+        this.seed = faoxomvalue(zaiwd.seed, 1) | 0;
+        this.chunkSize = Math.max(.001, faoxomvalue(zaiwd.chunkSize, 32));
+        this.viewChunks = Math.max(0, Math.floor(faoxomvalue(zaiwd.viewChunks, 8)));
+        this.maxChunksPerFrame = Math.max(0, faoxomvalue(zaiwd.maxChunksPerFrame, 2));
+        this.capacityMargin = Math.max(1, faoxomvalue(zaiwd.capacityMargin, 1.5));
+        this.normalEpsilon = Math.max(1e-4, faoxomvalue(zaiwd.normalEpsilon, .5));
         this.centerChunk = null;
-        this.chunks = new Map();
+        this.chunks = new Map;
         this.queue = [];
-        this.stats = { chunks: 0, pending: 0, instances: 0, generatedChunks: 0, layerInstances: [] };
-        var list = Array.isArray(layers) ? layers : (layers ? [layers] : []);
-        for (var i = 0; i < list.length; i++) this.addLayer(list[i]);
+        this.stats = {
+            chunks: 0,
+            pending: 0,
+            instances: 0,
+            generatedChunks: 0,
+            layerInstances: []
+        };
+        var zaiwe = Array.isArray(zaiwc) ? zaiwc : zaiwc ? [ zaiwc ] : [];
+        for (var zaiwf = 0; zaiwf < zaiwe.length; zaiwf++) this.addLayer(zaiwe[zaiwf]);
     }
-    addLayer(layer) {
-        if (!layer || !layer.geometry) throw new Error("ScatterField layer requires geometry");
-        var entry = {
-            geometry: layer.geometry,
-            material: layer.material || new StandardMaterial(),
-            density: Math.max(0, faoxomvalue(layer.density, 0.1)),
-            mode: layer.mode === "poisson" ? "poisson" : "jitter",
-            minSpacing: Math.max(0, faoxomvalue(layer.minSpacing, 0)),
-            maxAttempts: Math.max(1, faoxomvalue(layer.maxAttempts, 30)),
-            minHeight: layer.minHeight !== undefined ? layer.minHeight : -Infinity,
-            maxHeight: layer.maxHeight !== undefined ? layer.maxHeight : Infinity,
-            minSlope: faoxomvalue(layer.minSlope, 0),
-            maxSlope: layer.maxSlope !== undefined ? layer.maxSlope : Math.PI,
-            zones: Array.isArray(layer.zones) ? layer.zones : null,
-            scaleMin: faoxomvalue(layer.scaleMin, 1),
-            scaleMax: faoxomvalue(layer.scaleMax, layer.scaleMin !== undefined ? layer.scaleMin : 1),
-            rotation: layer.rotation === undefined ? "random" : layer.rotation,
-            alignToNormal: Math.min(1, Math.max(0, faoxomvalue(layer.alignToNormal, 0))),
-            yOffset: faoxomvalue(layer.yOffset, 0),
+    addLayer(zaiwa) {
+        if (!zaiwa || !zaiwa.geometry) throw new Error("ScatterField layer requires geometry");
+        var zaiwb = {
+            geometry: zaiwa.geometry,
+            material: zaiwa.material || new StandardMaterial,
+            density: Math.max(0, faoxomvalue(zaiwa.density, .1)),
+            mode: zaiwa.mode === "poisson" ? "poisson" : "jitter",
+            minSpacing: Math.max(0, faoxomvalue(zaiwa.minSpacing, 0)),
+            maxAttempts: Math.max(1, faoxomvalue(zaiwa.maxAttempts, 30)),
+            minHeight: zaiwa.minHeight !== undefined ? zaiwa.minHeight : -Infinity,
+            maxHeight: zaiwa.maxHeight !== undefined ? zaiwa.maxHeight : Infinity,
+            minSlope: faoxomvalue(zaiwa.minSlope, 0),
+            maxSlope: zaiwa.maxSlope !== undefined ? zaiwa.maxSlope : Math.PI,
+            zones: Array.isArray(zaiwa.zones) ? zaiwa.zones : null,
+            scaleMin: faoxomvalue(zaiwa.scaleMin, 1),
+            scaleMax: faoxomvalue(zaiwa.scaleMax, zaiwa.scaleMin !== undefined ? zaiwa.scaleMin : 1),
+            rotation: zaiwa.rotation === undefined ? "random" : zaiwa.rotation,
+            alignToNormal: Math.min(1, Math.max(0, faoxomvalue(zaiwa.alignToNormal, 0))),
+            yOffset: faoxomvalue(zaiwa.yOffset, 0),
             mesh: null,
             capacity: 0
         };
-        entry.scaleMax = Math.max(entry.scaleMin, entry.scaleMax);
-        this.layers.push(entry);
-        return entry;
+        zaiwb.scaleMax = Math.max(zaiwb.scaleMin, zaiwb.scaleMax);
+        this.layers.push(zaiwb);
+        return zaiwb;
     }
-    ensureLayerMesh(entry, needed) {
-        if (entry.mesh && entry.capacity >= needed) { entry.mesh.count = needed; return entry.mesh; }
-        var capacity = Math.max(64, Math.ceil(needed * this.capacityMargin));
-        var mesh = new InstancedMesh(entry.geometry, entry.material, capacity);
-        mesh.count = needed;
-        mesh.frustumCulled = false;
-        if (entry.mesh) {
-            mesh.instanceMatrices.set(entry.mesh.instanceMatrices.subarray(0, Math.min(entry.mesh.count * 16, mesh.instanceMatrices.length)));
-            this.remove(entry.mesh);
+    ensureLayerMesh(zaiwa, zaiwb) {
+        if (zaiwa.mesh && zaiwa.capacity >= zaiwb) {
+            zaiwa.mesh.count = zaiwb;
+            return zaiwa.mesh;
         }
-        entry.mesh = mesh;
-        entry.capacity = capacity;
-        this.add(mesh);
-        return mesh;
+        var zaiwc = Math.max(64, Math.ceil(zaiwb * this.capacityMargin));
+        var zaiwd = new InstancedMesh(zaiwa.geometry, zaiwa.material, zaiwc);
+        zaiwd.count = zaiwb;
+        zaiwd.frustumCulled = false;
+        if (zaiwa.mesh) {
+            zaiwd.instanceMatrices.set(zaiwa.mesh.instanceMatrices.subarray(0, Math.min(zaiwa.mesh.count * 16, zaiwd.instanceMatrices.length)));
+            this.remove(zaiwa.mesh);
+        }
+        zaiwa.mesh = zaiwd;
+        zaiwa.capacity = zaiwc;
+        this.add(zaiwd);
+        return zaiwd;
     }
     releaseLayerMeshes() {
-        for (var i = 0; i < this.layers.length; i++) {
-            var entry = this.layers[i];
-            if (entry.mesh) { this.remove(entry.mesh); entry.mesh = null; entry.capacity = 0; }
+        for (var zaiwa = 0; zaiwa < this.layers.length; zaiwa++) {
+            var zaiwb = this.layers[zaiwa];
+            if (zaiwb.mesh) {
+                this.remove(zaiwb.mesh);
+                zaiwb.mesh = null;
+                zaiwb.capacity = 0;
+            }
         }
     }
-    slopeAt(x, z) {
-        if (this.sampler.slopeAt) return this.sampler.slopeAt(x, z);
-        var e = this.normalEpsilon, h = this.sampler.heightAt;
-        var gx = (h(x + e, z) - h(x - e, z)) / (2 * e);
-        var gz = (h(x, z + e) - h(x, z - e)) / (2 * e);
-        return Math.atan(Math.sqrt(gx * gx + gz * gz));
+    slopeAt(zaiwa, zaiwb) {
+        if (this.sampler.slopeAt) return this.sampler.slopeAt(zaiwa, zaiwb);
+        var zaiwc = this.normalEpsilon, zaiwd = this.sampler.heightAt;
+        var zaiwe = (zaiwd(zaiwa + zaiwc, zaiwb) - zaiwd(zaiwa - zaiwc, zaiwb)) / (2 * zaiwc);
+        var zaiwf = (zaiwd(zaiwa, zaiwb + zaiwc) - zaiwd(zaiwa, zaiwb - zaiwc)) / (2 * zaiwc);
+        return Math.atan(Math.sqrt(zaiwe * zaiwe + zaiwf * zaiwf));
     }
-    normalAt(x, z, target) {
-        var e = this.normalEpsilon, h = this.sampler.heightAt;
-        var gx = (h(x + e, z) - h(x - e, z)) / (2 * e);
-        var gz = (h(x, z + e) - h(x, z - e)) / (2 * e);
-        var nx = -gx, ny = 1, nz = -gz;
-        var len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-        target = target || new Vector3();
-        target.set(nx / len, ny / len, nz / len);
-        return target;
+    normalAt(zaiwa, zaiwb, zaiwc) {
+        var zaiwd = this.normalEpsilon, zaiwe = this.sampler.heightAt;
+        var zaiwf = (zaiwe(zaiwa + zaiwd, zaiwb) - zaiwe(zaiwa - zaiwd, zaiwb)) / (2 * zaiwd);
+        var zaiwg = (zaiwe(zaiwa, zaiwb + zaiwd) - zaiwe(zaiwa, zaiwb - zaiwd)) / (2 * zaiwd);
+        var zaiwh = -zaiwf, zaiwi = 1, zaiwj = -zaiwg;
+        var zaiwk = Math.sqrt(zaiwh * zaiwh + zaiwi * zaiwi + zaiwj * zaiwj) || 1;
+        zaiwc = zaiwc || new Vector3;
+        zaiwc.set(zaiwh / zaiwk, zaiwi / zaiwk, zaiwj / zaiwk);
+        return zaiwc;
     }
-    generateChunk(cx, cz) {
-        var key = cx + "," + cz;
-        if (this.chunks.has(key)) return null;
-        var data = { cx: cx, cz: cz, blocks: [], count: 0 };
-        var originX = cx * this.chunkSize, originZ = cz * this.chunkSize;
-        for (var i = 0; i < this.layers.length; i++) {
-            var entry = this.layers[i];
-            var rng = new PCGRandom(chunkSeed(this.seed ^ Math.imul(i + 1, 913531), cx, cz));
-            var points = [];
-            var area = this.chunkSize * this.chunkSize;
-            if (entry.mode === "poisson" && entry.minSpacing > 0) {
-                var radius = entry.minSpacing;
-                var cell = radius / Math.SQRT2;
-                var gw = Math.max(1, Math.ceil(this.chunkSize / cell));
-                var grid = new Int32Array(gw * gw).fill(-1);
-                var active = [];
-                var limit = Math.max(1, Math.floor(entry.density * area));
-                var attempts = 0;
-                var first = { x: rng.range(0, this.chunkSize), z: rng.range(0, this.chunkSize) };
-                points.push(first);
-                grid[Math.min(gw - 1, first.x / cell | 0) + Math.min(gw - 1, first.z / cell | 0) * gw] = 0;
-                active.push(0);
-                while (active.length > 0 && points.length < limit && attempts < entry.maxAttempts * limit) {
-                    attempts++;
-                    var ai = rng.int(0, active.length - 1);
-                    var p0 = points[active[ai]];
-                    var accepted = false;
-                    for (var c = 0; c < 10 && !accepted; c++) {
-                        var ang = rng.range(0, Math.PI * 2);
-                        var dist = rng.range(radius, radius * 2);
-                        var px = p0.x + Math.cos(ang) * dist, pz = p0.z + Math.sin(ang) * dist;
-                        if (px < 0 || pz < 0 || px >= this.chunkSize || pz >= this.chunkSize) continue;
-                        var gx = Math.min(gw - 1, px / cell | 0), gz = Math.min(gw - 1, pz / cell | 0);
-                        var ok = true;
-                        for (var dz = -2; dz <= 2 && ok; dz++) {
-                            for (var dx = -2; dx <= 2 && ok; dx++) {
-                                var nx = gx + dx, nz = gz + dz;
-                                if (nx < 0 || nz < 0 || nx >= gw || nz >= gw) continue;
-                                var oi = grid[nz * gw + nx];
-                                if (oi >= 0) {
-                                    var q = points[oi];
-                                    var ddx = q.x - px, ddz = q.z - pz;
-                                    if (ddx * ddx + ddz * ddz < radius * radius) ok = false;
+    generateChunk(zaiwa, zaiwc) {
+        var zaiwd = zaiwa + "," + zaiwc;
+        if (this.chunks.has(zaiwd)) return null;
+        var zaiwe = {
+            cx: zaiwa,
+            cz: zaiwc,
+            blocks: [],
+            count: 0
+        };
+        var zaiwf = zaiwa * this.chunkSize, zaiwg = zaiwc * this.chunkSize;
+        for (var zaiwh = 0; zaiwh < this.layers.length; zaiwh++) {
+            var zaiwi = this.layers[zaiwh];
+            var zaiwj = new PCGRandom(zaiwb(this.seed ^ Math.imul(zaiwh + 1, 913531), zaiwa, zaiwc));
+            var zaiwk = [];
+            var zaiwl = this.chunkSize * this.chunkSize;
+            if (zaiwi.mode === "poisson" && zaiwi.minSpacing > 0) {
+                var zaiwm = zaiwi.minSpacing;
+                var zaiwn = zaiwm / Math.SQRT2;
+                var zaiwo = Math.max(1, Math.ceil(this.chunkSize / zaiwn));
+                var zaiwp = new Int32Array(zaiwo * zaiwo).fill(-1);
+                var zaiwq = [];
+                var zaiwr = Math.max(1, Math.floor(zaiwi.density * zaiwl));
+                var zaiws = 0;
+                var zaiwt = {
+                    x: zaiwj.range(0, this.chunkSize),
+                    z: zaiwj.range(0, this.chunkSize)
+                };
+                zaiwk.push(zaiwt);
+                zaiwp[Math.min(zaiwo - 1, zaiwt.x / zaiwn | 0) + Math.min(zaiwo - 1, zaiwt.z / zaiwn | 0) * zaiwo] = 0;
+                zaiwq.push(0);
+                while (zaiwq.length > 0 && zaiwk.length < zaiwr && zaiws < zaiwi.maxAttempts * zaiwr) {
+                    zaiws++;
+                    var zaiwu = zaiwj.int(0, zaiwq.length - 1);
+                    var zaiwv = zaiwk[zaiwq[zaiwu]];
+                    var zaiww = false;
+                    for (var zaiwx = 0; zaiwx < 10 && !zaiww; zaiwx++) {
+                        var zaiwy = zaiwj.range(0, Math.PI * 2);
+                        var zaiwz = zaiwj.range(zaiwm, zaiwm * 2);
+                        var zaiwaa = zaiwv.x + Math.cos(zaiwy) * zaiwz, zaiwab = zaiwv.z + Math.sin(zaiwy) * zaiwz;
+                        if (zaiwaa < 0 || zaiwab < 0 || zaiwaa >= this.chunkSize || zaiwab >= this.chunkSize) continue;
+                        var zaiwac = Math.min(zaiwo - 1, zaiwaa / zaiwn | 0), zaiwad = Math.min(zaiwo - 1, zaiwab / zaiwn | 0);
+                        var zaiwae = true;
+                        for (var zaiwaf = -2; zaiwaf <= 2 && zaiwae; zaiwaf++) {
+                            for (var zaiwag = -2; zaiwag <= 2 && zaiwae; zaiwag++) {
+                                var zaiwah = zaiwac + zaiwag, zaiwai = zaiwad + zaiwaf;
+                                if (zaiwah < 0 || zaiwai < 0 || zaiwah >= zaiwo || zaiwai >= zaiwo) continue;
+                                var zaiwaj = zaiwp[zaiwai * zaiwo + zaiwah];
+                                if (zaiwaj >= 0) {
+                                    var zaiwak = zaiwk[zaiwaj];
+                                    var zaiwal = zaiwak.x - zaiwaa, zaiwam = zaiwak.z - zaiwab;
+                                    if (zaiwal * zaiwal + zaiwam * zaiwam < zaiwm * zaiwm) zaiwae = false;
                                 }
                             }
                         }
-                        if (!ok) continue;
-                        points.push({ x: px, z: pz });
-                        grid[gz * gw + gx] = points.length - 1;
-                        active.push(points.length - 1);
-                        accepted = true;
+                        if (!zaiwae) continue;
+                        zaiwk.push({
+                            x: zaiwaa,
+                            z: zaiwab
+                        });
+                        zaiwp[zaiwad * zaiwo + zaiwac] = zaiwk.length - 1;
+                        zaiwq.push(zaiwk.length - 1);
+                        zaiww = true;
                     }
-                    if (!accepted) {
-                        active[ai] = active[active.length - 1];
-                        active.pop();
+                    if (!zaiww) {
+                        zaiwq[zaiwu] = zaiwq[zaiwq.length - 1];
+                        zaiwq.pop();
                     }
                 }
             } else {
-                var want = Math.floor(entry.density * area + rng.next());
-                for (var w = 0; w < want; w++) {
-                    var jx = rng.range(0, this.chunkSize), jz = rng.range(0, this.chunkSize);
-                    if (entry.minSpacing > 0) {
-                        var fine = true;
-                        for (var pp = 0; pp < points.length && fine; pp++) {
-                            var ddx2 = points[pp].x - jx, ddz2 = points[pp].z - jz;
-                            if (ddx2 * ddx2 + ddz2 * ddz2 < entry.minSpacing * entry.minSpacing) fine = false;
+                var zaiwan = Math.floor(zaiwi.density * zaiwl + zaiwj.next());
+                for (var zaiwao = 0; zaiwao < zaiwan; zaiwao++) {
+                    var zaiwap = zaiwj.range(0, this.chunkSize), zaiwaq = zaiwj.range(0, this.chunkSize);
+                    if (zaiwi.minSpacing > 0) {
+                        var zaiwar = true;
+                        for (var zaiwas = 0; zaiwas < zaiwk.length && zaiwar; zaiwas++) {
+                            var zaiwat = zaiwk[zaiwas].x - zaiwap, zaiwau = zaiwk[zaiwas].z - zaiwaq;
+                            if (zaiwat * zaiwat + zaiwau * zaiwau < zaiwi.minSpacing * zaiwi.minSpacing) zaiwar = false;
                         }
-                        if (!fine) continue;
+                        if (!zaiwar) continue;
                     }
-                    points.push({ x: jx, z: jz });
+                    zaiwk.push({
+                        x: zaiwap,
+                        z: zaiwaq
+                    });
                 }
             }
-            var matrices = [];
-            var up = new Vector3(0, 1, 0);
-            var nrm = new Vector3();
-            var quat = new Quaternion();
-            var spin = new Quaternion();
-            var pos = new Vector3();
-            var scl = new Vector3();
-            var mat = new Matrix4();
-            for (var pt = 0; pt < points.length; pt++) {
-                var wx = originX + points[pt].x, wz = originZ + points[pt].z;
-                var h = this.sampler.heightAt(wx, wz);
-                if (h < entry.minHeight || h > entry.maxHeight) continue;
-                var slope = this.slopeAt(wx, wz);
-                if (slope < entry.minSlope || slope > entry.maxSlope) continue;
-                if (entry.zones && this.sampler.zoneAt) {
-                    var zone = this.sampler.zoneAt(wx, wz);
-                    if (entry.zones.indexOf(zone) === -1) continue;
+            var zaiwav = [];
+            var zaiwaw = new Vector3(0, 1, 0);
+            var zaiwax = new Vector3;
+            var zaiway = new Quaternion;
+            var zaiwaz = new Quaternion;
+            var zaiwba = new Vector3;
+            var zaiwbb = new Vector3;
+            var zaiwbc = new Matrix4;
+            for (var zaiwbd = 0; zaiwbd < zaiwk.length; zaiwbd++) {
+                var zaiwbe = zaiwf + zaiwk[zaiwbd].x, zaiwbf = zaiwg + zaiwk[zaiwbd].z;
+                var zaiwbg = this.sampler.heightAt(zaiwbe, zaiwbf);
+                if (zaiwbg < zaiwi.minHeight || zaiwbg > zaiwi.maxHeight) continue;
+                var zaiwbh = this.slopeAt(zaiwbe, zaiwbf);
+                if (zaiwbh < zaiwi.minSlope || zaiwbh > zaiwi.maxSlope) continue;
+                if (zaiwi.zones && this.sampler.zoneAt) {
+                    var zaiwbi = this.sampler.zoneAt(zaiwbe, zaiwbf);
+                    if (zaiwi.zones.indexOf(zaiwbi) === -1) continue;
                 }
-                var scale = rng.range(entry.scaleMin, entry.scaleMax);
-                var rotY = entry.rotation === "random" ? rng.range(0, Math.PI * 2) : entry.rotation;
-                pos.set(wx, h + entry.yOffset, wz);
-                scl.set(scale, scale, scale);
-                quat.set(0, 0, 0, 1);
-                if (entry.alignToNormal > 0) {
-                    this.normalAt(wx, wz, nrm);
-                    spin.setFromUnitVectors(up, nrm);
-                    var t = entry.alignToNormal;
-                    quat.set(spin.x * t, spin.y * t, spin.z * t, 1 + t * (spin.w - 1));
-                    quat.normalize();
+                var zaiwbj = zaiwj.range(zaiwi.scaleMin, zaiwi.scaleMax);
+                var zaiwbk = zaiwi.rotation === "random" ? zaiwj.range(0, Math.PI * 2) : zaiwi.rotation;
+                zaiwba.set(zaiwbe, zaiwbg + zaiwi.yOffset, zaiwbf);
+                zaiwbb.set(zaiwbj, zaiwbj, zaiwbj);
+                zaiway.set(0, 0, 0, 1);
+                if (zaiwi.alignToNormal > 0) {
+                    this.normalAt(zaiwbe, zaiwbf, zaiwax);
+                    zaiwaz.setFromUnitVectors(zaiwaw, zaiwax);
+                    var zaiwbl = zaiwi.alignToNormal;
+                    zaiway.set(zaiwaz.x * zaiwbl, zaiwaz.y * zaiwbl, zaiwaz.z * zaiwbl, 1 + zaiwbl * (zaiwaz.w - 1));
+                    zaiway.normalize();
                 }
-                spin.setFromAxisAngle(up, rotY);
-                quat.premultiply(spin);
-                mat.compose(pos, quat, scl);
-                matrices.push(mat.clone());
+                zaiwaz.setFromAxisAngle(zaiwaw, zaiwbk);
+                zaiway.premultiply(zaiwaz);
+                zaiwbc.compose(zaiwba, zaiway, zaiwbb);
+                zaiwav.push(zaiwbc.clone());
             }
-            data.blocks.push(matrices);
-            data.count += matrices.length;
+            zaiwe.blocks.push(zaiwav);
+            zaiwe.count += zaiwav.length;
         }
-        return data;
+        return zaiwe;
     }
     repack() {
-        var totals = [];
-        for (var i = 0; i < this.layers.length; i++) totals.push(0);
-        this.chunks.forEach(function (chunk) {
-            for (var j = 0; j < chunk.blocks.length; j++) totals[j] += chunk.blocks[j].length;
+        var zaiwa = [];
+        for (var zaiwb = 0; zaiwb < this.layers.length; zaiwb++) zaiwa.push(0);
+        this.chunks.forEach(function(zaiwb) {
+            for (var zaiwc = 0; zaiwc < zaiwb.blocks.length; zaiwc++) zaiwa[zaiwc] += zaiwb.blocks[zaiwc].length;
         });
-        for (var m = 0; m < this.layers.length; m++) this.ensureLayerMesh(this.layers[m], totals[m]);
-        var cursors = [];
-        for (var c = 0; c < this.layers.length; c++) cursors.push(0);
-        var self = this;
-        this.chunks.forEach(function (chunk) {
-            for (var l = 0; l < chunk.blocks.length; l++) {
-                var block = chunk.blocks[l];
-                var mesh = self.layers[l].mesh;
-                for (var v = 0; v < block.length; v++) mesh.setMatrixAt(cursors[l] + v, block[v]);
-                cursors[l] += block.length;
+        for (var zaiwc = 0; zaiwc < this.layers.length; zaiwc++) this.ensureLayerMesh(this.layers[zaiwc], zaiwa[zaiwc]);
+        var zaiwd = [];
+        for (var zaiwe = 0; zaiwe < this.layers.length; zaiwe++) zaiwd.push(0);
+        var zaiwf = this;
+        this.chunks.forEach(function(zaiwa) {
+            for (var zaiwb = 0; zaiwb < zaiwa.blocks.length; zaiwb++) {
+                var zaiwc = zaiwa.blocks[zaiwb];
+                var zaiwe = zaiwf.layers[zaiwb].mesh;
+                for (var zaiwg = 0; zaiwg < zaiwc.length; zaiwg++) zaiwe.setMatrixAt(zaiwd[zaiwb] + zaiwg, zaiwc[zaiwg]);
+                zaiwd[zaiwb] += zaiwc.length;
             }
         });
-        for (var n = 0; n < this.layers.length; n++) {
-            var meshn = this.layers[n].mesh;
-            meshn.count = totals[n];
-            meshn.visible = totals[n] > 0;
-            meshn.instanceMatrix.needsUpdate = true;
-            meshn.instanceMatrix.version++;
-            meshn.instanceNeedsUpdate = true;
+        for (var zaiwg = 0; zaiwg < this.layers.length; zaiwg++) {
+            var zaiwh = this.layers[zaiwg].mesh;
+            zaiwh.count = zaiwa[zaiwg];
+            zaiwh.visible = zaiwa[zaiwg] > 0;
+            zaiwh.instanceMatrix.needsUpdate = true;
+            zaiwh.instanceMatrix.version++;
+            zaiwh.instanceNeedsUpdate = true;
         }
         this.stats.instances = 0;
-        for (var s = 0; s < totals.length; s++) this.stats.instances += totals[s];
-        this.stats.layerInstances = totals;
+        for (var zaiwi = 0; zaiwi < zaiwa.length; zaiwi++) this.stats.instances += zaiwa[zaiwi];
+        this.stats.layerInstances = zaiwa;
         this.stats.chunks = this.chunks.size;
     }
-    update(point) {
-        var p = point && point.position ? point.position : point || { x: 0, z: 0 };
-        var cx = Math.floor(faoxomvalue(p.x, 0) / this.chunkSize);
-        var cz = Math.floor(faoxomvalue(p.z, 0) / this.chunkSize);
-        var removedCount = 0;
-        if (!this.centerChunk || this.centerChunk.cx !== cx || this.centerChunk.cz !== cz) {
-            this.centerChunk = { cx: cx, cz: cz };
-            var desired = [];
-            for (var dz = -this.viewChunks; dz <= this.viewChunks; dz++) {
-                for (var dx = -this.viewChunks; dx <= this.viewChunks; dx++) {
-                    if (dx * dx + dz * dz > this.viewChunks * this.viewChunks + this.viewChunks) continue;
-                    desired.push((cx + dx) + "," + (cz + dz));
+    update(zaiwa) {
+        var zaiwb = zaiwa && zaiwa.position ? zaiwa.position : zaiwa || {
+            x: 0,
+            z: 0
+        };
+        var zaiwc = Math.floor(faoxomvalue(zaiwb.x, 0) / this.chunkSize);
+        var zaiwd = Math.floor(faoxomvalue(zaiwb.z, 0) / this.chunkSize);
+        var zaiwe = 0;
+        if (!this.centerChunk || this.centerChunk.cx !== zaiwc || this.centerChunk.cz !== zaiwd) {
+            this.centerChunk = {
+                cx: zaiwc,
+                cz: zaiwd
+            };
+            var zaiwf = [];
+            for (var zaiwg = -this.viewChunks; zaiwg <= this.viewChunks; zaiwg++) {
+                for (var zaiwh = -this.viewChunks; zaiwh <= this.viewChunks; zaiwh++) {
+                    if (zaiwh * zaiwh + zaiwg * zaiwg > this.viewChunks * this.viewChunks + this.viewChunks) continue;
+                    zaiwf.push(zaiwc + zaiwh + "," + (zaiwd + zaiwg));
                 }
             }
-            var keep = new Set(desired);
-            var removed = [];
-            this.chunks.forEach(function (chunk, key) {
-                if (!keep.has(key)) removed.push(key);
+            var zaiwi = new Set(zaiwf);
+            var zaiwj = [];
+            this.chunks.forEach(function(zaiwa, zaiwb) {
+                if (!zaiwi.has(zaiwb)) zaiwj.push(zaiwb);
             });
-            removedCount = removed.length;
-            for (var r = 0; r < removed.length; r++) this.chunks.delete(removed[r]);
+            zaiwe = zaiwj.length;
+            for (var zaiwk = 0; zaiwk < zaiwj.length; zaiwk++) this.chunks.delete(zaiwj[zaiwk]);
             this.queue = [];
-            for (var d = 0; d < desired.length; d++) if (!this.chunks.has(desired[d])) this.queue.push(desired[d]);
-            this.queue.sort(function (a, b) {
-                var pa = a.split(","), pb = b.split(",");
-                var dax = (+pa[0] - cx), daz = (+pa[1] - cz), dbx = (+pb[0] - cx), dbz = (+pb[1] - cz);
-                return (dax * dax + daz * daz) - (dbx * dbx + dbz * dbz);
+            for (var zaiwl = 0; zaiwl < zaiwf.length; zaiwl++) if (!this.chunks.has(zaiwf[zaiwl])) this.queue.push(zaiwf[zaiwl]);
+            this.queue.sort(function(zaiwa, zaiwb) {
+                var zaiwe = zaiwa.split(","), zaiwf = zaiwb.split(",");
+                var zaiwg = +zaiwe[0] - zaiwc, zaiwh = +zaiwe[1] - zaiwd, zaiwi = +zaiwf[0] - zaiwc, zaiwj = +zaiwf[1] - zaiwd;
+                return zaiwg * zaiwg + zaiwh * zaiwh - (zaiwi * zaiwi + zaiwj * zaiwj);
             });
         }
-        var budget = this.maxChunksPerFrame === 0 ? this.queue.length : this.maxChunksPerFrame;
-        var added = 0;
-        while (added < budget && this.queue.length > 0) {
-            var key = this.queue.shift();
-            if (this.chunks.has(key)) continue;
-            var parts = key.split(",");
-            var chunk = this.generateChunk(+parts[0], +parts[1]);
-            if (chunk) { this.chunks.set(key, chunk); this.stats.generatedChunks++; added++; }
+        var zaiwm = this.maxChunksPerFrame === 0 ? this.queue.length : this.maxChunksPerFrame;
+        var zaiwn = 0;
+        while (zaiwn < zaiwm && this.queue.length > 0) {
+            var zaiwo = this.queue.shift();
+            if (this.chunks.has(zaiwo)) continue;
+            var zaiwp = zaiwo.split(",");
+            var zaiwq = this.generateChunk(+zaiwp[0], +zaiwp[1]);
+            if (zaiwq) {
+                this.chunks.set(zaiwo, zaiwq);
+                this.stats.generatedChunks++;
+                zaiwn++;
+            }
         }
-        if (added > 0 || this.stats.chunks !== this.chunks.size) this.repack();
+        if (zaiwn > 0 || this.stats.chunks !== this.chunks.size) this.repack();
         this.stats.pending = this.queue.length;
         this.stats.chunks = this.chunks.size;
-        return { added: added, pending: this.queue.length, removed: removedCount };
+        return {
+            added: zaiwn,
+            pending: this.queue.length,
+            removed: zaiwe
+        };
     }
-    chunkCount() { return this.chunks.size; }
-    instanceCount() { return this.stats.instances; }
+    chunkCount() {
+        return this.chunks.size;
+    }
+    instanceCount() {
+        return this.stats.instances;
+    }
     clear() {
         this.chunks.clear();
         this.queue = [];

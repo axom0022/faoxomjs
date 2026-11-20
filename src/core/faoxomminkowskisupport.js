@@ -1,5 +1,7 @@
 import { faoxomsupport } from "./faoxomsupport.js";
 
-function faoxomminkowskisupport(a, b, direction) { return faoxomsupport(a.shape, a.position, a.rotation, direction).sub(faoxomsupport(b.shape, b.position, b.rotation, direction.clone().negate())); }
+function faoxomminkowskisupport(zafka, zafkb, zafkc) {
+    return faoxomsupport(zafka.shape, zafka.position, zafka.rotation, zafkc).sub(faoxomsupport(zafkb.shape, zafkb.position, zafkb.rotation, zafkc.clone().negate()));
+}
 
 export { faoxomminkowskisupport };

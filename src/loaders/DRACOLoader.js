@@ -1,10 +1,20 @@
 import { AssetLoader } from "./AssetLoader.js";
 
 class DRACOLoader {
-    constructor(manager) { this.manager = manager || new AssetLoader(); this.decoderPath = ""; }
-    setDecoderPath(path) { this.decoderPath = path || ""; return this; }
-    preload() { return this.manager.loadDracoDecoder(); }
-    decodeGeometry(data) { return Promise.reject(new Error("Draco standalone geometry decoding requires a glTF primitive descriptor")); }
+    constructor(zalya) {
+        this.manager = zalya || new AssetLoader;
+        this.decoderPath = "";
+    }
+    setDecoderPath(zalya) {
+        this.decoderPath = zalya || "";
+        return this;
+    }
+    preload() {
+        return this.manager.loadDracoDecoder();
+    }
+    decodeGeometry(zalya) {
+        return Promise.reject(new Error("Draco standalone geometry decoding requires a glTF primitive descriptor"));
+    }
 }
 
 export { DRACOLoader };

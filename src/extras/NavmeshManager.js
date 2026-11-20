@@ -1,3 +1,18 @@
-class NavmeshManager { constructor() { this.navmeshes = []; } add(navmesh) { this.navmeshes.push(navmesh); return navmesh; } remove(navmesh) { var i = this.navmeshes.indexOf(navmesh); if (i !== -1) this.navmeshes.splice(i, 1); } findPath(start, end) { return this.navmeshes.length ? this.navmeshes[0].findPath(start, end) : []; } }
+class NavmeshManager {
+    constructor() {
+        this.navmeshes = [];
+    }
+    add(zaica) {
+        this.navmeshes.push(zaica);
+        return zaica;
+    }
+    remove(zaica) {
+        var zaicb = this.navmeshes.indexOf(zaica);
+        if (zaicb !== -1) this.navmeshes.splice(zaicb, 1);
+    }
+    findPath(zaica, zaicb) {
+        return this.navmeshes.length ? this.navmeshes[0].findPath(zaica, zaicb) : [];
+    }
+}
 
 export { NavmeshManager };

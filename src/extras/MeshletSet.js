@@ -1,232 +1,277 @@
 import { Geometry } from "../geometries/Geometry.js";
 
 class MeshletSet {
-    constructor(geometry, options) {
-        options = options || {};
-        this.maxVertices = Math.max(3, options.maxVertices || 96);
-        this.maxTriangles = Math.max(1, options.maxTriangles || 192);
-        this.source = geometry;
+    constructor(zaiaa, zaiab) {
+        zaiab = zaiab || {};
+        this.maxVertices = Math.max(3, zaiab.maxVertices || 96);
+        this.maxTriangles = Math.max(1, zaiab.maxTriangles || 192);
+        this.source = zaiaa;
         this.meshlets = [];
         this.geometry = null;
-        this.stats = { meshlets: 0, triangles: 0, vertices: 0, maxMeshletTriangles: 0, avgMeshletTriangles: 0, avgMeshletVertices: 0, buildms: 0, coneCullable: 0 };
+        this.stats = {
+            meshlets: 0,
+            triangles: 0,
+            vertices: 0,
+            maxMeshletTriangles: 0,
+            avgMeshletTriangles: 0,
+            avgMeshletVertices: 0,
+            buildms: 0,
+            coneCullable: 0
+        };
         this.build();
     }
     build() {
-        var t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
-        var geometry = this.source;
-        if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
-        var pos = geometry.attributes.position.array;
-        var idxraw = geometry.index;
-        var idx = idxraw ? (idxraw.array ? idxraw.array : idxraw) : null;
-        var triCount = idx ? idx.length / 3 : pos.length / 9;
-        triCount = Math.floor(triCount);
-        if (triCount === 0) return;
-        if (!idx) {
-            idx = new Uint32Array(triCount * 3);
-            for (var g = 0; g < triCount * 3; g++) idx[g] = g;
+        var zaiaa = typeof performance !== "undefined" ? performance.now() : Date.now();
+        var zaiab = this.source;
+        if (!zaiab || !zaiab.attributes || !zaiab.attributes.position) return;
+        var zaiac = zaiab.attributes.position.array;
+        var zaiad = zaiab.index;
+        var zaiae = zaiad ? zaiad.array ? zaiad.array : zaiad : null;
+        var zaiaf = zaiae ? zaiae.length / 3 : zaiac.length / 9;
+        zaiaf = Math.floor(zaiaf);
+        if (zaiaf === 0) return;
+        if (!zaiae) {
+            zaiae = new Uint32Array(zaiaf * 3);
+            for (var zaiag = 0; zaiag < zaiaf * 3; zaiag++) zaiae[zaiag] = zaiag;
         }
-        var vertCount = pos.length / 3;
-        var normals = new Float32Array(triCount * 3);
-        var centroids = new Float32Array(triCount * 3);
-        for (var t = 0; t < triCount; t++) {
-            var i0 = idx[t * 3], i1 = idx[t * 3 + 1], i2 = idx[t * 3 + 2];
-            var ax = pos[i1 * 3] - pos[i0 * 3], ay = pos[i1 * 3 + 1] - pos[i0 * 3 + 1], az = pos[i1 * 3 + 2] - pos[i0 * 3 + 2];
-            var bx = pos[i2 * 3] - pos[i0 * 3], by = pos[i2 * 3 + 1] - pos[i0 * 3 + 1], bz = pos[i2 * 3 + 2] - pos[i0 * 3 + 2];
-            var nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
-            var nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (nl > 1e-12) { nx /= nl; ny /= nl; nz /= nl; } else { nx = 0; ny = 1; nz = 0; }
-            normals[t * 3] = nx; normals[t * 3 + 1] = ny; normals[t * 3 + 2] = nz;
-            centroids[t * 3] = (pos[i0 * 3] + pos[i1 * 3] + pos[i2 * 3]) / 3;
-            centroids[t * 3 + 1] = (pos[i0 * 3 + 1] + pos[i1 * 3 + 1] + pos[i2 * 3 + 1]) / 3;
-            centroids[t * 3 + 2] = (pos[i0 * 3 + 2] + pos[i1 * 3 + 2] + pos[i2 * 3 + 2]) / 3;
-        }
-        var vertTris = new Array(vertCount);
-        for (var v = 0; v < vertCount; v++) vertTris[v] = [];
-        for (var t2 = 0; t2 < triCount; t2++) {
-            vertTris[idx[t2 * 3]].push(t2);
-            vertTris[idx[t2 * 3 + 1]].push(t2);
-            vertTris[idx[t2 * 3 + 2]].push(t2);
-        }
-        var visited = new Uint8Array(triCount);
-        var reordered = new Uint32Array(triCount * 3);
-        var cursor = 0;
-        for (var seed = 0; seed < triCount; seed++) {
-            if (visited[seed]) continue;
-            var memberTris = [seed];
-            visited[seed] = 1;
-            var memberVerts = {};
-            var newVertCount = 0;
-            var seedVerts = [idx[seed * 3], idx[seed * 3 + 1], idx[seed * 3 + 2]];
-            for (var sv = 0; sv < 3; sv++) {
-                if (!memberVerts[seedVerts[sv]]) { memberVerts[seedVerts[sv]] = 1; newVertCount++; }
+        var zaiah = zaiac.length / 3;
+        var zaiai = new Float32Array(zaiaf * 3);
+        var zaiaj = new Float32Array(zaiaf * 3);
+        for (var zaiak = 0; zaiak < zaiaf; zaiak++) {
+            var zaial = zaiae[zaiak * 3], zaiam = zaiae[zaiak * 3 + 1], zaian = zaiae[zaiak * 3 + 2];
+            var zaiao = zaiac[zaiam * 3] - zaiac[zaial * 3], zaiap = zaiac[zaiam * 3 + 1] - zaiac[zaial * 3 + 1], zaiaq = zaiac[zaiam * 3 + 2] - zaiac[zaial * 3 + 2];
+            var zaiar = zaiac[zaian * 3] - zaiac[zaial * 3], zaias = zaiac[zaian * 3 + 1] - zaiac[zaial * 3 + 1], zaiat = zaiac[zaian * 3 + 2] - zaiac[zaial * 3 + 2];
+            var zaiau = zaiap * zaiat - zaiaq * zaias, zaiav = zaiaq * zaiar - zaiao * zaiat, zaiaw = zaiao * zaias - zaiap * zaiar;
+            var zaiax = Math.sqrt(zaiau * zaiau + zaiav * zaiav + zaiaw * zaiaw);
+            if (zaiax > 1e-12) {
+                zaiau /= zaiax;
+                zaiav /= zaiax;
+                zaiaw /= zaiax;
+            } else {
+                zaiau = 0;
+                zaiav = 1;
+                zaiaw = 0;
             }
-            while (memberTris.length < this.maxTriangles) {
-                var bestTri = -1, bestNewVerts = 1e9;
-                var scanned = 0;
-                for (var mt = 0; mt < memberTris.length && scanned < 256; mt++) {
-                    var tri = memberTris[mt];
-                    for (var e = 0; e < 3; e++) {
-                        var verts = vertTris[idx[tri * 3 + e]];
-                        for (var cv = 0; cv < verts.length; cv++) {
-                            var cand = verts[cv];
-                            if (visited[cand]) continue;
-                            scanned++;
-                            if (scanned > 256) break;
-                            var cVerts = [idx[cand * 3], idx[cand * 3 + 1], idx[cand * 3 + 2]];
-                            var add = 0;
-                            for (var w = 0; w < 3; w++) if (!memberVerts[cVerts[w]]) add++;
-                            if (newVertCount + add <= this.maxVertices && add < bestNewVerts) {
-                                bestNewVerts = add;
-                                bestTri = cand;
-                                if (add === 0) break;
+            zaiai[zaiak * 3] = zaiau;
+            zaiai[zaiak * 3 + 1] = zaiav;
+            zaiai[zaiak * 3 + 2] = zaiaw;
+            zaiaj[zaiak * 3] = (zaiac[zaial * 3] + zaiac[zaiam * 3] + zaiac[zaian * 3]) / 3;
+            zaiaj[zaiak * 3 + 1] = (zaiac[zaial * 3 + 1] + zaiac[zaiam * 3 + 1] + zaiac[zaian * 3 + 1]) / 3;
+            zaiaj[zaiak * 3 + 2] = (zaiac[zaial * 3 + 2] + zaiac[zaiam * 3 + 2] + zaiac[zaian * 3 + 2]) / 3;
+        }
+        var zaiay = new Array(zaiah);
+        for (var zaiaz = 0; zaiaz < zaiah; zaiaz++) zaiay[zaiaz] = [];
+        for (var zaiaaa = 0; zaiaaa < zaiaf; zaiaaa++) {
+            zaiay[zaiae[zaiaaa * 3]].push(zaiaaa);
+            zaiay[zaiae[zaiaaa * 3 + 1]].push(zaiaaa);
+            zaiay[zaiae[zaiaaa * 3 + 2]].push(zaiaaa);
+        }
+        var zaiaab = new Uint8Array(zaiaf);
+        var zaiaac = new Uint32Array(zaiaf * 3);
+        var zaiaad = 0;
+        for (var zaiaae = 0; zaiaae < zaiaf; zaiaae++) {
+            if (zaiaab[zaiaae]) continue;
+            var zaiaaf = [ zaiaae ];
+            zaiaab[zaiaae] = 1;
+            var zaiaag = {};
+            var zaiaah = 0;
+            var zaiaai = [ zaiae[zaiaae * 3], zaiae[zaiaae * 3 + 1], zaiae[zaiaae * 3 + 2] ];
+            for (var zaiaaj = 0; zaiaaj < 3; zaiaaj++) {
+                if (!zaiaag[zaiaai[zaiaaj]]) {
+                    zaiaag[zaiaai[zaiaaj]] = 1;
+                    zaiaah++;
+                }
+            }
+            while (zaiaaf.length < this.maxTriangles) {
+                var zaiaak = -1, zaiaal = 1e9;
+                var zaiaam = 0;
+                for (var zaiaan = 0; zaiaan < zaiaaf.length && zaiaam < 256; zaiaan++) {
+                    var zaiaao = zaiaaf[zaiaan];
+                    for (var zaiaap = 0; zaiaap < 3; zaiaap++) {
+                        var zaiaaq = zaiay[zaiae[zaiaao * 3 + zaiaap]];
+                        for (var zaiaar = 0; zaiaar < zaiaaq.length; zaiaar++) {
+                            var zaiaas = zaiaaq[zaiaar];
+                            if (zaiaab[zaiaas]) continue;
+                            zaiaam++;
+                            if (zaiaam > 256) break;
+                            var zaiaat = [ zaiae[zaiaas * 3], zaiae[zaiaas * 3 + 1], zaiae[zaiaas * 3 + 2] ];
+                            var zaiaau = 0;
+                            for (var zaiaav = 0; zaiaav < 3; zaiaav++) if (!zaiaag[zaiaat[zaiaav]]) zaiaau++;
+                            if (zaiaah + zaiaau <= this.maxVertices && zaiaau < zaiaal) {
+                                zaiaal = zaiaau;
+                                zaiaak = zaiaas;
+                                if (zaiaau === 0) break;
                             }
                         }
-                        if (scanned > 256) break;
+                        if (zaiaam > 256) break;
                     }
-                    if (bestNewVerts === 0) break;
+                    if (zaiaal === 0) break;
                 }
-                if (bestTri < 0) break;
-                memberTris.push(bestTri);
-                visited[bestTri] = 1;
-                var bVerts = [idx[bestTri * 3], idx[bestTri * 3 + 1], idx[bestTri * 3 + 2]];
-                for (var b2 = 0; b2 < 3; b2++) {
-                    if (!memberVerts[bVerts[b2]]) { memberVerts[bVerts[b2]] = 1; newVertCount++; }
+                if (zaiaak < 0) break;
+                zaiaaf.push(zaiaak);
+                zaiaab[zaiaak] = 1;
+                var zaiaaw = [ zaiae[zaiaak * 3], zaiae[zaiaak * 3 + 1], zaiae[zaiaak * 3 + 2] ];
+                for (var zaiaax = 0; zaiaax < 3; zaiaax++) {
+                    if (!zaiaag[zaiaaw[zaiaax]]) {
+                        zaiaag[zaiaaw[zaiaax]] = 1;
+                        zaiaah++;
+                    }
                 }
             }
-            var first = cursor / 3;
-            for (var m = 0; m < memberTris.length; m++) {
-                reordered[cursor++] = idx[memberTris[m] * 3];
-                reordered[cursor++] = idx[memberTris[m] * 3 + 1];
-                reordered[cursor++] = idx[memberTris[m] * 3 + 2];
+            var zaiaay = zaiaad / 3;
+            for (var zaiaaz = 0; zaiaaz < zaiaaf.length; zaiaaz++) {
+                zaiaac[zaiaad++] = zaiae[zaiaaf[zaiaaz] * 3];
+                zaiaac[zaiaad++] = zaiae[zaiaaf[zaiaaz] * 3 + 1];
+                zaiaac[zaiaad++] = zaiae[zaiaaf[zaiaaz] * 3 + 2];
             }
-            var minx = 1e30, miny = 1e30, minz = 1e30, maxx = -1e30, maxy = -1e30, maxz = -1e30;
-            var sx = 0, sy = 0, sz = 0, sn = 0;
-            for (var key in memberVerts) {
-                var vi = key | 0;
-                var px = pos[vi * 3], py = pos[vi * 3 + 1], pz = pos[vi * 3 + 2];
-                if (px < minx) minx = px;
-                if (py < miny) miny = py;
-                if (pz < minz) minz = pz;
-                if (px > maxx) maxx = px;
-                if (py > maxy) maxy = py;
-                if (pz > maxz) maxz = pz;
-                sx += px; sy += py; sz += pz; sn++;
+            var zaiaba = 1e30, zaiabb = 1e30, zaiabc = 1e30, zaiabd = -1e30, zaiabe = -1e30, zaiabf = -1e30;
+            var zaiabg = 0, zaiabh = 0, zaiabi = 0, zaiabj = 0;
+            for (var zaiabk in zaiaag) {
+                var zaiabl = zaiabk | 0;
+                var zaiabm = zaiac[zaiabl * 3], zaiabn = zaiac[zaiabl * 3 + 1], zaiabo = zaiac[zaiabl * 3 + 2];
+                if (zaiabm < zaiaba) zaiaba = zaiabm;
+                if (zaiabn < zaiabb) zaiabb = zaiabn;
+                if (zaiabo < zaiabc) zaiabc = zaiabo;
+                if (zaiabm > zaiabd) zaiabd = zaiabm;
+                if (zaiabn > zaiabe) zaiabe = zaiabn;
+                if (zaiabo > zaiabf) zaiabf = zaiabo;
+                zaiabg += zaiabm;
+                zaiabh += zaiabn;
+                zaiabi += zaiabo;
+                zaiabj++;
             }
-            var cx = sx / sn, cy = sy / sn, cz = sz / sn;
-            var radius = 0;
-            for (var key2 in memberVerts) {
-                var vi2 = key2 | 0;
-                var dx = pos[vi2 * 3] - cx, dy = pos[vi2 * 3 + 1] - cy, dz = pos[vi2 * 3 + 2] - cz;
-                var dl = dx * dx + dy * dy + dz * dz;
-                if (dl > radius) radius = dl;
+            var zaiabp = zaiabg / zaiabj, zaiabq = zaiabh / zaiabj, zaiabr = zaiabi / zaiabj;
+            var zaiabs = 0;
+            for (var zaiabt in zaiaag) {
+                var zaiabu = zaiabt | 0;
+                var zaiabv = zaiac[zaiabu * 3] - zaiabp, zaiabw = zaiac[zaiabu * 3 + 1] - zaiabq, zaiabx = zaiac[zaiabu * 3 + 2] - zaiabr;
+                var zaiaby = zaiabv * zaiabv + zaiabw * zaiabw + zaiabx * zaiabx;
+                if (zaiaby > zaiabs) zaiabs = zaiaby;
             }
-            radius = Math.sqrt(radius);
-            var axv = 0, ayv = 0, azv = 0;
-            for (var m2 = 0; m2 < memberTris.length; m2++) {
-                axv += normals[memberTris[m2] * 3];
-                ayv += normals[memberTris[m2] * 3 + 1];
-                azv += normals[memberTris[m2] * 3 + 2];
+            zaiabs = Math.sqrt(zaiabs);
+            var zaiabz = 0, zaiaca = 0, zaiacb = 0;
+            for (var zaiacc = 0; zaiacc < zaiaaf.length; zaiacc++) {
+                zaiabz += zaiai[zaiaaf[zaiacc] * 3];
+                zaiaca += zaiai[zaiaaf[zaiacc] * 3 + 1];
+                zaiacb += zaiai[zaiaaf[zaiacc] * 3 + 2];
             }
-            var al = Math.sqrt(axv * axv + ayv * ayv + azv * azv);
-            var cullable = 0;
-            var axis = [0, 1, 0];
-            var cosThetaMax = -1;
-            if (al > 1e-6) {
-                axis = [axv / al, ayv / al, azv / al];
-                var ctm = 1;
-                for (var m3 = 0; m3 < memberTris.length; m3++) {
-                    var d = normals[memberTris[m3] * 3] * axis[0] + normals[memberTris[m3] * 3 + 1] * axis[1] + normals[memberTris[m3] * 3 + 2] * axis[2];
-                    if (d < ctm) ctm = d;
+            var zaiacd = Math.sqrt(zaiabz * zaiabz + zaiaca * zaiaca + zaiacb * zaiacb);
+            var zaiace = 0;
+            var zaiacf = [ 0, 1, 0 ];
+            var zaiacg = -1;
+            if (zaiacd > 1e-6) {
+                zaiacf = [ zaiabz / zaiacd, zaiaca / zaiacd, zaiacb / zaiacd ];
+                var zaiach = 1;
+                for (var zaiaci = 0; zaiaci < zaiaaf.length; zaiaci++) {
+                    var zaiacj = zaiai[zaiaaf[zaiaci] * 3] * zaiacf[0] + zaiai[zaiaaf[zaiaci] * 3 + 1] * zaiacf[1] + zaiai[zaiaaf[zaiaci] * 3 + 2] * zaiacf[2];
+                    if (zaiacj < zaiach) zaiach = zaiacj;
                 }
-                cosThetaMax = ctm;
-                if (ctm > -0.98) cullable = 1;
+                zaiacg = zaiach;
+                if (zaiach > -.98) zaiace = 1;
             }
-            this.meshlets.push({ first: first, count: memberTris.length * 3, center: [cx, cy, cz], radius: radius, axis: axis, cosThetaMax: cosThetaMax, cullable: cullable, min: [minx, miny, minz], max: [maxx, maxy, maxz], triangles: memberTris.length, vertices: newVertCount });
+            this.meshlets.push({
+                first: zaiaay,
+                count: zaiaaf.length * 3,
+                center: [ zaiabp, zaiabq, zaiabr ],
+                radius: zaiabs,
+                axis: zaiacf,
+                cosThetaMax: zaiacg,
+                cullable: zaiace,
+                min: [ zaiaba, zaiabb, zaiabc ],
+                max: [ zaiabd, zaiabe, zaiabf ],
+                triangles: zaiaaf.length,
+                vertices: zaiaah
+            });
         }
-        var out = new Geometry();
-        out.setAttribute("position", geometry.attributes.position);
-        if (geometry.attributes.normal) out.setAttribute("normal", geometry.attributes.normal);
-        if (geometry.attributes.uv) out.setAttribute("uv", geometry.attributes.uv);
-        out.setIndex(reordered);
-        out.computeBounds();
-        this.geometry = out;
+        var zaiack = new Geometry;
+        zaiack.setAttribute("position", zaiab.attributes.position);
+        if (zaiab.attributes.normal) zaiack.setAttribute("normal", zaiab.attributes.normal);
+        if (zaiab.attributes.uv) zaiack.setAttribute("uv", zaiab.attributes.uv);
+        zaiack.setIndex(zaiaac);
+        zaiack.computeBounds();
+        this.geometry = zaiack;
         this.stats.meshlets = this.meshlets.length;
-        this.stats.triangles = triCount;
-        this.stats.vertices = vertCount;
-        var maxT = 0, sumT = 0, sumV = 0;
-        for (var ml = 0; ml < this.meshlets.length; ml++) {
-            if (this.meshlets[ml].triangles > maxT) maxT = this.meshlets[ml].triangles;
-            sumT += this.meshlets[ml].triangles;
-            sumV += this.meshlets[ml].vertices;
-            if (this.meshlets[ml].cullable) this.stats.coneCullable++;
+        this.stats.triangles = zaiaf;
+        this.stats.vertices = zaiah;
+        var zaiacl = 0, zaiacm = 0, zaiacn = 0;
+        for (var zaiaco = 0; zaiaco < this.meshlets.length; zaiaco++) {
+            if (this.meshlets[zaiaco].triangles > zaiacl) zaiacl = this.meshlets[zaiaco].triangles;
+            zaiacm += this.meshlets[zaiaco].triangles;
+            zaiacn += this.meshlets[zaiaco].vertices;
+            if (this.meshlets[zaiaco].cullable) this.stats.coneCullable++;
         }
-        this.stats.maxMeshletTriangles = maxT;
-        this.stats.avgMeshletTriangles = sumT / Math.max(1, this.meshlets.length);
-        this.stats.avgMeshletVertices = sumV / Math.max(1, this.meshlets.length);
-        this.stats.buildms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+        this.stats.maxMeshletTriangles = zaiacl;
+        this.stats.avgMeshletTriangles = zaiacm / Math.max(1, this.meshlets.length);
+        this.stats.avgMeshletVertices = zaiacn / Math.max(1, this.meshlets.length);
+        this.stats.buildms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - zaiaa;
         return this;
     }
-    cull(viewPos) {
-        var n = this.meshlets.length;
-        var out = new Uint8Array(n);
-        var pos = this.source.attributes.position.array;
-        var idxraw = this.source.index;
-        var idx = idxraw ? (idxraw.array ? idxraw.array : idxraw) : null;
-        if (!idx) {
-            idx = new Uint32Array(this.stats.triangles * 3);
-            for (var g = 0; g < idx.length; g++) idx[g] = g;
+    cull(zaiaa) {
+        var zaiab = this.meshlets.length;
+        var zaiac = new Uint8Array(zaiab);
+        var zaiad = this.source.attributes.position.array;
+        var zaiae = this.source.index;
+        var zaiaf = zaiae ? zaiae.array ? zaiae.array : zaiae : null;
+        if (!zaiaf) {
+            zaiaf = new Uint32Array(this.stats.triangles * 3);
+            for (var zaiag = 0; zaiag < zaiaf.length; zaiag++) zaiaf[zaiag] = zaiag;
         }
-        for (var i = 0; i < n; i++) {
-            var m = this.meshlets[i];
-            out[i] = 1;
-            if (!m.cullable) continue;
-            var ux = viewPos[0] - m.center[0], uy = viewPos[1] - m.center[1], uz = viewPos[2] - m.center[2];
-            var r = Math.sqrt(ux * ux + uy * uy + uz * uz) || 1;
-            ux /= r; uy /= r; uz /= r;
-            var cosb = ux * m.axis[0] + uy * m.axis[1] + uz * m.axis[2];
-            var sinb = Math.sqrt(Math.max(0, 1 - cosb * cosb));
-            var sintheta = Math.sqrt(Math.max(0, 1 - m.cosThetaMax * m.cosThetaMax));
-            var bbound = cosb * m.cosThetaMax + sinb * sintheta;
-            if (cosb < m.cosThetaMax && bbound < -1e-6 && r * (-bbound) >= m.radius) out[i] = 0;
+        for (var zaiah = 0; zaiah < zaiab; zaiah++) {
+            var zaiai = this.meshlets[zaiah];
+            zaiac[zaiah] = 1;
+            if (!zaiai.cullable) continue;
+            var zaiaj = zaiaa[0] - zaiai.center[0], zaiak = zaiaa[1] - zaiai.center[1], zaial = zaiaa[2] - zaiai.center[2];
+            var zaiam = Math.sqrt(zaiaj * zaiaj + zaiak * zaiak + zaial * zaial) || 1;
+            zaiaj /= zaiam;
+            zaiak /= zaiam;
+            zaial /= zaiam;
+            var zaian = zaiaj * zaiai.axis[0] + zaiak * zaiai.axis[1] + zaial * zaiai.axis[2];
+            var zaiao = Math.sqrt(Math.max(0, 1 - zaian * zaian));
+            var zaiap = Math.sqrt(Math.max(0, 1 - zaiai.cosThetaMax * zaiai.cosThetaMax));
+            var zaiaq = zaian * zaiai.cosThetaMax + zaiao * zaiap;
+            if (zaian < zaiai.cosThetaMax && zaiaq < -1e-6 && zaiam * -zaiaq >= zaiai.radius) zaiac[zaiah] = 0;
         }
-        return out;
+        return zaiac;
     }
-    cullView(planes, viewPos) {
-        var cone = this.cull(viewPos);
-        for (var i = 0; i < this.meshlets.length; i++) {
-            if (!cone[i]) continue;
-            var m = this.meshlets[i];
-            for (var p = 0; p < 6; p++) {
-                var dist = planes[p * 4] * m.center[0] + planes[p * 4 + 1] * m.center[1] + planes[p * 4 + 2] * m.center[2] + planes[p * 4 + 3];
-                if (dist < -m.radius) { cone[i] = 0; break; }
+    cullView(zaiaa, zaiab) {
+        var zaiac = this.cull(zaiab);
+        for (var zaiad = 0; zaiad < this.meshlets.length; zaiad++) {
+            if (!zaiac[zaiad]) continue;
+            var zaiae = this.meshlets[zaiad];
+            for (var zaiaf = 0; zaiaf < 6; zaiaf++) {
+                var zaiag = zaiaa[zaiaf * 4] * zaiae.center[0] + zaiaa[zaiaf * 4 + 1] * zaiae.center[1] + zaiaa[zaiaf * 4 + 2] * zaiae.center[2] + zaiaa[zaiaf * 4 + 3];
+                if (zaiag < -zaiae.radius) {
+                    zaiac[zaiad] = 0;
+                    break;
+                }
             }
         }
-        return cone;
+        return zaiac;
     }
-    mergeIndices(visibility) {
-        var total = 0;
-        for (var i = 0; i < this.meshlets.length; i++) {
-            if (!visibility || visibility[i]) total += this.meshlets[i].count;
+    mergeIndices(zaiaa) {
+        var zaiab = 0;
+        for (var zaiac = 0; zaiac < this.meshlets.length; zaiac++) {
+            if (!zaiaa || zaiaa[zaiac]) zaiab += this.meshlets[zaiac].count;
         }
-        var out = new Uint32Array(total);
-        var cursor = 0;
-        var idx = this.geometry.index;
-        for (var j = 0; j < this.meshlets.length; j++) {
-            if (!visibility || visibility[j]) {
-                var m = this.meshlets[j];
-                for (var k = 0; k < m.count; k++) out[cursor++] = idx[m.first * 3 + k];
+        var zaiad = new Uint32Array(zaiab);
+        var zaiae = 0;
+        var zaiaf = this.geometry.index;
+        for (var zaiag = 0; zaiag < this.meshlets.length; zaiag++) {
+            if (!zaiaa || zaiaa[zaiag]) {
+                var zaiah = this.meshlets[zaiag];
+                for (var zaiai = 0; zaiai < zaiah.count; zaiai++) zaiad[zaiae++] = zaiaf[zaiah.first * 3 + zaiai];
             }
         }
-        return out;
+        return zaiad;
     }
-    meshletGeometry(visibility) {
-        var out = new Geometry();
-        out.setAttribute("position", this.source.attributes.position);
-        if (this.source.attributes.normal) out.setAttribute("normal", this.source.attributes.normal);
-        if (this.source.attributes.uv) out.setAttribute("uv", this.source.attributes.uv);
-        out.setIndex(this.mergeIndices(visibility));
-        out.computeBounds();
-        return out;
+    meshletGeometry(zaiaa) {
+        var zaiab = new Geometry;
+        zaiab.setAttribute("position", this.source.attributes.position);
+        if (this.source.attributes.normal) zaiab.setAttribute("normal", this.source.attributes.normal);
+        if (this.source.attributes.uv) zaiab.setAttribute("uv", this.source.attributes.uv);
+        zaiab.setIndex(this.mergeIndices(zaiaa));
+        zaiab.computeBounds();
+        return zaiab;
     }
 }
 

@@ -1,27 +1,28 @@
 import { BufferAttribute } from "../core/index.js";
+
 import { Geometry } from "./Geometry.js";
 
 class CircleGeometry extends Geometry {
-    constructor(radius, segments, thetaStart, thetaLength) {
+    constructor(zakaa, zakab, zakac, zakad) {
         super();
         this.type = "CircleGeometry";
-        radius = radius !== undefined ? radius : 1;
-        segments = Math.max(3, segments || 32);
-        thetaStart = thetaStart !== undefined ? thetaStart : 0;
-        thetaLength = thetaLength !== undefined ? thetaLength : Math.PI * 2;
-        var positions = [0, 0, 0], uvs = [0.5, 0.5], normals = [0, 0, 1], indices = [];
-        for (var i = 0; i <= segments; i++) {
-            var theta = thetaStart + (i / segments) * thetaLength;
-            var x = radius * Math.cos(theta), y = radius * Math.sin(theta);
-            positions.push(x, y, 0);
-            uvs.push((x / radius + 1) * 0.5, (y / radius + 1) * 0.5);
-            normals.push(0, 0, 1);
+        zakaa = zakaa !== undefined ? zakaa : 1;
+        zakab = Math.max(3, zakab || 32);
+        zakac = zakac !== undefined ? zakac : 0;
+        zakad = zakad !== undefined ? zakad : Math.PI * 2;
+        var zakae = [ 0, 0, 0 ], zakaf = [ .5, .5 ], zakag = [ 0, 0, 1 ], zakah = [];
+        for (var zakai = 0; zakai <= zakab; zakai++) {
+            var zakaj = zakac + zakai / zakab * zakad;
+            var zakak = zakaa * Math.cos(zakaj), zakal = zakaa * Math.sin(zakaj);
+            zakae.push(zakak, zakal, 0);
+            zakaf.push((zakak / zakaa + 1) * .5, (zakal / zakaa + 1) * .5);
+            zakag.push(0, 0, 1);
         }
-        for (var s = 1; s <= segments; s++) indices.push(0, s, s + 1);
-        this.attributes.position = new BufferAttribute(new Float32Array(positions), 3);
-        this.attributes.uv = new BufferAttribute(new Float32Array(uvs), 2);
-        this.attributes.normal = new BufferAttribute(new Float32Array(normals), 3);
-        this.index = new Uint32Array(indices);
+        for (var zakam = 1; zakam <= zakab; zakam++) zakah.push(0, zakam, zakam + 1);
+        this.attributes.position = new BufferAttribute(new Float32Array(zakae), 3);
+        this.attributes.uv = new BufferAttribute(new Float32Array(zakaf), 2);
+        this.attributes.normal = new BufferAttribute(new Float32Array(zakag), 3);
+        this.index = new Uint32Array(zakah);
         this.computeBoundingBox();
         this.computeBoundingSphere();
     }

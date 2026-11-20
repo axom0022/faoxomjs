@@ -1,3 +1,11 @@
-function faoxomfbxtext(bytes) { try { return new TextDecoder().decode(bytes); } catch (error) { var text = ""; for (var i = 0; i < bytes.length; i++) text += String.fromCharCode(bytes[i]); return text; } }
+function faoxomfbxtext(zaeva) {
+    try {
+        return (new TextDecoder).decode(zaeva);
+    } catch (zaevd) {
+        var zaevb = "";
+        for (var zaevc = 0; zaevc < zaeva.length; zaevc++) zaevb += String.fromCharCode(zaeva[zaevc]);
+        return zaevb;
+    }
+}
 
 export { faoxomfbxtext };

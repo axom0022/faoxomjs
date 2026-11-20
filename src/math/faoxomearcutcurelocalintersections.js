@@ -1,22 +1,26 @@
 import { faoxomearcutequals } from "./faoxomearcutequals.js";
+
 import { faoxomearcutfilterpoints } from "./faoxomearcutfilterpoints.js";
+
 import { faoxomearcutintersects } from "./faoxomearcutintersects.js";
+
 import { faoxomearcutlocallyinside } from "./faoxomearcutlocallyinside.js";
+
 import { faoxomearcutremovenode } from "./faoxomearcutremovenode.js";
 
-function faoxomearcutcurelocalintersections(start, triangles) {
-    var p = start;
+function faoxomearcutcurelocalintersections(zapfa, zapfb) {
+    var zapfc = zapfa;
     do {
-        var a = p.prev, b = p.next.next;
-        if (!faoxomearcutequals(a, b) && faoxomearcutintersects(a, p, p.next, b) && faoxomearcutlocallyinside(a, b) && faoxomearcutlocallyinside(b, a)) {
-            triangles.push(a.i, p.i, b.i);
-            faoxomearcutremovenode(p);
-            faoxomearcutremovenode(p.next);
-            p = start = b;
+        var zapfd = zapfc.prev, zapfe = zapfc.next.next;
+        if (!faoxomearcutequals(zapfd, zapfe) && faoxomearcutintersects(zapfd, zapfc, zapfc.next, zapfe) && faoxomearcutlocallyinside(zapfd, zapfe) && faoxomearcutlocallyinside(zapfe, zapfd)) {
+            zapfb.push(zapfd.i, zapfc.i, zapfe.i);
+            faoxomearcutremovenode(zapfc);
+            faoxomearcutremovenode(zapfc.next);
+            zapfc = zapfa = zapfe;
         }
-        p = p.next;
-    } while (p !== start);
-    return faoxomearcutfilterpoints(p);
+        zapfc = zapfc.next;
+    } while (zapfc !== zapfa);
+    return faoxomearcutfilterpoints(zapfc);
 }
 
 export { faoxomearcutcurelocalintersections };

@@ -1,6 +1,13 @@
 import { faoxominverserotatevector } from "./faoxominverserotatevector.js";
+
 import { faoxomrotatevector } from "./faoxomrotatevector.js";
 
-function faoxominverseinertia(body, vector) { var local = faoxominverserotatevector(vector, body.rotation); local.x *= body.inverseInertiaLocal.x; local.y *= body.inverseInertiaLocal.y; local.z *= body.inverseInertiaLocal.z; return faoxomrotatevector(local, body.rotation); }
+function faoxominverseinertia(zaffa, zaffb) {
+    var zaffc = faoxominverserotatevector(zaffb, zaffa.rotation);
+    zaffc.x *= zaffa.inverseInertiaLocal.x;
+    zaffc.y *= zaffa.inverseInertiaLocal.y;
+    zaffc.z *= zaffa.inverseInertiaLocal.z;
+    return faoxomrotatevector(zaffc, zaffa.rotation);
+}
 
 export { faoxominverseinertia };

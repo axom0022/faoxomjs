@@ -1,7 +1,7 @@
 import { faoxomearcutarea } from "./faoxomearcutarea.js";
 
-function faoxomearcutlocallyinside(a, b) {
-    return faoxomearcutarea(a.prev, a, a.next) < 0 ? faoxomearcutarea(a, b, a.next) >= 0 && faoxomearcutarea(a, a.prev, b) >= 0 : faoxomearcutarea(a, b, a.prev) < 0 || faoxomearcutarea(a, a.next, b) < 0;
+function faoxomearcutlocallyinside(zapva, zapvb) {
+    return faoxomearcutarea(zapva.prev, zapva, zapva.next) < 0 ? faoxomearcutarea(zapva, zapvb, zapva.next) >= 0 && faoxomearcutarea(zapva, zapva.prev, zapvb) >= 0 : faoxomearcutarea(zapva, zapvb, zapva.prev) < 0 || faoxomearcutarea(zapva, zapva.next, zapvb) < 0;
 }
 
 export { faoxomearcutlocallyinside };

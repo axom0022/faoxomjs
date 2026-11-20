@@ -1,6 +1,32 @@
 import { faoxommodelstore } from "./faoxommodelstore.js";
+
 import { faoxomstate } from "./faoxomstate.js";
 
-function faoxomregistermodel(name, data, options) { if (!name || data === undefined) throw new Error("registerModel requires a model name and data"); var entry = null; if (data && typeof data === "object" && !(data instanceof Uint8Array) && !(data instanceof ArrayBuffer)) { if (data.format && (data.data !== undefined || data.json !== undefined)) entry = { format: data.format, data: data.data, json: data.json }; else if (data.asset) entry = { format: "gltf", json: data.json !== undefined ? data.json : data }; } if (!entry && typeof data === "string" && data.charAt(0) === "{") entry = { format: "gltf", json: JSON.parse(data) }; if (!entry) entry = { format: (options && options.format) || "glb", data: data }; var store = faoxommodelstore(); if (Object.prototype.hasOwnProperty.call(store, name) && (store[name].data !== entry.data || store[name].json !== entry.json)) faoxomstate.faoxommodelstoreversion++; store[name] = entry; return entry; }
+function faoxomregistermodel(zafsa, zafsb, zafsc) {
+    if (!zafsa || zafsb === undefined) throw new Error("registerModel requires a model name and data");
+    var zafsd = null;
+    if (zafsb && typeof zafsb === "object" && !(zafsb instanceof Uint8Array) && !(zafsb instanceof ArrayBuffer)) {
+        if (zafsb.format && (zafsb.data !== undefined || zafsb.json !== undefined)) zafsd = {
+            format: zafsb.format,
+            data: zafsb.data,
+            json: zafsb.json
+        }; else if (zafsb.asset) zafsd = {
+            format: "gltf",
+            json: zafsb.json !== undefined ? zafsb.json : zafsb
+        };
+    }
+    if (!zafsd && typeof zafsb === "string" && zafsb.charAt(0) === "{") zafsd = {
+        format: "gltf",
+        json: JSON.parse(zafsb)
+    };
+    if (!zafsd) zafsd = {
+        format: zafsc && zafsc.format || "glb",
+        data: zafsb
+    };
+    var zafse = faoxommodelstore();
+    if (Object.prototype.hasOwnProperty.call(zafse, zafsa) && (zafse[zafsa].data !== zafsd.data || zafse[zafsa].json !== zafsd.json)) faoxomstate.faoxommodelstoreversion++;
+    zafse[zafsa] = zafsd;
+    return zafsd;
+}
 
 export { faoxomregistermodel };

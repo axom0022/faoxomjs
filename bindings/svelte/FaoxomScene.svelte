@@ -1,8 +1,3 @@
-<!-- FaoxomJS Svelte component (roadmap item 41).
-     Source-only: compiled by your Svelte build pipeline.
-     <FaoxomScene src="/scenes/office.faox" orbit camera-position="0,2,6"
-                  ambient="0.5" sun="1.2" post="bloom,fxaa"
-                  on:load={(e) => console.log('loaded', e.detail)} /> -->
 <script>
     export let src = "";
     export let background = "";
@@ -27,7 +22,6 @@
         element.addEventListener("load", emit("load"));
         element.addEventListener("error", emit("error"));
         return () => {
-            // element teardown is handled by the custom element lifecycle
         };
     });
 

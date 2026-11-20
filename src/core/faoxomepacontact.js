@@ -1,32 +1,65 @@
 import { faoxomepaface } from "./faoxomepaface.js";
+
 import { faoxomsupport } from "./faoxomsupport.js";
 
-function faoxomepacontact(a, b, simplex) {
-    if (!simplex || simplex.length < 4) return null;
-    var vertices = simplex.slice(-4);
-    var faces = [];
-    var addFace = function(x, y, z) { var face = faoxomepaface(vertices[x], vertices[y], vertices[z]); if (face) faces.push(face); };
-    addFace(0, 1, 2); addFace(0, 3, 1); addFace(0, 2, 3); addFace(1, 3, 2);
-    for (var iteration = 0; iteration < 48; iteration++) {
-        if (!faces.length) return null;
-        faces.sort(function(x, y) { return x.distance - y.distance; });
-        var closest = faces[0];
-        var supportA = faoxomsupport(a.shape, a.position, a.rotation, closest.normal);
-        var supportB = faoxomsupport(b.shape, b.position, b.rotation, closest.normal.clone().negate());
-        var support = supportA.clone().sub(supportB);
-        var advance = support.dot(closest.normal) - closest.distance;
-        if (advance < 0.0005) return { normal: closest.normal.clone(), penetration: Math.max(0.0005, support.dot(closest.normal)), point: supportA.clone().add(supportB).multiplyScalar(0.5) };
-        var duplicate = false;
-        for (var vi = 0; vi < vertices.length; vi++) if (vertices[vi].distanceToSquared(support) < 1e-10) duplicate = true;
-        if (duplicate) return { normal: closest.normal.clone(), penetration: Math.max(0.0005, closest.distance), point: supportA.clone().add(supportB).multiplyScalar(0.5) };
-        var newIndex = vertices.length;
-        vertices.push(support);
-        var visible = [];
-        for (var fi = 0; fi < faces.length; fi++) if (faces[fi].normal.dot(support.clone().sub(faces[fi].a)) > 1e-7) visible.push(fi);
-        var edges = [];
-        var addEdge = function(x, y) { for (var ei = edges.length - 1; ei >= 0; ei--) if (edges[ei][0] === y && edges[ei][1] === x) { edges.splice(ei, 1); return; } edges.push([x, y]); };
-        for (var vi2 = visible.length - 1; vi2 >= 0; vi2--) { var oldFace = faces[visible[vi2]]; addEdge(vertices.indexOf(oldFace.a), vertices.indexOf(oldFace.b)); addEdge(vertices.indexOf(oldFace.b), vertices.indexOf(oldFace.c)); addEdge(vertices.indexOf(oldFace.c), vertices.indexOf(oldFace.a)); faces.splice(visible[vi2], 1); }
-        for (var ei2 = 0; ei2 < edges.length; ei2++) { var edge = edges[ei2]; var faceNew = faoxomepaface(vertices[edge[0]], vertices[edge[1]], vertices[newIndex]); if (faceNew) faces.push(faceNew); }
+function faoxomepacontact(zaeba, zaebb, zaebc) {
+    if (!zaebc || zaebc.length < 4) return null;
+    var zaebd = zaebc.slice(-4);
+    var zaebe = [];
+    var zaebf = function(zaeba, zaebb, zaebc) {
+        var zaebf = faoxomepaface(zaebd[zaeba], zaebd[zaebb], zaebd[zaebc]);
+        if (zaebf) zaebe.push(zaebf);
+    };
+    zaebf(0, 1, 2);
+    zaebf(0, 3, 1);
+    zaebf(0, 2, 3);
+    zaebf(1, 3, 2);
+    for (var zaebg = 0; zaebg < 48; zaebg++) {
+        if (!zaebe.length) return null;
+        zaebe.sort(function(zaeba, zaebb) {
+            return zaeba.distance - zaebb.distance;
+        });
+        var zaebh = zaebe[0];
+        var zaebi = faoxomsupport(zaeba.shape, zaeba.position, zaeba.rotation, zaebh.normal);
+        var zaebj = faoxomsupport(zaebb.shape, zaebb.position, zaebb.rotation, zaebh.normal.clone().negate());
+        var zaebk = zaebi.clone().sub(zaebj);
+        var zaebl = zaebk.dot(zaebh.normal) - zaebh.distance;
+        if (zaebl < 5e-4) return {
+            normal: zaebh.normal.clone(),
+            penetration: Math.max(5e-4, zaebk.dot(zaebh.normal)),
+            point: zaebi.clone().add(zaebj).multiplyScalar(.5)
+        };
+        var zaebm = false;
+        for (var zaebn = 0; zaebn < zaebd.length; zaebn++) if (zaebd[zaebn].distanceToSquared(zaebk) < 1e-10) zaebm = true;
+        if (zaebm) return {
+            normal: zaebh.normal.clone(),
+            penetration: Math.max(5e-4, zaebh.distance),
+            point: zaebi.clone().add(zaebj).multiplyScalar(.5)
+        };
+        var zaebo = zaebd.length;
+        zaebd.push(zaebk);
+        var zaebp = [];
+        for (var zaebq = 0; zaebq < zaebe.length; zaebq++) if (zaebe[zaebq].normal.dot(zaebk.clone().sub(zaebe[zaebq].a)) > 1e-7) zaebp.push(zaebq);
+        var zaebr = [];
+        var zaebs = function(zaeba, zaebb) {
+            for (var zaebc = zaebr.length - 1; zaebc >= 0; zaebc--) if (zaebr[zaebc][0] === zaebb && zaebr[zaebc][1] === zaeba) {
+                zaebr.splice(zaebc, 1);
+                return;
+            }
+            zaebr.push([ zaeba, zaebb ]);
+        };
+        for (var zaebt = zaebp.length - 1; zaebt >= 0; zaebt--) {
+            var zaebu = zaebe[zaebp[zaebt]];
+            zaebs(zaebd.indexOf(zaebu.a), zaebd.indexOf(zaebu.b));
+            zaebs(zaebd.indexOf(zaebu.b), zaebd.indexOf(zaebu.c));
+            zaebs(zaebd.indexOf(zaebu.c), zaebd.indexOf(zaebu.a));
+            zaebe.splice(zaebp[zaebt], 1);
+        }
+        for (var zaebv = 0; zaebv < zaebr.length; zaebv++) {
+            var zaebw = zaebr[zaebv];
+            var zaebx = faoxomepaface(zaebd[zaebw[0]], zaebd[zaebw[1]], zaebd[zaebo]);
+            if (zaebx) zaebe.push(zaebx);
+        }
     }
     return null;
 }

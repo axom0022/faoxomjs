@@ -1,23 +1,25 @@
 import { faoxomearcutarea } from "./faoxomearcutarea.js";
+
 import { faoxomearcutequals } from "./faoxomearcutequals.js";
+
 import { faoxomearcutremovenode } from "./faoxomearcutremovenode.js";
 
-function faoxomearcutfilterpoints(start, end) {
-    if (!start) return start;
-    if (!end) end = start;
-    var p = start, again;
+function faoxomearcutfilterpoints(zapja, zapjb) {
+    if (!zapja) return zapja;
+    if (!zapjb) zapjb = zapja;
+    var zapjc = zapja, zapjd;
     do {
-        again = false;
-        if (!p.steiner && (faoxomearcutequals(p, p.next) || faoxomearcutarea(p.prev, p, p.next) === 0)) {
-            faoxomearcutremovenode(p);
-            p = end = p.prev;
-            if (p === p.next) break;
-            again = true;
+        zapjd = false;
+        if (!zapjc.steiner && (faoxomearcutequals(zapjc, zapjc.next) || faoxomearcutarea(zapjc.prev, zapjc, zapjc.next) === 0)) {
+            faoxomearcutremovenode(zapjc);
+            zapjc = zapjb = zapjc.prev;
+            if (zapjc === zapjc.next) break;
+            zapjd = true;
         } else {
-            p = p.next;
+            zapjc = zapjc.next;
         }
-    } while (again || p !== end);
-    return end;
+    } while (zapjd || zapjc !== zapjb);
+    return zapjb;
 }
 
 export { faoxomearcutfilterpoints };

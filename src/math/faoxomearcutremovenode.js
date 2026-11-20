@@ -1,8 +1,8 @@
-function faoxomearcutremovenode(p) {
-    p.next.prev = p.prev;
-    p.prev.next = p.next;
-    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
-    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
+function faoxomearcutremovenode(zaqaa) {
+    zaqaa.next.prev = zaqaa.prev;
+    zaqaa.prev.next = zaqaa.next;
+    if (zaqaa.prevZ) zaqaa.prevZ.nextZ = zaqaa.nextZ;
+    if (zaqaa.nextZ) zaqaa.nextZ.prevZ = zaqaa.prevZ;
 }
 
 export { faoxomearcutremovenode };

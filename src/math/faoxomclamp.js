@@ -1,3 +1,5 @@
-function faoxomclamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function faoxomclamp(zaoza, zaozb, zaozc) {
+    return Math.max(zaozb, Math.min(zaozc, zaoza));
+}
 
 export { faoxomclamp };

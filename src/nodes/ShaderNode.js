@@ -1,15 +1,21 @@
 import { faoxomstate } from "../core/index.js";
 
 class ShaderNode {
-    constructor(type, outputType) {
+    constructor(zaraa, zarab) {
         this.id = faoxomstate.faoxomidx++;
-        this.type = type || "node";
-        this.outputType = outputType || "float";
+        this.type = zaraa || "node";
+        this.outputType = zarab || "float";
         this.children = [];
     }
-    getType() { return this.outputType; }
-    build(builder) { return "0.0"; }
-    hash() { return this.type + "_" + this.id; }
+    getType() {
+        return this.outputType;
+    }
+    build(zaraa) {
+        return "0.0";
+    }
+    hash() {
+        return this.type + "_" + this.id;
+    }
 }
 
 export { ShaderNode };

@@ -1,20 +1,30 @@
 import { Ray } from "../math/index.js";
 
 class CCDSolver {
-    static sweepSphere(sphere, velocity, obstacle, dt) {
-        var start = sphere.center.clone();
-        var dir = velocity.clone().multiplyScalar(dt);
-        var dist = dir.length();
-        if (dist < 1e-5) return { hit: false, toi: 1.0 };
-        dir.normalize();
-        var ray = new Ray(start, dir);
-        var hits = obstacle.bvh ? obstacle.bvh.raycast(ray) : [];
-        if (hits.length > 0) {
-            var firstHit = hits[0];
-            var toi = (firstHit.distance - sphere.radius) / dist;
-            if (toi >= 0 && toi <= 1.0) return { hit: true, toi: toi, point: firstHit.point };
+    static sweepSphere(zagma, zagmb, zagmc, zagmd) {
+        var zagme = zagma.center.clone();
+        var zagmf = zagmb.clone().multiplyScalar(zagmd);
+        var zagmg = zagmf.length();
+        if (zagmg < 1e-5) return {
+            hit: false,
+            toi: 1
+        };
+        zagmf.normalize();
+        var zagmh = new Ray(zagme, zagmf);
+        var zagmi = zagmc.bvh ? zagmc.bvh.raycast(zagmh) : [];
+        if (zagmi.length > 0) {
+            var zagmj = zagmi[0];
+            var zagmk = (zagmj.distance - zagma.radius) / zagmg;
+            if (zagmk >= 0 && zagmk <= 1) return {
+                hit: true,
+                toi: zagmk,
+                point: zagmj.point
+            };
         }
-        return { hit: false, toi: 1.0 };
+        return {
+            hit: false,
+            toi: 1
+        };
     }
 }
 

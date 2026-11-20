@@ -1,21 +1,21 @@
 import { faoxomfontcreatepaths } from "../core/index.js";
 
 class Font {
-    constructor(data) {
+    constructor(zamca) {
         this.isFont = true;
         this.type = "Font";
-        this.data = data || {};
+        this.data = zamca || {};
     }
-    generateShapes(text, size, direction) {
-        size = size !== undefined ? size : 100;
-        direction = direction !== undefined ? direction : "ltr";
-        var shapes = [];
-        var paths = faoxomfontcreatepaths(text, size, this.data, direction);
-        for (var p = 0, pl = paths.length; p < pl; p++) {
-            var pathShapes = paths[p].toShapes();
-            for (var s = 0; s < pathShapes.length; s++) shapes.push(pathShapes[s]);
+    generateShapes(zamca, zamcb, zamcc) {
+        zamcb = zamcb !== undefined ? zamcb : 100;
+        zamcc = zamcc !== undefined ? zamcc : "ltr";
+        var zamcd = [];
+        var zamce = faoxomfontcreatepaths(zamca, zamcb, this.data, zamcc);
+        for (var zamcf = 0, zamcg = zamce.length; zamcf < zamcg; zamcf++) {
+            var zamch = zamce[zamcf].toShapes();
+            for (var zamci = 0; zamci < zamch.length; zamci++) zamcd.push(zamch[zamci]);
         }
-        return shapes;
+        return zamcd;
     }
 }
 

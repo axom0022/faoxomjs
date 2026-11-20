@@ -1,164 +1,216 @@
 import fs from "fs";
+
 import path from "path";
+
 import { createHash } from "crypto";
+
 import { minify } from "terser";
 
-const rootdir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const banner = "/*! FaoxomJS v6 | https://github.com/axom0022/faoxomjs */";
+function cleanoutput(zavpa) {
+    return zavpa.replace(/[ \t]+$/gm, "");
+}
 
-const srcdir = path.join(rootdir, "src");
-const indexText = fs.readFileSync(path.join(srcdir, "index.js"), "utf8");
-const folderorder = [];
-const folderre = /import \* as (\w+) from "\.\/(\w+)\/index\.js";/g;
-let fm;
-while ((fm = folderre.exec(indexText))) folderorder.push(fm[2]);
+const zavpa = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
-const allnames = [];
+const zavpb = "";
 
-function stripfile(text) {
-    text = text.replace(/import\s[^;]*?from\s*"[^"]*";\s*\n?/g, "");
-    text = text.replace(/export\s*\{([^}]*)\};?\s*\n?/g, (whole, inner) => {
-        for (const name of inner.split(",")) {
-            const n = name.trim();
-            if (n) allnames.push(n);
+const zavpc = path.join(zavpa, "src");
+
+const zavpd = fs.readFileSync(path.join(zavpc, "index.js"), "utf8");
+
+const zavpe = [];
+
+const zavpf = /import \* as (\w+) from "\.\/(\w+)\/index\.js";/g;
+
+let zavpg;
+
+while (zavpg = zavpf.exec(zavpd)) zavpe.push(zavpg[2]);
+
+const zavph = [];
+
+function zavpi(zavpa) {
+    zavpa = zavpa.replace(/import\s[^;]*?from\s*"[^"]*";\s*\n?/g, "");
+    zavpa = zavpa.replace(/export\s*\{([^}]*)\};?\s*\n?/g, (zavpa, zavpb) => {
+        for (const zavpa of zavpb.split(",")) {
+            const zavpb = zavpa.trim();
+            if (zavpb) zavph.push(zavpb);
         }
         return "";
     });
-    return text;
+    return zavpa;
 }
 
-const orderedfiles = [];
-const barrelmembers = new Map();
-const extraorder = [];
-for (const folder of folderorder) {
-    const barrel = fs.readFileSync(path.join(srcdir, folder, "index.js"), "utf8");
-    const files = [];
-    const bre = /export \* from "\.\/([^"]+)";/g;
-    let bm;
-    while ((bm = bre.exec(barrel))) files.push(bm[1]);
-    barrelmembers.set(folder, files);
-    for (const f of files) orderedfiles.push({ id: folder + "/" + f.replace(/\.js$/, ""), path: path.join(srcdir, folder, f) });
-}
-extraorder.push({ id: "core/facade", path: path.join(srcdir, "core", "facade.js") });
-extraorder.push({ id: "core/namespace", path: path.join(srcdir, "core", "namespace.js") });
+const zavpj = [];
 
-function resolveSpec(fromId, spec) {
-    if (spec.startsWith("./")) return fromId.split("/").slice(0, -1).join("/") + "/" + spec.slice(2).replace(/\.js$/, "");
-    const parts = spec.replace(/\.js$/, "").split("/");
-    return parts.slice(1).join("/");
+const zavpk = new Map;
+
+const zavpl = [];
+
+for (const zavpa of zavpe) {
+    const zavpb = fs.readFileSync(path.join(zavpc, zavpa, "index.js"), "utf8");
+    const zavpd = [];
+    const zavpe = /export \* from "\.\/([^"]+)";/g;
+    let zavpf;
+    while (zavpf = zavpe.exec(zavpb)) zavpd.push(zavpf[1]);
+    zavpk.set(zavpa, zavpd);
+    for (const zavpb of zavpd) zavpj.push({
+        id: zavpa + "/" + zavpb.replace(/\.js$/, ""),
+        path: path.join(zavpc, zavpa, zavpb)
+    });
 }
 
-const exportnames = new Map();
-const nameowner = new Map();
-for (const item of orderedfiles.concat(extraorder)) {
-    const text = fs.readFileSync(item.path, "utf8");
-    const names = new Set();
-    const ere = /export\s*\{([^}]*)\};?/g;
-    let em;
-    while ((em = ere.exec(text))) for (const n of em[1].split(",")) {
-        const t = n.trim();
-        if (t) names.add(t);
+zavpl.push({
+    id: "core/facade",
+    path: path.join(zavpc, "core", "facade.js")
+});
+
+zavpl.push({
+    id: "core/namespace",
+    path: path.join(zavpc, "core", "namespace.js")
+});
+
+function zavpm(zavpa, zavpb) {
+    if (zavpb.startsWith("./")) return zavpa.split("/").slice(0, -1).join("/") + "/" + zavpb.slice(2).replace(/\.js$/, "");
+    const zavpc = zavpb.replace(/\.js$/, "").split("/");
+    return zavpc.slice(1).join("/");
+}
+
+const zavpn = new Map;
+
+const zavpo = new Map;
+
+for (const zavpa of zavpj.concat(zavpl)) {
+    const zavpb = fs.readFileSync(zavpa.path, "utf8");
+    const zavpc = new Set;
+    const zavpd = /export\s*\{([^}]*)\};?/g;
+    let zavpe;
+    while (zavpe = zavpd.exec(zavpb)) for (const zavpa of zavpe[1].split(",")) {
+        const zavpb = zavpa.trim();
+        if (zavpb) zavpc.add(zavpb);
     }
-    exportnames.set(item.id, names);
-    for (const n of names) if (!nameowner.has(n)) nameowner.set(n, item.id);
+    zavpn.set(zavpa.id, zavpc);
+    for (const zavpb of zavpc) if (!zavpo.has(zavpb)) zavpo.set(zavpb, zavpa.id);
 }
 
-const deps = new Map();
-for (const item of orderedfiles.concat(extraorder)) {
-    const text = fs.readFileSync(item.path, "utf8");
-    const targets = new Set();
-    const ire = /import\s+(?:\{([^}]*)\}|[^;]*?)\s*from\s*"([^"]+)";/g;
-    let im;
-    while ((im = ire.exec(text))) {
-        const spec = im[2];
-        const target = resolveSpec(item.id, spec);
-        const isbarrel = target.split("/").pop() === "index";
-        if (im[1]) {
-            if (isbarrel) {
-                for (const n of im[1].split(",")) {
-                    const t = n.trim().split(/\s+as\s+/)[0].trim();
-                    if (t && nameowner.has(t)) targets.add(nameowner.get(t));
+const zavpp = new Map;
+
+for (const zavpa of zavpj.concat(zavpl)) {
+    const zavpb = fs.readFileSync(zavpa.path, "utf8");
+    const zavpc = new Set;
+    const zavpd = /import\s+(?:\{([^}]*)\}|[^;]*?)\s*from\s*"([^"]+)";/g;
+    let zavpe;
+    while (zavpe = zavpd.exec(zavpb)) {
+        const zavpb = zavpe[2];
+        const zavpd = zavpm(zavpa.id, zavpb);
+        const zavpf = zavpd.split("/").pop() === "index";
+        if (zavpe[1]) {
+            if (zavpf) {
+                for (const zavpa of zavpe[1].split(",")) {
+                    const zavpb = zavpa.trim().split(/\s+as\s+/)[0].trim();
+                    if (zavpb && zavpo.has(zavpb)) zavpc.add(zavpo.get(zavpb));
                 }
-            } else if (target !== item.id) targets.add(target);
-        } else if (isbarrel) {
-            for (const f of (barrelmembers.get(target.split("/")[0]) || [])) {
-                const tid = target.split("/")[0] + "/" + f.replace(/\.js$/, "");
-                if (tid !== item.id) targets.add(tid);
+            } else if (zavpd !== zavpa.id) zavpc.add(zavpd);
+        } else if (zavpf) {
+            for (const zavpb of zavpk.get(zavpd.split("/")[0]) || []) {
+                const zavpe = zavpd.split("/")[0] + "/" + zavpb.replace(/\.js$/, "");
+                if (zavpe !== zavpa.id) zavpc.add(zavpe);
             }
-        } else if (target !== item.id) targets.add(target);
+        } else if (zavpd !== zavpa.id) zavpc.add(zavpd);
     }
-    deps.set(item.id, targets);
+    zavpp.set(zavpa.id, zavpc);
 }
 
-const allids = orderedfiles.concat(extraorder).map(i => i.id);
-const pathbyid = new Map(orderedfiles.concat(extraorder).map(i => [i.id, i.path]));
-const emitted = [];
-const visitstate = new Map();
-function visit(id) {
-    const st = visitstate.get(id);
-    if (st) return;
-    visitstate.set(id, 1);
-    for (const d of deps.get(id)) if (deps.has(d)) visit(d);
-    visitstate.set(id, 2);
-    emitted.push(id);
-}
-for (const id of allids) visit(id);
+const zavpq = zavpj.concat(zavpl).map(zavpa => zavpa.id);
 
-const statements = [];
-for (const id of emitted) {
-    const text = fs.readFileSync(pathbyid.get(id), "utf8");
-    const stripped = stripfile(text);
-    if (stripped.trim().length) statements.push({ id: id, text: stripped });
+const zavpr = new Map(zavpj.concat(zavpl).map(zavpa => [ zavpa.id, zavpa.path ]));
+
+const zavps = [];
+
+const zavpt = new Map;
+
+function zavpu(zavpa) {
+    const zavpb = zavpt.get(zavpa);
+    if (zavpb) return;
+    zavpt.set(zavpa, 1);
+    for (const zavpb of zavpp.get(zavpa)) if (zavpp.has(zavpb)) zavpu(zavpb);
+    zavpt.set(zavpa, 2);
+    zavps.push(zavpa);
 }
 
-const body = statements.map(s => s.text).join("\n");
+for (const zavpa of zavpq) zavpu(zavpa);
 
-function md5(text) {
-    return createHash("md5").update(text).digest("hex");
+const zavpv = [];
+
+for (const zavpa of zavps) {
+    const zavpb = fs.readFileSync(zavpr.get(zavpa), "utf8");
+    const zavpc = zavpi(zavpb);
+    if (zavpc.trim().length) zavpv.push({
+        id: zavpa,
+        text: zavpc
+    });
 }
 
-function faoxomBlock() {
-    const lines = ["var FAOXOM = {};"];
-    for (const n of allnames) lines.push("FAOXOM[" + JSON.stringify(n) + "] = " + n + ";");
-    lines.push("FAOXOM.FaoxomJs = FaoxomJs;");
-    lines.push("var faoxomstat = Object.getOwnPropertyNames(FaoxomJs);");
-    lines.push("for (var faoxomsi = 0; faoxomsi < faoxomstat.length; faoxomsi++) {");
-    lines.push("    var faoxomsk = faoxomstat[faoxomsi];");
-    lines.push("    if (faoxomsk === \"length\" || faoxomsk === \"name\" || faoxomsk === \"prototype\") continue;");
-    lines.push("    if (!FAOXOM[faoxomsk]) FAOXOM[faoxomsk] = FaoxomJs[faoxomsk];");
-    lines.push("}");
-    lines.push("if (typeof globalThis !== \"undefined\") globalThis.FAOXOM = FAOXOM;");
-    return lines.join("\n");
+const zavpw = zavpv.map(zavpa => zavpa.text).join("\n");
+
+function zavpx(zavpa) {
+    return createHash("md5").update(zavpa).digest("hex");
 }
 
-async function main() {
-    fs.mkdirSync(path.join(rootdir, "dist"), { recursive: true });
+function zavpy() {
+    const zavpa = [ "var FAOXOM = {};" ];
+    for (const zavpb of zavph) zavpa.push("FAOXOM[" + JSON.stringify(zavpb) + "] = " + zavpb + ";");
+    zavpa.push("FAOXOM.FaoxomJs = FaoxomJs;");
+    zavpa.push("var faoxomstat = Object.getOwnPropertyNames(FaoxomJs);");
+    zavpa.push("for (var faoxomsi = 0; faoxomsi < faoxomstat.length; faoxomsi++) {");
+    zavpa.push("    var faoxomsk = faoxomstat[faoxomsi];");
+    zavpa.push('    if (faoxomsk === "length" || faoxomsk === "name" || faoxomsk === "prototype") continue;');
+    zavpa.push("    if (!FAOXOM[faoxomsk]) FAOXOM[faoxomsk] = FaoxomJs[faoxomsk];");
+    zavpa.push("}");
+    zavpa.push('if (typeof globalThis !== "undefined") globalThis.FAOXOM = FAOXOM;');
+    return zavpa.join("\n");
+}
 
-    const rootText = body + "\nexport default FaoxomJs;\n";
-    fs.writeFileSync(path.join(rootdir, "FaoxomJs.js"), rootText);
-
-    const isShimLine = t => t.trim().startsWith("if (typeof module");
-    const bundleStmts = statements.map(s => s.text).filter(t => !isShimLine(t));
-    const umdText = banner + "\n(function (root, factory) {\n    if (typeof define === \"function\" && define.amd) define([], factory);\n    else if (typeof module !== \"undefined\" && module.exports) module.exports = factory();\n    else root.FaoxomJs = factory();\n})(typeof self !== \"undefined\" ? self : this, function () {\n" + bundleStmts.join("\n") + "\n" + faoxomBlock() + "\n    return FaoxomJs;\n});\n";
-    fs.writeFileSync(path.join(rootdir, "dist", "faoxom.js"), umdText);
-
-    const minResult = await minify(umdText, { compress: true, mangle: true, toplevel: true, format: { comments: /^!/ } });
-    fs.writeFileSync(path.join(rootdir, "dist", "faoxom.min.js"), banner + "\n" + minResult.code + "\n");
-
-    const moduleShim = "export { default } from \"../src/index.js\";\nexport * from \"../src/index.js\";\n";
-    fs.writeFileSync(path.join(rootdir, "dist", "faoxom.module.js"), moduleShim);
-
-    const moduleText = banner + "\n" + bundleStmts.join("\n") + "\n" + faoxomBlock() + "\nexport { " + allnames.join(", ") + ", FAOXOM };\nexport default FaoxomJs;\n";
-    const moduleMinResult = await minify(moduleText, { compress: true, mangle: true, module: true, format: { comments: /^!/ } });
-    fs.writeFileSync(path.join(rootdir, "dist", "faoxom.module.min.js"), banner + "\n" + moduleMinResult.code + "\n");
-
-    const outputs = ["FaoxomJs.js", "dist/faoxom.js", "dist/faoxom.min.js", "dist/faoxom.module.js", "dist/faoxom.module.min.js"];
-    for (const o of outputs) {
-        const t = fs.readFileSync(path.join(rootdir, o), "utf-8");
-        console.log(o + " | " + t.length + " bytes | md5 " + md5(t));
+async function zavpz() {
+    fs.mkdirSync(path.join(zavpa, "dist"), {
+        recursive: true
+    });
+    const zavpc = zavpw + "\nexport default FaoxomJs;\n";
+    fs.writeFileSync(path.join(zavpa, "FaoxomJs.js"), cleanoutput(zavpc));
+    const zavpd = zavpa => zavpa.trim().startsWith("if (typeof module");
+    const zavpf = zavpv.map(zavpa => zavpa.text).filter(zavpa => !zavpd(zavpa));
+    const zavpg = zavpb + '\n(function (root, factory) {\n    if (typeof define === "function" && define.amd) define([], factory);\n    else if (typeof module !== "undefined" && module.exports) module.exports = factory();\n    else root.FaoxomJs = factory();\n})(typeof self !== "undefined" ? self : this, function () {\n' + zavpf.join("\n") + "\n" + zavpy() + "\n    return FaoxomJs;\n});\n";
+    fs.writeFileSync(path.join(zavpa, "dist", "faoxom.js"), cleanoutput(zavpg));
+    const zavpi = await minify(zavpg, {
+        compress: true,
+        mangle: true,
+        toplevel: true,
+        format: {
+            comments: false
+        }
+    });
+    fs.writeFileSync(path.join(zavpa, "dist", "faoxom.min.js"), cleanoutput(zavpb + "\n" + zavpi.code + "\n"));
+    const zavpj = 'export { default } from "../src/index.js";\nexport * from "../src/index.js";\n';
+    fs.writeFileSync(path.join(zavpa, "dist", "faoxom.module.js"), cleanoutput(zavpj));
+    const zavpk = zavpb + "\n" + zavpf.join("\n") + "\n" + zavpy() + "\nexport { " + zavph.join(", ") + ", FAOXOM };\nexport default FaoxomJs;\n";
+    const zavpl = await minify(zavpk, {
+        compress: true,
+        mangle: true,
+        module: true,
+        format: {
+            comments: false
+        }
+    });
+    fs.writeFileSync(path.join(zavpa, "dist", "faoxom.module.min.js"), cleanoutput(zavpb + "\n" + zavpl.code + "\n"));
+    const zavpm = [ "FaoxomJs.js", "dist/faoxom.js", "dist/faoxom.min.js", "dist/faoxom.module.js", "dist/faoxom.module.min.js" ];
+    for (const zavpb of zavpm) {
+        const zavpc = fs.readFileSync(path.join(zavpa, zavpb), "utf-8");
+        console.log(zavpb + " | " + zavpc.length + " bytes | md5 " + zavpx(zavpc));
     }
-    const reordercount = emitted.filter((id, i) => allids[i] !== id).length;
-    console.log("folders: " + folderorder.length + " | statement files: " + statements.length + " | names: " + allnames.length + " | topo reorders: " + reordercount);
+    const zavpn = zavps.filter((zavpa, zavpb) => zavpq[zavpb] !== zavpa).length;
+    console.log("folders: " + zavpe.length + " | statement files: " + zavpv.length + " | names: " + zavph.length + " | topo reorders: " + zavpn);
 }
 
-main().catch(e => { console.error("BUILD FAILED:", e.message); process.exit(1); });
+zavpz().catch(zavpa => {
+    console.error("BUILD FAILED:", zavpa.message);
+    process.exit(1);
+});

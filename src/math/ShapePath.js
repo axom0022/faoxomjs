@@ -1,97 +1,147 @@
 import { Color } from "./Color.js";
+
 import { Path } from "./Path.js";
+
 import { Shape } from "./Shape.js";
+
 import { ShapeUtils } from "./ShapeUtils.js";
+
 import { Vector2 } from "./Vector2.js";
 
 class ShapePath {
-    constructor() { this.type = "ShapePath"; this.color = new Color(); this.subPaths = []; this.currentPath = null; this.userData = {}; }
-    moveTo(x, y) { this.currentPath = new Path(); this.subPaths.push(this.currentPath); this.currentPath.moveTo(x, y); return this; }
-    lineTo(x, y) { this.currentPath.lineTo(x, y); return this; }
-    quadraticCurveTo(aCPx, aCPy, aX, aY) { this.currentPath.quadraticCurveTo(aCPx, aCPy, aX, aY); return this; }
-    bezierCurveTo(aCP1x, aCP1y, aCP2x, aCP2y, aX, aY) { this.currentPath.bezierCurveTo(aCP1x, aCP1y, aCP2x, aCP2y, aX, aY); return this; }
-    splineThru(pts) { this.currentPath.splineThru(pts); return this; }
+    constructor() {
+        this.type = "ShapePath";
+        this.color = new Color;
+        this.subPaths = [];
+        this.currentPath = null;
+        this.userData = {};
+    }
+    moveTo(zaora, zaorb) {
+        this.currentPath = new Path;
+        this.subPaths.push(this.currentPath);
+        this.currentPath.moveTo(zaora, zaorb);
+        return this;
+    }
+    lineTo(zaora, zaorb) {
+        this.currentPath.lineTo(zaora, zaorb);
+        return this;
+    }
+    quadraticCurveTo(zaora, zaorb, zaorc, zaord) {
+        this.currentPath.quadraticCurveTo(zaora, zaorb, zaorc, zaord);
+        return this;
+    }
+    bezierCurveTo(zaora, zaorb, zaorc, zaord, zaore, zaorf) {
+        this.currentPath.bezierCurveTo(zaora, zaorb, zaorc, zaord, zaore, zaorf);
+        return this;
+    }
+    splineThru(zaora) {
+        this.currentPath.splineThru(zaora);
+        return this;
+    }
     toShapes() {
-        function pointInPolygon(p, polygon) {
-            var inside = false, n = polygon.length;
-            for (var i = 0, j = n - 1; i < n; j = i++) {
-                var a = polygon[i], b = polygon[j];
-                if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+        function zaora(zaora, zaorb) {
+            var zaorc = false, zaord = zaorb.length;
+            for (var zaore = 0, zaorf = zaord - 1; zaore < zaord; zaorf = zaore++) {
+                var zaorg = zaorb[zaore], zaorh = zaorb[zaorf];
+                if (zaorg.y > zaora.y !== zaorh.y > zaora.y && zaora.x < (zaorh.x - zaorg.x) * (zaora.y - zaorg.y) / (zaorh.y - zaorg.y) + zaorg.x) zaorc = !zaorc;
             }
-            return inside;
+            return zaorc;
         }
-        function getInteriorPoint(polygon, minX, minY, maxX, maxY) {
-            var point = new Vector2((minX + maxX) / 2, (minY + maxY) / 2);
-            if (pointInPolygon(point, polygon)) return point;
-            var y = point.y, intercepts = [], n = polygon.length;
-            for (var i = 0; i < n; i++) {
-                var a = polygon[i], b = polygon[(i + 1) % n];
-                if ((a.y > y) !== (b.y > y)) intercepts.push(a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y));
+        function zaorb(zaorb, zaorc, zaord, zaore, zaorf) {
+            var zaorg = new Vector2((zaorc + zaore) / 2, (zaord + zaorf) / 2);
+            if (zaora(zaorg, zaorb)) return zaorg;
+            var zaorh = zaorg.y, zaori = [], zaorj = zaorb.length;
+            for (var zaork = 0; zaork < zaorj; zaork++) {
+                var zaorl = zaorb[zaork], zaorm = zaorb[(zaork + 1) % zaorj];
+                if (zaorl.y > zaorh !== zaorm.y > zaorh) zaori.push(zaorl.x + (zaorh - zaorl.y) * (zaorm.x - zaorl.x) / (zaorm.y - zaorl.y));
             }
-            if (intercepts.length > 1) {
-                intercepts.sort(function(x1, x2) { return x1 - x2; });
-                point.x = (intercepts[0] + intercepts[1]) / 2;
+            if (zaori.length > 1) {
+                zaori.sort(function(zaora, zaorb) {
+                    return zaora - zaorb;
+                });
+                zaorg.x = (zaori[0] + zaori[1]) / 2;
             }
-            return point;
+            return zaorg;
         }
-        function containsBox(inner, outer) { return inner.minX >= outer.minX && inner.maxX <= outer.maxX && inner.minY >= outer.minY && inner.maxY <= outer.maxY; }
-        var fillRule = (this.userData.style && this.userData.style.fillRule) || "nonzero";
-        if (fillRule !== "nonzero" && fillRule !== "evenodd") fillRule = "nonzero";
-        var isInside = fillRule === "nonzero" ? function(w) { return w !== 0; } : function(w) { return (w & 1) !== 0; };
-        var entries = [];
-        for (var i = 0; i < this.subPaths.length; i++) {
-            var subPath = this.subPaths[i];
-            var points = subPath.getPoints();
-            if (points.length < 3) continue;
-            var area = ShapeUtils.area(points);
-            if (area === 0) continue;
-            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (var p = 0; p < points.length; p++) {
-                if (points[p].x < minX) minX = points[p].x;
-                if (points[p].x > maxX) maxX = points[p].x;
-                if (points[p].y < minY) minY = points[p].y;
-                if (points[p].y > maxY) maxY = points[p].y;
-            }
-            entries.push({ subPath: subPath, points: points, minX: minX, minY: minY, maxX: maxX, maxY: maxY, interiorPoint: getInteriorPoint(points, minX, minY, maxX, maxY), absArea: Math.abs(area), winding: area < 0 ? -1 : 1, container: null, exclude: false, role: null });
+        function zaorc(zaora, zaorb) {
+            return zaora.minX >= zaorb.minX && zaora.maxX <= zaorb.maxX && zaora.minY >= zaorb.minY && zaora.maxY <= zaorb.maxY;
         }
-        entries.sort(function(a, b) { return b.absArea - a.absArea; });
-        for (var e = 0; e < entries.length; e++) {
-            var entry = entries[e], containerWinding = 0;
-            for (var j = e - 1; j >= 0; j--) {
-                var candidate = entries[j];
-                if (!containsBox(entry, candidate)) continue;
-                if (!pointInPolygon(entry.interiorPoint, candidate.points)) continue;
-                entry.container = candidate.exclude ? candidate.container : candidate;
-                containerWinding = candidate.winding;
-                entry.winding += containerWinding;
+        var zaord = this.userData.style && this.userData.style.fillRule || "nonzero";
+        if (zaord !== "nonzero" && zaord !== "evenodd") zaord = "nonzero";
+        var zaore = zaord === "nonzero" ? function(zaora) {
+            return zaora !== 0;
+        } : function(zaora) {
+            return (zaora & 1) !== 0;
+        };
+        var zaorf = [];
+        for (var zaorg = 0; zaorg < this.subPaths.length; zaorg++) {
+            var zaorh = this.subPaths[zaorg];
+            var zaori = zaorh.getPoints();
+            if (zaori.length < 3) continue;
+            var zaorj = ShapeUtils.area(zaori);
+            if (zaorj === 0) continue;
+            var zaork = Infinity, zaorl = Infinity, zaorm = -Infinity, zaorn = -Infinity;
+            for (var zaoro = 0; zaoro < zaori.length; zaoro++) {
+                if (zaori[zaoro].x < zaork) zaork = zaori[zaoro].x;
+                if (zaori[zaoro].x > zaorm) zaorm = zaori[zaoro].x;
+                if (zaori[zaoro].y < zaorl) zaorl = zaori[zaoro].y;
+                if (zaori[zaoro].y > zaorn) zaorn = zaori[zaoro].y;
+            }
+            zaorf.push({
+                subPath: zaorh,
+                points: zaori,
+                minX: zaork,
+                minY: zaorl,
+                maxX: zaorm,
+                maxY: zaorn,
+                interiorPoint: zaorb(zaori, zaork, zaorl, zaorm, zaorn),
+                absArea: Math.abs(zaorj),
+                winding: zaorj < 0 ? -1 : 1,
+                container: null,
+                exclude: false,
+                role: null
+            });
+        }
+        zaorf.sort(function(zaora, zaorb) {
+            return zaorb.absArea - zaora.absArea;
+        });
+        for (var zaorp = 0; zaorp < zaorf.length; zaorp++) {
+            var zaorq = zaorf[zaorp], zaorr = 0;
+            for (var zaors = zaorp - 1; zaors >= 0; zaors--) {
+                var zaort = zaorf[zaors];
+                if (!zaorc(zaorq, zaort)) continue;
+                if (!zaora(zaorq.interiorPoint, zaort.points)) continue;
+                zaorq.container = zaort.exclude ? zaort.container : zaort;
+                zaorr = zaort.winding;
+                zaorq.winding += zaorr;
                 break;
             }
-            if (isInside(entry.winding) === isInside(containerWinding)) entry.exclude = true;
+            if (zaore(zaorq.winding) === zaore(zaorr)) zaorq.exclude = true;
         }
-        for (var k = 0; k < entries.length; k++) {
-            if (entries[k].exclude) continue;
-            entries[k].role = (entries[k].container === null || entries[k].container.role === "hole") ? "outer" : "hole";
+        for (var zaoru = 0; zaoru < zaorf.length; zaoru++) {
+            if (zaorf[zaoru].exclude) continue;
+            zaorf[zaoru].role = zaorf[zaoru].container === null || zaorf[zaoru].container.role === "hole" ? "outer" : "hole";
         }
-        var shapes = [], shapeByEntry = [];
-        for (var o = 0; o < entries.length; o++) {
-            var outerEntry = entries[o];
-            if (outerEntry.exclude || outerEntry.role !== "outer") continue;
-            var shape = new Shape();
-            shape.curves = outerEntry.subPath.curves;
-            shapes.push(shape);
-            shapeByEntry.push([outerEntry, shape]);
+        var zaorv = [], zaorw = [];
+        for (var zaorx = 0; zaorx < zaorf.length; zaorx++) {
+            var zaory = zaorf[zaorx];
+            if (zaory.exclude || zaory.role !== "outer") continue;
+            var zaorz = new Shape;
+            zaorz.curves = zaory.subPath.curves;
+            zaorv.push(zaorz);
+            zaorw.push([ zaory, zaorz ]);
         }
-        for (var h = 0; h < entries.length; h++) {
-            var holeEntry = entries[h];
-            if (holeEntry.exclude || holeEntry.role !== "hole") continue;
-            var containerShape = null;
-            for (var s = 0; s < shapeByEntry.length; s++) if (shapeByEntry[s][0] === holeEntry.container) containerShape = shapeByEntry[s][1];
-            if (!containerShape) continue;
-            var hole = new Path();
-            hole.curves = holeEntry.subPath.curves;
-            containerShape.holes.push(hole);
+        for (var zaoraa = 0; zaoraa < zaorf.length; zaoraa++) {
+            var zaorab = zaorf[zaoraa];
+            if (zaorab.exclude || zaorab.role !== "hole") continue;
+            var zaorac = null;
+            for (var zaorad = 0; zaorad < zaorw.length; zaorad++) if (zaorw[zaorad][0] === zaorab.container) zaorac = zaorw[zaorad][1];
+            if (!zaorac) continue;
+            var zaorae = new Path;
+            zaorae.curves = zaorab.subPath.curves;
+            zaorac.holes.push(zaorae);
         }
-        return shapes;
+        return zaorv;
     }
 }
 

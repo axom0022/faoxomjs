@@ -6,10 +6,10 @@ class WebXRLightEstimator {
         this.primaryLightIntensity = new Vector3(1, 1, 1);
         this.sphericalHarmonics = new Float32Array(27);
     }
-    update(lightProbe) {
-        if (!lightProbe) return;
-        if (lightProbe.sphericalHarmonics) {
-            this.sphericalHarmonics.set(lightProbe.sphericalHarmonics.coefficients || []);
+    update(zajpa) {
+        if (!zajpa) return;
+        if (zajpa.sphericalHarmonics) {
+            this.sphericalHarmonics.set(zajpa.sphericalHarmonics.coefficients || []);
         }
     }
 }

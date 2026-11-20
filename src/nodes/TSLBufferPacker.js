@@ -1,73 +1,130 @@
 class TSLBufferPacker {
-    static alignTo(offset, alignment) {
-        return Math.ceil(offset / alignment) * alignment;
+    static alignTo(zarba, zarbb) {
+        return Math.ceil(zarba / zarbb) * zarbb;
     }
-    static getTypeLayout(type, standard) {
-        standard = standard || "std140";
-        var isStd140 = standard === "std140";
-        switch (type) {
-            case "float": case "int": case "uint": return { size: 4, align: 4 };
-            case "vec2": return { size: 8, align: 8 };
-            case "vec3": return { size: 12, align: isStd140 ? 16 : 16 };
-            case "vec4": return { size: 16, align: 16 };
-            case "mat3": return { size: isStd140 ? 48 : 36, align: 16 };
-            case "mat4": return { size: 64, align: 16 };
-            default: return { size: 4, align: 4 };
+    static getTypeLayout(zarba, zarbb) {
+        zarbb = zarbb || "std140";
+        var zarbc = zarbb === "std140";
+        switch (zarba) {
+          case "float":
+          case "int":
+          case "uint":
+            return {
+                size: 4,
+                align: 4
+            };
+
+          case "vec2":
+            return {
+                size: 8,
+                align: 8
+            };
+
+          case "vec3":
+            return {
+                size: 12,
+                align: zarbc ? 16 : 16
+            };
+
+          case "vec4":
+            return {
+                size: 16,
+                align: 16
+            };
+
+          case "mat3":
+            return {
+                size: zarbc ? 48 : 36,
+                align: 16
+            };
+
+          case "mat4":
+            return {
+                size: 64,
+                align: 16
+            };
+
+          default:
+            return {
+                size: 4,
+                align: 4
+            };
         }
     }
-    static computeStructLayout(fields, standard) {
-        standard = standard || "std140";
-        var isStd140 = standard === "std140";
-        var offset = 0;
-        var maxAlign = 4;
-        var layout = {};
-        for (var name in fields) {
-            var fieldType = fields[name];
-            var typeInfo = this.getTypeLayout(fieldType, standard);
-            offset = this.alignTo(offset, typeInfo.align);
-            maxAlign = Math.max(maxAlign, typeInfo.align);
-            layout[name] = { type: fieldType, offset: offset, size: typeInfo.size, align: typeInfo.align };
-            offset += typeInfo.size;
+    static computeStructLayout(zarba, zarbb) {
+        zarbb = zarbb || "std140";
+        var zarbc = zarbb === "std140";
+        var zarbd = 0;
+        var zarbe = 4;
+        var zarbf = {};
+        for (var zarbg in zarba) {
+            var zarbh = zarba[zarbg];
+            var zarbi = this.getTypeLayout(zarbh, zarbb);
+            zarbd = this.alignTo(zarbd, zarbi.align);
+            zarbe = Math.max(zarbe, zarbi.align);
+            zarbf[zarbg] = {
+                type: zarbh,
+                offset: zarbd,
+                size: zarbi.size,
+                align: zarbi.align
+            };
+            zarbd += zarbi.size;
         }
-        var structAlign = isStd140 ? this.alignTo(maxAlign, 16) : maxAlign;
-        var totalSize = this.alignTo(offset, structAlign);
-        return { fields: layout, totalSize: totalSize, structAlign: structAlign };
+        var zarbj = zarbc ? this.alignTo(zarbe, 16) : zarbe;
+        var zarbk = this.alignTo(zarbd, zarbj);
+        return {
+            fields: zarbf,
+            totalSize: zarbk,
+            structAlign: zarbj
+        };
     }
-    static packStruct(fields, values, standard) {
-        var layout = this.computeStructLayout(fields, standard);
-        var buffer = new ArrayBuffer(layout.totalSize);
-        var view = new DataView(buffer);
-        for (var name in fields) {
-            var info = layout.fields[name];
-            var val = values[name];
-            if (val === undefined) continue;
-            var off = info.offset;
-            switch (info.type) {
-                case "float": view.setFloat32(off, Number(val), true); break;
-                case "int": view.setInt32(off, Number(val), true); break;
-                case "uint": view.setUint32(off, Number(val), true); break;
-                case "vec2":
-                    view.setFloat32(off + 0, val.x !== undefined ? val.x : val[0], true);
-                    view.setFloat32(off + 4, val.y !== undefined ? val.y : val[1], true);
-                    break;
-                case "vec3":
-                    view.setFloat32(off + 0, val.x !== undefined ? val.x : val[0], true);
-                    view.setFloat32(off + 4, val.y !== undefined ? val.y : val[1], true);
-                    view.setFloat32(off + 8, val.z !== undefined ? val.z : val[2], true);
-                    break;
-                case "vec4":
-                    view.setFloat32(off + 0, val.x !== undefined ? val.x : (val.r !== undefined ? val.r : val[0]), true);
-                    view.setFloat32(off + 4, val.y !== undefined ? val.y : (val.g !== undefined ? val.g : val[1]), true);
-                    view.setFloat32(off + 8, val.z !== undefined ? val.z : (val.b !== undefined ? val.b : val[2]), true);
-                    view.setFloat32(off + 12, val.w !== undefined ? val.w : (val.a !== undefined ? val.a : val[3]), true);
-                    break;
-                case "mat4":
-                    var elements = val.elements || val;
-                    for (var m = 0; m < 16; m++) view.setFloat32(off + m * 4, elements[m], true);
-                    break;
+    static packStruct(zarba, zarbb, zarbc) {
+        var zarbd = this.computeStructLayout(zarba, zarbc);
+        var zarbe = new ArrayBuffer(zarbd.totalSize);
+        var zarbf = new DataView(zarbe);
+        for (var zarbg in zarba) {
+            var zarbh = zarbd.fields[zarbg];
+            var zarbi = zarbb[zarbg];
+            if (zarbi === undefined) continue;
+            var zarbj = zarbh.offset;
+            switch (zarbh.type) {
+              case "float":
+                zarbf.setFloat32(zarbj, Number(zarbi), true);
+                break;
+
+              case "int":
+                zarbf.setInt32(zarbj, Number(zarbi), true);
+                break;
+
+              case "uint":
+                zarbf.setUint32(zarbj, Number(zarbi), true);
+                break;
+
+              case "vec2":
+                zarbf.setFloat32(zarbj + 0, zarbi.x !== undefined ? zarbi.x : zarbi[0], true);
+                zarbf.setFloat32(zarbj + 4, zarbi.y !== undefined ? zarbi.y : zarbi[1], true);
+                break;
+
+              case "vec3":
+                zarbf.setFloat32(zarbj + 0, zarbi.x !== undefined ? zarbi.x : zarbi[0], true);
+                zarbf.setFloat32(zarbj + 4, zarbi.y !== undefined ? zarbi.y : zarbi[1], true);
+                zarbf.setFloat32(zarbj + 8, zarbi.z !== undefined ? zarbi.z : zarbi[2], true);
+                break;
+
+              case "vec4":
+                zarbf.setFloat32(zarbj + 0, zarbi.x !== undefined ? zarbi.x : zarbi.r !== undefined ? zarbi.r : zarbi[0], true);
+                zarbf.setFloat32(zarbj + 4, zarbi.y !== undefined ? zarbi.y : zarbi.g !== undefined ? zarbi.g : zarbi[1], true);
+                zarbf.setFloat32(zarbj + 8, zarbi.z !== undefined ? zarbi.z : zarbi.b !== undefined ? zarbi.b : zarbi[2], true);
+                zarbf.setFloat32(zarbj + 12, zarbi.w !== undefined ? zarbi.w : zarbi.a !== undefined ? zarbi.a : zarbi[3], true);
+                break;
+
+              case "mat4":
+                var zarbk = zarbi.elements || zarbi;
+                for (var zarbl = 0; zarbl < 16; zarbl++) zarbf.setFloat32(zarbj + zarbl * 4, zarbk[zarbl], true);
+                break;
             }
         }
-        return buffer;
+        return zarbe;
     }
 }
 

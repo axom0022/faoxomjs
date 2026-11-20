@@ -1,34 +1,34 @@
 import { Mesh } from "../objects/index.js";
 
 class OBJExporter {
-    parse(object) {
-        var output = "# FaoxomJS OBJExporter\n";
-        var indexOffset = 0;
-        object.traverse(function(child) {
-            if (child instanceof Mesh && child.geometry && child.geometry.attributes.position) {
-                var pos = child.geometry.attributes.position.array;
-                var norm = child.geometry.attributes.normal ? child.geometry.attributes.normal.array : null;
-                var uv = child.geometry.attributes.uv ? child.geometry.attributes.uv.array : null;
-                var idx = child.geometry.index;
-                output += "o " + (child.name || "Mesh_" + child.id) + "\n";
-                for (var i = 0; i < pos.length; i += 3) output += "v " + pos[i].toFixed(4) + " " + pos[i + 1].toFixed(4) + " " + pos[i + 2].toFixed(4) + "\n";
-                if (norm) for (var n = 0; n < norm.length; n += 3) output += "vn " + norm[n].toFixed(4) + " " + norm[n + 1].toFixed(4) + " " + norm[n + 2].toFixed(4) + "\n";
-                if (uv) for (var u = 0; u < uv.length; u += 2) output += "vt " + uv[u].toFixed(4) + " " + uv[u + 1].toFixed(4) + "\n";
-                if (idx) {
-                    for (var f = 0; f < idx.length; f += 3) {
-                        var a = idx[f] + 1 + indexOffset, b = idx[f + 1] + 1 + indexOffset, c = idx[f + 2] + 1 + indexOffset;
-                        output += "f " + a + " " + b + " " + c + "\n";
+    parse(zamoa) {
+        var zamob = "# FaoxomJS OBJExporter\n";
+        var zamoc = 0;
+        zamoa.traverse(function(zamoa) {
+            if (zamoa instanceof Mesh && zamoa.geometry && zamoa.geometry.attributes.position) {
+                var zamod = zamoa.geometry.attributes.position.array;
+                var zamoe = zamoa.geometry.attributes.normal ? zamoa.geometry.attributes.normal.array : null;
+                var zamof = zamoa.geometry.attributes.uv ? zamoa.geometry.attributes.uv.array : null;
+                var zamog = zamoa.geometry.index;
+                zamob += "o " + (zamoa.name || "Mesh_" + zamoa.id) + "\n";
+                for (var zamoh = 0; zamoh < zamod.length; zamoh += 3) zamob += "v " + zamod[zamoh].toFixed(4) + " " + zamod[zamoh + 1].toFixed(4) + " " + zamod[zamoh + 2].toFixed(4) + "\n";
+                if (zamoe) for (var zamoi = 0; zamoi < zamoe.length; zamoi += 3) zamob += "vn " + zamoe[zamoi].toFixed(4) + " " + zamoe[zamoi + 1].toFixed(4) + " " + zamoe[zamoi + 2].toFixed(4) + "\n";
+                if (zamof) for (var zamoj = 0; zamoj < zamof.length; zamoj += 2) zamob += "vt " + zamof[zamoj].toFixed(4) + " " + zamof[zamoj + 1].toFixed(4) + "\n";
+                if (zamog) {
+                    for (var zamok = 0; zamok < zamog.length; zamok += 3) {
+                        var zamol = zamog[zamok] + 1 + zamoc, zamom = zamog[zamok + 1] + 1 + zamoc, zamon = zamog[zamok + 2] + 1 + zamoc;
+                        zamob += "f " + zamol + " " + zamom + " " + zamon + "\n";
                     }
                 } else {
-                    for (var f2 = 0; f2 < pos.length / 3; f2 += 3) {
-                        var a2 = f2 + 1 + indexOffset, b2 = f2 + 2 + indexOffset, c2 = f2 + 3 + indexOffset;
-                        output += "f " + a2 + " " + b2 + " " + c2 + "\n";
+                    for (var zamoo = 0; zamoo < zamod.length / 3; zamoo += 3) {
+                        var zamop = zamoo + 1 + zamoc, zamoq = zamoo + 2 + zamoc, zamor = zamoo + 3 + zamoc;
+                        zamob += "f " + zamop + " " + zamoq + " " + zamor + "\n";
                     }
                 }
-                indexOffset += pos.length / 3;
+                zamoc += zamod.length / 3;
             }
         });
-        return output;
+        return zamob;
     }
 }
 

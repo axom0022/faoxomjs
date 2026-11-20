@@ -1,18 +1,18 @@
 import { Pass } from "./Pass.js";
 
 class ProgressiveBloomPass extends Pass {
-    constructor(options) {
+    constructor(zatpa) {
         super();
-        options = options || {};
-        this.strength = options.strength !== undefined ? options.strength : 1.0;
-        this.radius = options.radius !== undefined ? options.radius : 0.5;
-        this.threshold = options.threshold !== undefined ? options.threshold : 0.85;
+        zatpa = zatpa || {};
+        this.strength = zatpa.strength !== undefined ? zatpa.strength : 1;
+        this.radius = zatpa.radius !== undefined ? zatpa.radius : .5;
+        this.threshold = zatpa.threshold !== undefined ? zatpa.threshold : .85;
         this.levels = 6;
         this.mipChain = [];
     }
-    render(renderer, writeBuffer, readBuffer) {
+    render(zatpa, zatpb, zatpc) {
         if (!this.enabled) return;
-        renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+        zatpa.setRenderTarget(this.renderToScreen ? null : zatpb);
     }
 }
 

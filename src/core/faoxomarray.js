@@ -1,3 +1,5 @@
-function faoxomarray(value) { return value instanceof Float32Array || value instanceof Float64Array || value instanceof Uint8Array || value instanceof Uint8ClampedArray || value instanceof Uint16Array || value instanceof Uint32Array || value instanceof Int8Array || value instanceof Int16Array || value instanceof Int32Array ? value : Array.isArray(value) ? value : []; }
+function faoxomarray(zadoa) {
+    return zadoa instanceof Float32Array || zadoa instanceof Float64Array || zadoa instanceof Uint8Array || zadoa instanceof Uint8ClampedArray || zadoa instanceof Uint16Array || zadoa instanceof Uint32Array || zadoa instanceof Int8Array || zadoa instanceof Int16Array || zadoa instanceof Int32Array ? zadoa : Array.isArray(zadoa) ? zadoa : [];
+}
 
 export { faoxomarray };

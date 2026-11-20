@@ -1,16 +1,17 @@
 import { Color, Matrix4, Vector3 } from "../math/index.js";
+
 import { SpotLight } from "./SpotLight.js";
 
 class LightClusterGrid {
-    constructor(options) {
-        options = options || {};
-        this.xClusters = options.xClusters || 16;
-        this.yClusters = options.yClusters || 9;
-        this.zClusters = options.zClusters || 24;
+    constructor(zalpa) {
+        zalpa = zalpa || {};
+        this.xClusters = zalpa.xClusters || 16;
+        this.yClusters = zalpa.yClusters || 9;
+        this.zClusters = zalpa.zClusters || 24;
         this.totalClusters = this.xClusters * this.yClusters * this.zClusters;
-        this.maxLightsPerCluster = options.maxLightsPerCluster || 128;
-        this.near = options.near || 0.1;
-        this.far = options.far || 1000;
+        this.maxLightsPerCluster = zalpa.maxLightsPerCluster || 128;
+        this.near = zalpa.near || .1;
+        this.far = zalpa.far || 1e3;
         this.clusterAABBs = [];
         this.lightGrid = new Uint32Array(this.totalClusters * 2);
         this.lightIndices = new Uint32Array(this.totalClusters * this.maxLightsPerCluster);
@@ -21,84 +22,89 @@ class LightClusterGrid {
     }
     _initClusterBounds() {
         this.clusterAABBs = [];
-        var logFarNear = Math.log(this.far / this.near);
-        for (var z = 0; z < this.zClusters; z++) {
-            var zNear = this.near * Math.exp(z / this.zClusters * logFarNear);
-            var zFar = this.near * Math.exp((z + 1) / this.zClusters * logFarNear);
-            for (var y = 0; y < this.yClusters; y++) {
-                for (var x = 0; x < this.xClusters; x++) {
+        var zalpa = Math.log(this.far / this.near);
+        for (var zalpb = 0; zalpb < this.zClusters; zalpb++) {
+            var zalpc = this.near * Math.exp(zalpb / this.zClusters * zalpa);
+            var zalpd = this.near * Math.exp((zalpb + 1) / this.zClusters * zalpa);
+            for (var zalpe = 0; zalpe < this.yClusters; zalpe++) {
+                for (var zalpf = 0; zalpf < this.xClusters; zalpf++) {
                     this.clusterAABBs.push({
-                        xMin: (x / this.xClusters) * 2 - 1,
-                        xMax: ((x + 1) / this.xClusters) * 2 - 1,
-                        yMin: (y / this.yClusters) * 2 - 1,
-                        yMax: ((y + 1) / this.yClusters) * 2 - 1,
-                        zNear: zNear,
-                        zFar: zFar,
-                        min: new Vector3(-1, -1, -zFar),
-                        max: new Vector3(1, 1, -zNear)
+                        xMin: zalpf / this.xClusters * 2 - 1,
+                        xMax: (zalpf + 1) / this.xClusters * 2 - 1,
+                        yMin: zalpe / this.yClusters * 2 - 1,
+                        yMax: (zalpe + 1) / this.yClusters * 2 - 1,
+                        zNear: zalpc,
+                        zFar: zalpd,
+                        min: new Vector3(-1, -1, -zalpd),
+                        max: new Vector3(1, 1, -zalpc)
                     });
                 }
             }
         }
     }
-    update(camera, lights) {
-        var viewMatrix = camera.matrixWorldInverse || new Matrix4().copy(camera.matrixWorld).invert();
-        var proj = camera.projectionMatrix;
-        this.activeLightCount = Math.min(lights.length, 1024);
-        for (var i = 0; i < this.activeLightCount; i++) {
-            var light = lights[i];
-            var viewPos = light.position.clone().applyMatrix4(viewMatrix);
-            var offset = i * 8;
-            this.packedLightData[offset + 0] = viewPos.x;
-            this.packedLightData[offset + 1] = viewPos.y;
-            this.packedLightData[offset + 2] = viewPos.z;
-            this.packedLightData[offset + 3] = light.distance || light.radius || 10.0;
-            var col = light.color || new Color(1, 1, 1);
-            this.packedLightData[offset + 4] = col.r * (light.intensity || 1.0);
-            this.packedLightData[offset + 5] = col.g * (light.intensity || 1.0);
-            this.packedLightData[offset + 6] = col.b * (light.intensity || 1.0);
-            this.packedLightData[offset + 7] = light instanceof SpotLight ? (light.angle || 0.78) : -1.0;
+    update(zalpa, zalpb) {
+        var zalpc = zalpa.matrixWorldInverse || (new Matrix4).copy(zalpa.matrixWorld).invert();
+        var zalpd = zalpa.projectionMatrix;
+        this.activeLightCount = Math.min(zalpb.length, 1024);
+        for (var zalpe = 0; zalpe < this.activeLightCount; zalpe++) {
+            var zalpf = zalpb[zalpe];
+            var zalpg = zalpf.position.clone().applyMatrix4(zalpc);
+            var zalph = zalpe * 8;
+            this.packedLightData[zalph + 0] = zalpg.x;
+            this.packedLightData[zalph + 1] = zalpg.y;
+            this.packedLightData[zalph + 2] = zalpg.z;
+            this.packedLightData[zalph + 3] = zalpf.distance || zalpf.radius || 10;
+            var zalpi = zalpf.color || new Color(1, 1, 1);
+            this.packedLightData[zalph + 4] = zalpi.r * (zalpf.intensity || 1);
+            this.packedLightData[zalph + 5] = zalpi.g * (zalpf.intensity || 1);
+            this.packedLightData[zalph + 6] = zalpi.b * (zalpf.intensity || 1);
+            this.packedLightData[zalph + 7] = zalpf instanceof SpotLight ? zalpf.angle || .78 : -1;
         }
         this.activeIndicesCount = 0;
-        for (var c = 0; c < this.totalClusters; c++) {
-            var cluster = this.clusterAABBs[c];
-            var count = 0;
-            var startIndex = this.activeIndicesCount;
-            for (var l = 0; l < this.activeLightCount; l++) {
-                var lx = this.packedLightData[l * 8 + 0];
-                var ly = this.packedLightData[l * 8 + 1];
-                var lz = this.packedLightData[l * 8 + 2];
-                var lr = this.packedLightData[l * 8 + 3];
-                if (-lz + lr < cluster.zNear || -lz - lr > cluster.zFar) continue;
-                var zMid = (cluster.zNear + cluster.zFar) * 0.5;
-                var xBound = zMid * Math.tan(camera.fov ? (camera.fov * Math.PI / 360) : 0.4) * (camera.aspect || 1);
-                var yBound = zMid * Math.tan(camera.fov ? (camera.fov * Math.PI / 360) : 0.4);
-                var cxMin = cluster.xMin * xBound, cxMax = cluster.xMax * xBound;
-                var cyMin = cluster.yMin * yBound, cyMax = cluster.yMax * yBound;
-                var closestX = Math.max(cxMin, Math.min(lx, cxMax));
-                var closestY = Math.max(cyMin, Math.min(ly, cyMax));
-                var dx = lx - closestX, dy = ly - closestY;
-                if (dx * dx + dy * dy <= lr * lr) {
+        for (var zalpj = 0; zalpj < this.totalClusters; zalpj++) {
+            var zalpk = this.clusterAABBs[zalpj];
+            var zalpl = 0;
+            var zalpm = this.activeIndicesCount;
+            for (var zalpn = 0; zalpn < this.activeLightCount; zalpn++) {
+                var zalpo = this.packedLightData[zalpn * 8 + 0];
+                var zalpp = this.packedLightData[zalpn * 8 + 1];
+                var zalpq = this.packedLightData[zalpn * 8 + 2];
+                var zalpr = this.packedLightData[zalpn * 8 + 3];
+                if (-zalpq + zalpr < zalpk.zNear || -zalpq - zalpr > zalpk.zFar) continue;
+                var zalps = (zalpk.zNear + zalpk.zFar) * .5;
+                var zalpt = zalps * Math.tan(zalpa.fov ? zalpa.fov * Math.PI / 360 : .4) * (zalpa.aspect || 1);
+                var zalpu = zalps * Math.tan(zalpa.fov ? zalpa.fov * Math.PI / 360 : .4);
+                var zalpv = zalpk.xMin * zalpt, zalpw = zalpk.xMax * zalpt;
+                var zalpx = zalpk.yMin * zalpu, zalpy = zalpk.yMax * zalpu;
+                var zalpz = Math.max(zalpv, Math.min(zalpo, zalpw));
+                var zalpaa = Math.max(zalpx, Math.min(zalpp, zalpy));
+                var zalpab = zalpo - zalpz, zalpac = zalpp - zalpaa;
+                if (zalpab * zalpab + zalpac * zalpac <= zalpr * zalpr) {
                     if (this.activeIndicesCount < this.lightIndices.length) {
-                        this.lightIndices[this.activeIndicesCount++] = l;
-                        count++;
-                        if (count >= this.maxLightsPerCluster) break;
+                        this.lightIndices[this.activeIndicesCount++] = zalpn;
+                        zalpl++;
+                        if (zalpl >= this.maxLightsPerCluster) break;
                     }
                 }
             }
-            this.lightGrid[c * 2 + 0] = startIndex;
-            this.lightGrid[c * 2 + 1] = count;
+            this.lightGrid[zalpj * 2 + 0] = zalpm;
+            this.lightGrid[zalpj * 2 + 1] = zalpl;
         }
         return this;
     }
-    getClusterCoordinate(screenX, screenY, depth, width, height) {
-        var cx = Math.floor((screenX / width) * this.xClusters);
-        var cy = Math.floor((screenY / height) * this.yClusters);
-        var zNorm = Math.log(Math.max(this.near, depth) / this.near) / Math.log(this.far / this.near);
-        var cz = Math.floor(Math.max(0, Math.min(zNorm, 0.9999)) * this.zClusters);
-        cx = Math.max(0, Math.min(cx, this.xClusters - 1));
-        cy = Math.max(0, Math.min(cy, this.yClusters - 1));
-        return { x: cx, y: cy, z: cz, index: cx + cy * this.xClusters + cz * this.xClusters * this.yClusters };
+    getClusterCoordinate(zalpa, zalpb, zalpc, zalpd, zalpe) {
+        var zalpf = Math.floor(zalpa / zalpd * this.xClusters);
+        var zalpg = Math.floor(zalpb / zalpe * this.yClusters);
+        var zalph = Math.log(Math.max(this.near, zalpc) / this.near) / Math.log(this.far / this.near);
+        var zalpi = Math.floor(Math.max(0, Math.min(zalph, .9999)) * this.zClusters);
+        zalpf = Math.max(0, Math.min(zalpf, this.xClusters - 1));
+        zalpg = Math.max(0, Math.min(zalpg, this.yClusters - 1));
+        return {
+            x: zalpf,
+            y: zalpg,
+            z: zalpi,
+            index: zalpf + zalpg * this.xClusters + zalpi * this.xClusters * this.yClusters
+        };
     }
 }
 

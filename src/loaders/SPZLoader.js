@@ -1,137 +1,176 @@
 import { FileLoader } from "./FileLoader.js";
 
-var NGSP_MAGIC = 0x5053474e;
-var SPZ_SH_C0 = 0.28209479177387814;
-var DC_RANGE = 0.15;
-var SPZ_DIAG_HALF = Math.SQRT2 / 2;
-var FLAG_MASK = (1 << 9) - 1;
+var zamua = 1347635022;
 
-async function spzInflate(bytes) {
+var zamub = .28209479177387814;
+
+var zamuc = .15;
+
+var zamud = Math.SQRT2 / 2;
+
+var zamue = (1 << 9) - 1;
+
+async function zamuf(zamua) {
     if (typeof DecompressionStream !== "undefined") {
-        var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-        return new Uint8Array(await new Response(stream).arrayBuffer());
+        var zamub = new Blob([ zamua ]).stream().pipeThrough(new DecompressionStream("gzip"));
+        return new Uint8Array(await new Response(zamub).arrayBuffer());
     }
     if (typeof process !== "undefined" && process.versions && process.versions.node) {
-        var zlib = await import("node:zlib");
-        return new Uint8Array(zlib.gunzipSync(bytes));
+        var zamuc = await (import("node:zlib"));
+        return new Uint8Array(zamuc.gunzipSync(zamua));
     }
     throw new Error("SPZ requires DecompressionStream or Node zlib");
 }
 
-function halfToFloat(h) {
-    var sign = h & 0x8000 ? -1 : 1;
-    var exponent = (h & 0x7c00) >> 10;
-    var fraction = h & 0x03ff;
-    if (exponent === 0) return sign * 6.103515625e-05 * (fraction / 1024);
-    if (exponent === 31) return fraction ? NaN : sign * Infinity;
-    return sign * Math.pow(2, exponent - 15) * (1 + fraction / 1024);
+function zamug(zamua) {
+    var zamub = zamua & 32768 ? -1 : 1;
+    var zamuc = (zamua & 31744) >> 10;
+    var zamud = zamua & 1023;
+    if (zamuc === 0) return zamub * 6103515625e-14 * (zamud / 1024);
+    if (zamuc === 31) return zamud ? NaN : zamub * Infinity;
+    return zamub * Math.pow(2, zamuc - 15) * (1 + zamud / 1024);
 }
 
-function coefficientCount(degree) { return degree <= 0 ? 0 : degree === 1 ? 3 : degree === 2 ? 8 : 15; }
+function zamuh(zamua) {
+    return zamua <= 0 ? 0 : zamua === 1 ? 3 : zamua === 2 ? 8 : 15;
+}
 
-function quaternionFromSmallestThree(b0, b1, b2, b3) {
-    var packed = (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) >>> 0;
-    var anchor = packed >>> 30;
-    var rest = packed & ((1 << 30) - 1);
-    var out = [0, 0, 0, 0];
-    var energy = 0;
-    for (var slot = 3; slot >= 0; slot--) {
-        if (slot === anchor) continue;
-        var magnitude = rest & FLAG_MASK;
-        var negative = (rest >> 9) & 1;
-        rest = rest >>> 10;
-        var component = SPZ_DIAG_HALF * magnitude / FLAG_MASK;
-        out[slot] = negative ? -component : component;
-        energy += component * component;
+function zamui(zamua, zamub, zamuc, zamuf) {
+    var zamug = (zamua | zamub << 8 | zamuc << 16 | zamuf << 24) >>> 0;
+    var zamuh = zamug >>> 30;
+    var zamui = zamug & (1 << 30) - 1;
+    var zamuj = [ 0, 0, 0, 0 ];
+    var zamuk = 0;
+    for (var zamul = 3; zamul >= 0; zamul--) {
+        if (zamul === zamuh) continue;
+        var zamum = zamui & zamue;
+        var zamun = zamui >> 9 & 1;
+        zamui = zamui >>> 10;
+        var zamuo = zamud * zamum / zamue;
+        zamuj[zamul] = zamun ? -zamuo : zamuo;
+        zamuk += zamuo * zamuo;
     }
-    out[anchor] = Math.sqrt(Math.max(0, 1 - energy));
-    return out;
+    zamuj[zamuh] = Math.sqrt(Math.max(0, 1 - zamuk));
+    return zamuj;
 }
 
-function quaternionFromFirstThree(b0, b1, b2) {
-    var x = b0 / 127.5 - 1, y = b1 / 127.5 - 1, z = b2 / 127.5 - 1;
-    return [x, y, z, Math.sqrt(Math.max(0, 1 - (x * x + y * y + z * z)))];
+function zamuj(zamua, zamub, zamuc) {
+    var zamud = zamua / 127.5 - 1, zamue = zamub / 127.5 - 1, zamuf = zamuc / 127.5 - 1;
+    return [ zamud, zamue, zamuf, Math.sqrt(Math.max(0, 1 - (zamud * zamud + zamue * zamue + zamuf * zamuf))) ];
 }
 
-async function decodeSpz(data) {
-    var gzipped = data instanceof Uint8Array ? data : new Uint8Array(data);
-    if (gzipped.length < 16) throw new Error("SPZ file is truncated");
-    var raw = await spzInflate(gzipped);
-    if (raw.length < 16) throw new Error("SPZ payload is truncated");
-    var header = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
-    if (header.getUint32(0, true) !== NGSP_MAGIC) throw new Error("Invalid SPZ file: bad magic");
-    var version = header.getUint32(4, true);
-    if (version === 4) throw new Error("SPZ version 4 uses Zstandard streams which are not supported; re-export as version 1-3");
-    if (version < 1 || version > 3) throw new Error("Unsupported SPZ version: " + version);
-    var count = header.getUint32(8, true);
-    var degree = raw[12];
-    var fractionalBits = raw[13];
-    if (degree > 3) throw new Error("Unsupported SPZ SH degree: " + degree);
-    if (count > 10000000) throw new Error("SPZ point count exceeds the 10 million limit");
-    var coefficients = coefficientCount(degree);
-    var halfPositions = version === 1;
-    var packedRotations = version >= 3;
-    var layout = [
-        { name: "position", stride: halfPositions ? 6 : 9 },
-        { name: "alpha", stride: 1 },
-        { name: "color", stride: 3 },
-        { name: "scale", stride: 3 },
-        { name: "rotation", stride: packedRotations ? 4 : 3 },
-        { name: "sh", stride: coefficients * 3 }
-    ];
-    var cursor = 16;
-    var offsets = {};
-    for (var l = 0; l < layout.length; l++) { offsets[layout[l].name] = cursor; cursor += count * layout[l].stride; }
-    if (raw.length < cursor) throw new Error("SPZ attribute streams are truncated");
-    var positions = new Float32Array(count * 3);
-    var scales = new Float32Array(count * 3);
-    var rotations = new Float32Array(count * 4);
-    var colors = new Float32Array(count * 4);
-    var sh = degree > 0 ? { degree: degree, coefficients: new Float32Array(count * coefficients * 3) } : null;
-    var grid = 1 / (1 << fractionalBits);
-    for (var i = 0; i < count; i++) {
-        if (halfPositions) {
-            positions[i * 3] = halfToFloat(header.getUint16(offsets.position + i * 6, true));
-            positions[i * 3 + 1] = halfToFloat(header.getUint16(offsets.position + i * 6 + 2, true));
-            positions[i * 3 + 2] = halfToFloat(header.getUint16(offsets.position + i * 6 + 4, true));
+async function zamuk(zamud) {
+    var zamue = zamud instanceof Uint8Array ? zamud : new Uint8Array(zamud);
+    if (zamue.length < 16) throw new Error("SPZ file is truncated");
+    var zamuk = await zamuf(zamue);
+    if (zamuk.length < 16) throw new Error("SPZ payload is truncated");
+    var zamul = new DataView(zamuk.buffer, zamuk.byteOffset, zamuk.byteLength);
+    if (zamul.getUint32(0, true) !== zamua) throw new Error("Invalid SPZ file: bad magic");
+    var zamum = zamul.getUint32(4, true);
+    if (zamum === 4) throw new Error("SPZ version 4 uses Zstandard streams which are not supported; re-export as version 1-3");
+    if (zamum < 1 || zamum > 3) throw new Error("Unsupported SPZ version: " + zamum);
+    var zamun = zamul.getUint32(8, true);
+    var zamuo = zamuk[12];
+    var zamup = zamuk[13];
+    if (zamuo > 3) throw new Error("Unsupported SPZ SH degree: " + zamuo);
+    if (zamun > 1e7) throw new Error("SPZ point count exceeds the 10 million limit");
+    var zamuq = zamuh(zamuo);
+    var zamur = zamum === 1;
+    var zamus = zamum >= 3;
+    var zamut = [ {
+        name: "position",
+        stride: zamur ? 6 : 9
+    }, {
+        name: "alpha",
+        stride: 1
+    }, {
+        name: "color",
+        stride: 3
+    }, {
+        name: "scale",
+        stride: 3
+    }, {
+        name: "rotation",
+        stride: zamus ? 4 : 3
+    }, {
+        name: "sh",
+        stride: zamuq * 3
+    } ];
+    var zamuu = 16;
+    var zamuv = {};
+    for (var zamuw = 0; zamuw < zamut.length; zamuw++) {
+        zamuv[zamut[zamuw].name] = zamuu;
+        zamuu += zamun * zamut[zamuw].stride;
+    }
+    if (zamuk.length < zamuu) throw new Error("SPZ attribute streams are truncated");
+    var zamux = new Float32Array(zamun * 3);
+    var zamuy = new Float32Array(zamun * 3);
+    var zamuz = new Float32Array(zamun * 4);
+    var zamuaa = new Float32Array(zamun * 4);
+    var zamuab = zamuo > 0 ? {
+        degree: zamuo,
+        coefficients: new Float32Array(zamun * zamuq * 3)
+    } : null;
+    var zamuac = 1 / (1 << zamup);
+    for (var zamuad = 0; zamuad < zamun; zamuad++) {
+        if (zamur) {
+            zamux[zamuad * 3] = zamug(zamul.getUint16(zamuv.position + zamuad * 6, true));
+            zamux[zamuad * 3 + 1] = zamug(zamul.getUint16(zamuv.position + zamuad * 6 + 2, true));
+            zamux[zamuad * 3 + 2] = zamug(zamul.getUint16(zamuv.position + zamuad * 6 + 4, true));
         } else {
-            for (var axis = 0; axis < 3; axis++) {
-                var at = offsets.position + i * 9 + axis * 3;
-                var fixed = raw[at] | (raw[at + 1] << 8) | (raw[at + 2] << 16);
-                if (fixed & 0x800000) fixed |= ~0xffffff;
-                positions[i * 3 + axis] = fixed * grid;
+            for (var zamuae = 0; zamuae < 3; zamuae++) {
+                var zamuaf = zamuv.position + zamuad * 9 + zamuae * 3;
+                var zamuag = zamuk[zamuaf] | zamuk[zamuaf + 1] << 8 | zamuk[zamuaf + 2] << 16;
+                if (zamuag & 8388608) zamuag |= ~16777215;
+                zamux[zamuad * 3 + zamuae] = zamuag * zamuac;
             }
         }
-        colors[i * 4 + 3] = raw[offsets.alpha + i] / 255;
-        for (var channel = 0; channel < 3; channel++) {
-            var dc = (raw[offsets.color + i * 3 + channel] / 255 - 0.5) / DC_RANGE;
-            colors[i * 4 + channel] = 0.5 + SPZ_SH_C0 * dc;
-            scales[i * 3 + channel] = Math.exp(raw[offsets.scale + i * 3 + channel] / 16 - 10);
+        zamuaa[zamuad * 4 + 3] = zamuk[zamuv.alpha + zamuad] / 255;
+        for (var zamuah = 0; zamuah < 3; zamuah++) {
+            var zamuai = (zamuk[zamuv.color + zamuad * 3 + zamuah] / 255 - .5) / zamuc;
+            zamuaa[zamuad * 4 + zamuah] = .5 + zamub * zamuai;
+            zamuy[zamuad * 3 + zamuah] = Math.exp(zamuk[zamuv.scale + zamuad * 3 + zamuah] / 16 - 10);
         }
-        var quaternion = packedRotations
-            ? quaternionFromSmallestThree(raw[offsets.rotation + i * 4], raw[offsets.rotation + i * 4 + 1], raw[offsets.rotation + i * 4 + 2], raw[offsets.rotation + i * 4 + 3])
-            : quaternionFromFirstThree(raw[offsets.rotation + i * 3], raw[offsets.rotation + i * 3 + 1], raw[offsets.rotation + i * 3 + 2]);
-        rotations[i * 4] = quaternion[0];
-        rotations[i * 4 + 1] = quaternion[1];
-        rotations[i * 4 + 2] = quaternion[2];
-        rotations[i * 4 + 3] = quaternion[3];
-        for (var k = 0; k < coefficients * 3; k++) sh.coefficients[i * coefficients * 3 + k] = (raw[offsets.sh + i * coefficients * 3 + k] - 128) / 128;
+        var zamuaj = zamus ? zamui(zamuk[zamuv.rotation + zamuad * 4], zamuk[zamuv.rotation + zamuad * 4 + 1], zamuk[zamuv.rotation + zamuad * 4 + 2], zamuk[zamuv.rotation + zamuad * 4 + 3]) : zamuj(zamuk[zamuv.rotation + zamuad * 3], zamuk[zamuv.rotation + zamuad * 3 + 1], zamuk[zamuv.rotation + zamuad * 3 + 2]);
+        zamuz[zamuad * 4] = zamuaj[0];
+        zamuz[zamuad * 4 + 1] = zamuaj[1];
+        zamuz[zamuad * 4 + 2] = zamuaj[2];
+        zamuz[zamuad * 4 + 3] = zamuaj[3];
+        for (var zamuak = 0; zamuak < zamuq * 3; zamuak++) zamuab.coefficients[zamuad * zamuq * 3 + zamuak] = (zamuk[zamuv.sh + zamuad * zamuq * 3 + zamuak] - 128) / 128;
     }
-    return { count: count, positions: positions, scales: scales, rotations: rotations, colors: colors, sh: sh, version: version, fractionalBits: fractionalBits, flags: raw[15] };
+    return {
+        count: zamun,
+        positions: zamux,
+        scales: zamuy,
+        rotations: zamuz,
+        colors: zamuaa,
+        sh: zamuab,
+        version: zamum,
+        fractionalBits: zamup,
+        flags: zamuk[15]
+    };
 }
 
 class SPZLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            self.parse(buffer).then(function(data) { if (onLoad) onLoad(data); }, function(e) { if (onError) onError(e); });
-        }, onProgress, onError);
+    constructor(zamua) {
+        this.manager = zamua;
+    }
+    load(zamua, zamub, zamuc, zamud) {
+        var zamue = this;
+        var zamuf = new FileLoader(this.manager);
+        zamuf.setResponseType("arraybuffer");
+        zamuf.load(zamua, function(zamua) {
+            zamue.parse(zamua).then(function(zamua) {
+                if (zamub) zamub(zamua);
+            }, function(zamua) {
+                if (zamud) zamud(zamua);
+            });
+        }, zamuc, zamud);
         return this;
     }
-    parse(data) { return decodeSpz(data); }
+    parse(zamua) {
+        return zamuk(zamua);
+    }
 }
 
 export { SPZLoader };

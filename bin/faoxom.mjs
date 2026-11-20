@@ -1,23 +1,28 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+
 import path from "node:path";
+
 import { fileURLToPath } from "node:url";
+
 import { FaoxWriter, FaoxLoader, FAOX_VERSION } from "../src/extras/Faox.js";
+
 import { PNGCodec } from "../src/extras/PNGCodec.js";
+
 import { HeadlessRenderer } from "../src/extras/HeadlessRenderer.js";
 
-var cliRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+var zaaaa = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-function readVersion() {
+function zaaab() {
     try {
-        var pkg = JSON.parse(fs.readFileSync(path.join(cliRoot, "package.json"), "utf8"));
-        return pkg.version || "0.0.0";
-    } catch (error) {
+        var zaaab = JSON.parse(fs.readFileSync(path.join(zaaaa, "package.json"), "utf8"));
+        return zaaab.version || "0.0.0";
+    } catch (zaaaa) {
         return "0.0.0";
     }
 }
 
-function usage() {
+function zaaac() {
     console.log("faoxom - FaoxomJS asset and scene toolchain");
     console.log("");
     console.log("Usage:");
@@ -45,387 +50,501 @@ function usage() {
     console.log("input produces a byte-identical .faox with a stable file hash.");
 }
 
-function fail(message) {
-    console.error("faoxom: " + message);
+function zaaad(zaaaa) {
+    console.error("faoxom: " + zaaaa);
     process.exit(1);
 }
 
-function packCommand(args) {
-    var input = null;
-    var output = null;
-    for (var i = 0; i < args.length; i++) {
-        var arg = args[i];
-        if (arg === "-o" || arg === "--output") {
-            if (i + 1 >= args.length) fail("-o requires a path");
-            output = args[++i];
-        } else if (arg === "-h" || arg === "--help" || arg === "-q" || arg === "--quiet") {
-            if (arg === "-h" || arg === "--help") { usage(); process.exit(0); }
-        } else if (arg.charAt(0) === "-") {
-            fail("unknown option " + arg);
-        } else if (input === null) {
-            input = arg;
-        } else if (output === null) {
-            output = arg;
+function zaaae(zaaaa) {
+    var zaaab = null;
+    var zaaae = null;
+    for (var zaaaf = 0; zaaaf < zaaaa.length; zaaaf++) {
+        var zaaag = zaaaa[zaaaf];
+        if (zaaag === "-o" || zaaag === "--output") {
+            if (zaaaf + 1 >= zaaaa.length) zaaad("-o requires a path");
+            zaaae = zaaaa[++zaaaf];
+        } else if (zaaag === "-h" || zaaag === "--help" || zaaag === "-q" || zaaag === "--quiet") {
+            if (zaaag === "-h" || zaaag === "--help") {
+                zaaac();
+                process.exit(0);
+            }
+        } else if (zaaag.charAt(0) === "-") {
+            zaaad("unknown option " + zaaag);
+        } else if (zaaab === null) {
+            zaaab = zaaag;
+        } else if (zaaae === null) {
+            zaaae = zaaag;
         } else {
-            fail("unexpected argument " + arg);
+            zaaad("unexpected argument " + zaaag);
         }
     }
-    if (!input) { usage(); process.exit(1); }
-    var inputPath = path.resolve(input);
-    var stats = fs.statSync(inputPath);
-    var manifestPath = stats.isDirectory() ? path.join(inputPath, "scene.faox.json") : inputPath;
-    if (!fs.existsSync(manifestPath)) fail("manifest not found: " + manifestPath);
-    var manifestDir = path.dirname(manifestPath);
-    var manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    if (!manifest || typeof manifest !== "object") fail("manifest is not a JSON object");
-    var payloads = [];
-    function addPayload(fourcc, bytes) {
-        var index = payloads.length + 1;
-        payloads.push({ fourcc: fourcc, nameId: index, bytes: bytes });
-        return index;
+    if (!zaaab) {
+        zaaac();
+        process.exit(1);
     }
-    function readBinary(ref, what) {
-        if (!ref || !ref.file) fail(what + ": missing file reference");
-        var file = path.resolve(manifestDir, ref.file);
-        if (!fs.existsSync(file)) fail(what + ": file not found: " + ref.file);
-        return fs.readFileSync(file);
+    var zaaah = path.resolve(zaaab);
+    var zaaai = fs.statSync(zaaah);
+    var zaaaj = zaaai.isDirectory() ? path.join(zaaah, "scene.faox.json") : zaaah;
+    if (!fs.existsSync(zaaaj)) zaaad("manifest not found: " + zaaaj);
+    var zaaak = path.dirname(zaaaj);
+    var zaaal = JSON.parse(fs.readFileSync(zaaaj, "utf8"));
+    if (!zaaal || typeof zaaal !== "object") zaaad("manifest is not a JSON object");
+    var zaaam = [];
+    function zaaan(zaaaa, zaaab) {
+        var zaaac = zaaam.length + 1;
+        zaaam.push({
+            fourcc: zaaaa,
+            nameId: zaaac,
+            bytes: zaaab
+        });
+        return zaaac;
     }
-    var meshes = [];
-    var inputMeshes = manifest.meshes || [];
-    for (var m = 0; m < inputMeshes.length; m++) {
-        var inputMesh = inputMeshes[m];
-        var attributes = {};
-        var keys = Object.keys(inputMesh.attributes || {});
-        for (var a = 0; a < keys.length; a++) {
-            var attrRef = inputMesh.attributes[keys[a]];
-            var bytes = readBinary(attrRef, "mesh " + m + " attribute " + keys[a]);
-            if (bytes.length % 4 !== 0) fail("mesh " + m + " attribute " + keys[a] + ": f32 buffer length must be a multiple of 4");
-            attributes[keys[a]] = { chunk: addPayload("buf ", bytes), itemSize: attrRef.itemSize || 3, array: "f32", count: bytes.length / 4 };
+    function zaaao(zaaaa, zaaab) {
+        if (!zaaaa || !zaaaa.file) zaaad(zaaab + ": missing file reference");
+        var zaaac = path.resolve(zaaak, zaaaa.file);
+        if (!fs.existsSync(zaaac)) zaaad(zaaab + ": file not found: " + zaaaa.file);
+        return fs.readFileSync(zaaac);
+    }
+    var zaaap = [];
+    var zaaaq = zaaal.meshes || [];
+    for (var zaaar = 0; zaaar < zaaaq.length; zaaar++) {
+        var zaaas = zaaaq[zaaar];
+        var zaaat = {};
+        var zaaau = Object.keys(zaaas.attributes || {});
+        for (var zaaav = 0; zaaav < zaaau.length; zaaav++) {
+            var zaaaw = zaaas.attributes[zaaau[zaaav]];
+            var zaaax = zaaao(zaaaw, "mesh " + zaaar + " attribute " + zaaau[zaaav]);
+            if (zaaax.length % 4 !== 0) zaaad("mesh " + zaaar + " attribute " + zaaau[zaaav] + ": f32 buffer length must be a multiple of 4");
+            zaaat[zaaau[zaaav]] = {
+                chunk: zaaan("buf ", zaaax),
+                itemSize: zaaaw.itemSize || 3,
+                array: "f32",
+                count: zaaax.length / 4
+            };
         }
-        var indexRef = null;
-        if (inputMesh.index) {
-            var indexBytes = readBinary(inputMesh.index, "mesh " + m + " index");
-            var array = inputMesh.index.array === "u32" ? "u32" : "u16";
-            if (indexBytes.length % (array === "u32" ? 4 : 2) !== 0) fail("mesh " + m + " index: buffer length must match " + array);
-            indexRef = { chunk: addPayload("buf ", indexBytes), array: array, count: indexBytes.length / (array === "u32" ? 4 : 2) };
+        var zaaay = null;
+        if (zaaas.index) {
+            var zaaaz = zaaao(zaaas.index, "mesh " + zaaar + " index");
+            var zaaaaa = zaaas.index.array === "u32" ? "u32" : "u16";
+            if (zaaaz.length % (zaaaaa === "u32" ? 4 : 2) !== 0) zaaad("mesh " + zaaar + " index: buffer length must match " + zaaaaa);
+            zaaay = {
+                chunk: zaaan("buf ", zaaaz),
+                array: zaaaaa,
+                count: zaaaz.length / (zaaaaa === "u32" ? 4 : 2)
+            };
         }
-        meshes.push({ attributes: attributes, index: indexRef });
+        zaaap.push({
+            attributes: zaaat,
+            index: zaaay
+        });
     }
-    var textures = [];
-    var inputTextures = manifest.textures || [];
-    for (var t = 0; t < inputTextures.length; t++) {
-        var texRef = inputTextures[t];
-        var texBytes = readBinary(texRef, "texture " + t);
-        textures.push({ chunk: addPayload("tex ", texBytes), mime: texRef.mime || "rgba8", width: texRef.width || 1, height: texRef.height || 1, minFilter: texRef.minFilter || "nearest", magFilter: texRef.magFilter || "nearest" });
+    var zaaaab = [];
+    var zaaaac = zaaal.textures || [];
+    for (var zaaaad = 0; zaaaad < zaaaac.length; zaaaad++) {
+        var zaaaae = zaaaac[zaaaad];
+        var zaaaaf = zaaao(zaaaae, "texture " + zaaaad);
+        zaaaab.push({
+            chunk: zaaan("tex ", zaaaaf),
+            mime: zaaaae.mime || "rgba8",
+            width: zaaaae.width || 1,
+            height: zaaaae.height || 1,
+            minFilter: zaaaae.minFilter || "nearest",
+            magFilter: zaaaae.magFilter || "nearest"
+        });
     }
-    var clips = [];
-    var inputClips = manifest.clips || [];
-    for (var c = 0; c < inputClips.length; c++) {
-        var inputClip = inputClips[c];
-        var tracks = [];
-        var inputTracks = inputClip.tracks || [];
-        for (var k = 0; k < inputTracks.length; k++) {
-            var trackRef = inputTracks[k];
-            var timesBytes = readBinary(trackRef.times, "clip " + c + " track " + k + " times");
-            var valuesBytes = readBinary(trackRef.values, "clip " + c + " track " + k + " values");
-            if (timesBytes.length % 4 !== 0 || valuesBytes.length % 4 !== 0) fail("clip " + c + " track " + k + ": f32 buffer length must be a multiple of 4");
-            tracks.push({ name: trackRef.name || "", valueType: trackRef.valueType || "vector3", interpolation: trackRef.interpolation || "LINEAR", times: { chunk: addPayload("buf ", timesBytes), array: "f32", count: timesBytes.length / 4 }, values: { chunk: addPayload("buf ", valuesBytes), array: "f32", count: valuesBytes.length / 4 } });
+    var zaaaag = [];
+    var zaaaah = zaaal.clips || [];
+    for (var zaaaai = 0; zaaaai < zaaaah.length; zaaaai++) {
+        var zaaaaj = zaaaah[zaaaai];
+        var zaaaak = [];
+        var zaaaal = zaaaaj.tracks || [];
+        for (var zaaaam = 0; zaaaam < zaaaal.length; zaaaam++) {
+            var zaaaan = zaaaal[zaaaam];
+            var zaaaao = zaaao(zaaaan.times, "clip " + zaaaai + " track " + zaaaam + " times");
+            var zaaaap = zaaao(zaaaan.values, "clip " + zaaaai + " track " + zaaaam + " values");
+            if (zaaaao.length % 4 !== 0 || zaaaap.length % 4 !== 0) zaaad("clip " + zaaaai + " track " + zaaaam + ": f32 buffer length must be a multiple of 4");
+            zaaaak.push({
+                name: zaaaan.name || "",
+                valueType: zaaaan.valueType || "vector3",
+                interpolation: zaaaan.interpolation || "LINEAR",
+                times: {
+                    chunk: zaaan("buf ", zaaaao),
+                    array: "f32",
+                    count: zaaaao.length / 4
+                },
+                values: {
+                    chunk: zaaan("buf ", zaaaap),
+                    array: "f32",
+                    count: zaaaap.length / 4
+                }
+            });
         }
-        clips.push({ name: inputClip.name || "clip", duration: inputClip.duration || 0, tracks: tracks });
+        zaaaag.push({
+            name: zaaaaj.name || "clip",
+            duration: zaaaaj.duration || 0,
+            tracks: zaaaak
+        });
     }
-    var head = {
+    var zaaaaq = {
         format: "faox",
         version: FAOX_VERSION,
         generator: "faoxom CLI pack",
-        scene: manifest.scene || { background: null, root: [] },
-        meshes: meshes,
-        materials: manifest.materials || [],
-        textures: textures,
-        lights: manifest.lights || [],
-        clips: clips
+        scene: zaaal.scene || {
+            background: null,
+            root: []
+        },
+        meshes: zaaap,
+        materials: zaaal.materials || [],
+        textures: zaaaab,
+        lights: zaaal.lights || [],
+        clips: zaaaag
     };
-    var written = FaoxWriter.write(head, payloads);
-    if (!output) {
-        var base = path.basename(manifestPath).replace(/\.faox\.json$/, "").replace(/\.json$/, "");
-        output = path.join(path.dirname(manifestPath), base + ".faox");
+    var zaaaar = FaoxWriter.write(zaaaaq, zaaam);
+    if (!zaaae) {
+        var zaaaas = path.basename(zaaaj).replace(/\.faox\.json$/, "").replace(/\.json$/, "");
+        zaaae = path.join(path.dirname(zaaaj), zaaaas + ".faox");
     }
-    fs.writeFileSync(output, written.bytes);
-    console.log("faoxom pack: " + written.chunkCount + " chunks, " + written.byteLength + " bytes, faox hash " + written.hash + " -> " + output);
-    return written;
+    fs.writeFileSync(zaaae, zaaaar.bytes);
+    console.log("faoxom pack: " + zaaaar.chunkCount + " chunks, " + zaaaar.byteLength + " bytes, faox hash " + zaaaar.hash + " -> " + zaaae);
+    return zaaaar;
 }
 
-function parseFlags(args, spec) {
-    var positional = [];
-    var flags = {};
-    for (var i = 0; i < args.length; i++) {
-        var arg = args[i];
-        if (arg.charAt(0) === "-") {
-            var key = arg;
-            if (key.indexOf("--") === 0) key = key.slice(2);
-            else key = key.slice(1);
-            if (key === "h" || key === "help") { usage(); process.exit(0); }
-            if (key === "hash-only" || key === "update" || key === "quiet" || key === "q") { flags[key] = true; continue; }
-            if (spec.indexOf(key) === -1) fail("unknown option " + arg);
-            if (i + 1 >= args.length) fail(arg + " requires a value");
-            flags[key] = args[++i];
+function zaaaf(zaaaa, zaaab) {
+    var zaaae = [];
+    var zaaaf = {};
+    for (var zaaag = 0; zaaag < zaaaa.length; zaaag++) {
+        var zaaah = zaaaa[zaaag];
+        if (zaaah.charAt(0) === "-") {
+            var zaaai = zaaah;
+            if (zaaai.indexOf("--") === 0) zaaai = zaaai.slice(2); else zaaai = zaaai.slice(1);
+            if (zaaai === "h" || zaaai === "help") {
+                zaaac();
+                process.exit(0);
+            }
+            if (zaaai === "hash-only" || zaaai === "update" || zaaai === "quiet" || zaaai === "q") {
+                zaaaf[zaaai] = true;
+                continue;
+            }
+            if (zaaab.indexOf(zaaai) === -1) zaaad("unknown option " + zaaah);
+            if (zaaag + 1 >= zaaaa.length) zaaad(zaaah + " requires a value");
+            zaaaf[zaaai] = zaaaa[++zaaag];
         } else {
-            positional.push(arg);
+            zaaae.push(zaaah);
         }
     }
-    return { positional: positional, flags: flags };
+    return {
+        positional: zaaae,
+        flags: zaaaf
+    };
 }
 
-function numberFlag(flags, name, fallback) {
-    if (flags[name] === undefined) return fallback;
-    var value = Number(flags[name]);
-    if (!Number.isFinite(value)) fail("--" + name + " must be a number");
-    return value;
+function zaaag(zaaaa, zaaab, zaaac) {
+    if (zaaaa[zaaab] === undefined) return zaaac;
+    var zaaae = Number(zaaaa[zaaab]);
+    if (!Number.isFinite(zaaae)) zaaad("--" + zaaab + " must be a number");
+    return zaaae;
 }
 
-function tripleFlag(flags, name, fallback) {
-    if (flags[name] === undefined) return fallback;
-    var parts = String(flags[name]).split(",").map(Number);
-    if (parts.length !== 3 || parts.some(function (p) { return !Number.isFinite(p); })) fail("--" + name + " must be x,y,z");
-    return parts;
+function zaaah(zaaaa, zaaab, zaaac) {
+    if (zaaaa[zaaab] === undefined) return zaaac;
+    var zaaae = String(zaaaa[zaaab]).split(",").map(Number);
+    if (zaaae.length !== 3 || zaaae.some(function(zaaaa) {
+        return !Number.isFinite(zaaaa);
+    })) zaaad("--" + zaaab + " must be x,y,z");
+    return zaaae;
 }
 
-function requireWebGPU() {
+function zaaai() {
     if (typeof navigator === "undefined" || !navigator.gpu) {
         console.error("faoxom: WebGPU is not available in this runtime - headless rendering needs Node 22+ (Dawn) or a browser.");
         process.exit(2);
     }
 }
 
-async function renderScene(headless, scenePath, flags) {
-    var bytes = fs.readFileSync(path.resolve(scenePath));
-    var loader = new FaoxLoader();
-    var loaded;
+async function zaaaj(zaaaa, zaaab, zaaac) {
+    var zaaae = fs.readFileSync(path.resolve(zaaab));
+    var zaaaf = new FaoxLoader;
+    var zaaai;
     try {
-        loaded = loader.parse(new Uint8Array(bytes));
-    } catch (error) {
-        fail("scene load failed: " + error.message);
+        zaaai = zaaaf.parse(new Uint8Array(zaaae));
+    } catch (zaaaa) {
+        zaaad("scene load failed: " + zaaaa.message);
     }
-    var camera = headless.defaultCamera(loaded.scene, {
-        fov: numberFlag(flags, "fov", 50),
-        position: tripleFlag(flags, "camera", [0, 0, 5]),
-        target: tripleFlag(flags, "target", [0, 0, 0])
+    var zaaaj = zaaaa.defaultCamera(zaaai.scene, {
+        fov: zaaag(zaaac, "fov", 50),
+        position: zaaah(zaaac, "camera", [ 0, 0, 5 ]),
+        target: zaaah(zaaac, "target", [ 0, 0, 0 ])
     });
-    var png = await headless.renderToPNG(loaded.scene, camera);
-    var hash = headless.pixelHash();
-    return { png: png, hash: hash, loaded: loaded };
-}
-
-async function renderCommand(args) {
-    var parsed = parseFlags(args, ["o", "output", "width", "height", "fov", "camera", "target", "json"]);
-    if (!parsed.positional.length) { usage(); process.exit(1); }
-    requireWebGPU();
-    var scenePath = parsed.positional[0];
-    if (!fs.existsSync(scenePath)) fail("scene not found: " + scenePath);
-    var width = Math.max(1, Math.floor(numberFlag(parsed.flags, "width", 256)));
-    var height = Math.max(1, Math.floor(numberFlag(parsed.flags, "height", 256)));
-    var headless;
-    try {
-        headless = await HeadlessRenderer.create({ width: width, height: height, ledger: true });
-    } catch (error) {
-        fail("headless renderer init failed: " + error.message);
-    }
-    var result = await renderScene(headless, scenePath, parsed.flags);
-    var output = parsed.flags.o || parsed.flags.output || (scenePath.replace(/\.faox$/i, "") + ".png");
-    if (!parsed.flags["hash-only"]) fs.writeFileSync(output, Buffer.from(result.png));
-    var report = {
-        command: "render", scene: scenePath, output: parsed.flags["hash-only"] ? null : output,
-        width: width, height: height, pixelHash: result.hash, byteLength: result.png.length,
-        sceneHash: result.loaded.hash, ledger: headless.ledger.snapshot()
+    var zaaak = await zaaaa.renderToPNG(zaaai.scene, zaaaj);
+    var zaaal = zaaaa.pixelHash();
+    return {
+        png: zaaak,
+        hash: zaaal,
+        loaded: zaaai
     };
-    if (parsed.flags.json) fs.writeFileSync(parsed.flags.json, JSON.stringify(report, null, 2));
-    console.log("faoxom render: " + width + "x" + height + " hash " + result.hash + " (" + result.png.length + " bytes" + (parsed.flags["hash-only"] ? ", hash-only" : " -> " + output) + ")");
-    headless.dispose();
 }
 
-async function testCommand(args) {
-    var parsed = parseFlags(args, ["golden", "width", "height", "fov", "camera", "target", "json", "per-channel", "max-mean", "max-diff-ratio"]);
-    if (!parsed.positional.length) { usage(); process.exit(1); }
-    if (!parsed.flags.golden) fail("--golden <png> is required");
-    requireWebGPU();
-    var scenePath = parsed.positional[0];
-    if (!fs.existsSync(scenePath)) fail("scene not found: " + scenePath);
-    if (!fs.existsSync(parsed.flags.golden)) fail("golden image not found: " + parsed.flags.golden);
-    var width = Math.max(1, Math.floor(numberFlag(parsed.flags, "width", 256)));
-    var height = Math.max(1, Math.floor(numberFlag(parsed.flags, "height", 256)));
-    var headless;
-    try {
-        headless = await HeadlessRenderer.create({ width: width, height: height, ledger: true });
-    } catch (error) {
-        fail("headless renderer init failed: " + error.message);
+async function zaaak(zaaaa) {
+    var zaaab = zaaaf(zaaaa, [ "o", "output", "width", "height", "fov", "camera", "target", "json" ]);
+    if (!zaaab.positional.length) {
+        zaaac();
+        process.exit(1);
     }
-    var result = await renderScene(headless, scenePath, parsed.flags);
-    var rendered = PNGCodec.decode(result.png);
-    var golden = PNGCodec.decode(new Uint8Array(fs.readFileSync(parsed.flags.golden)));
-    var comparison = PNGCodec.compare(rendered, golden, {
-        perChannel: numberFlag(parsed.flags, "per-channel", 2),
-        maxMean: numberFlag(parsed.flags, "max-mean", 1.0),
-        maxDiffRatio: numberFlag(parsed.flags, "max-diff-ratio", 0.002)
-    });
-    var report = {
-        command: "test", scene: scenePath, golden: parsed.flags.golden, width: width, height: height,
-        pixelHash: result.hash, sceneHash: result.loaded.hash, comparison: comparison, passed: !!comparison.passed
+    zaaai();
+    var zaaae = zaaab.positional[0];
+    if (!fs.existsSync(zaaae)) zaaad("scene not found: " + zaaae);
+    var zaaah = Math.max(1, Math.floor(zaaag(zaaab.flags, "width", 256)));
+    var zaaak = Math.max(1, Math.floor(zaaag(zaaab.flags, "height", 256)));
+    var zaaal;
+    try {
+        zaaal = await HeadlessRenderer.create({
+            width: zaaah,
+            height: zaaak,
+            ledger: true
+        });
+    } catch (zaaaa) {
+        zaaad("headless renderer init failed: " + zaaaa.message);
+    }
+    var zaaam = await zaaaj(zaaal, zaaae, zaaab.flags);
+    var zaaan = zaaab.flags.o || zaaab.flags.output || zaaae.replace(/\.faox$/i, "") + ".png";
+    if (!zaaab.flags["hash-only"]) fs.writeFileSync(zaaan, Buffer.from(zaaam.png));
+    var zaaao = {
+        command: "render",
+        scene: zaaae,
+        output: zaaab.flags["hash-only"] ? null : zaaan,
+        width: zaaah,
+        height: zaaak,
+        pixelHash: zaaam.hash,
+        byteLength: zaaam.png.length,
+        sceneHash: zaaam.loaded.hash,
+        ledger: zaaal.ledger.snapshot()
     };
-    if (parsed.flags.json) fs.writeFileSync(parsed.flags.json, JSON.stringify(report, null, 2));
-    headless.dispose();
-    if (!comparison.passed && parsed.flags.update) {
-        fs.writeFileSync(parsed.flags.golden, Buffer.from(result.png));
-        console.log("faoxom test: FAIL (golden updated per --update) hash " + result.hash + " meanDiff " + comparison.meanAbsDiff.toFixed(3) + " maxDiff " + comparison.maxAbsDiff + " diffPixels " + comparison.diffPixels);
-        process.exit(1);
-    }
-    if (comparison.passed) {
-        console.log("faoxom test: PASS hash " + result.hash + " meanDiff " + comparison.meanAbsDiff.toFixed(4) + " psnr " + (comparison.psnr === Infinity ? "inf" : comparison.psnr.toFixed(2)) + "dB");
-    } else {
-        console.error("faoxom test: FAIL hash " + result.hash + " meanDiff " + comparison.meanAbsDiff.toFixed(3) + " maxDiff " + comparison.maxAbsDiff + " diffPixels " + comparison.diffPixels + "/" + (width * height));
-        process.exit(1);
-    }
+    if (zaaab.flags.json) fs.writeFileSync(zaaab.flags.json, JSON.stringify(zaaao, null, 2));
+    console.log("faoxom render: " + zaaah + "x" + zaaak + " hash " + zaaam.hash + " (" + zaaam.png.length + " bytes" + (zaaab.flags["hash-only"] ? ", hash-only" : " -> " + zaaan) + ")");
+    zaaal.dispose();
 }
 
-function compareCommand(args) {
-    var parsed = parseFlags(args, ["json", "per-channel", "max-mean", "max-diff-ratio"]);
-    if (parsed.positional.length !== 2) { usage(); process.exit(1); }
-    for (var i = 0; i < 2; i++) if (!fs.existsSync(parsed.positional[i])) fail("image not found: " + parsed.positional[i]);
-    var a, b;
-    try {
-        a = PNGCodec.decode(new Uint8Array(fs.readFileSync(parsed.positional[0])));
-        b = PNGCodec.decode(new Uint8Array(fs.readFileSync(parsed.positional[1])));
-    } catch (error) {
-        fail("decode failed: " + error.message);
+async function zaaal(zaaaa) {
+    var zaaab = zaaaf(zaaaa, [ "golden", "width", "height", "fov", "camera", "target", "json", "per-channel", "max-mean", "max-diff-ratio" ]);
+    if (!zaaab.positional.length) {
+        zaaac();
+        process.exit(1);
     }
-    var comparison = PNGCodec.compare(a, b, {
-        perChannel: numberFlag(parsed.flags, "per-channel", 2),
-        maxMean: numberFlag(parsed.flags, "max-mean", 1.0),
-        maxDiffRatio: numberFlag(parsed.flags, "max-diff-ratio", 0.002)
+    if (!zaaab.flags.golden) zaaad("--golden <png> is required");
+    zaaai();
+    var zaaae = zaaab.positional[0];
+    if (!fs.existsSync(zaaae)) zaaad("scene not found: " + zaaae);
+    if (!fs.existsSync(zaaab.flags.golden)) zaaad("golden image not found: " + zaaab.flags.golden);
+    var zaaah = Math.max(1, Math.floor(zaaag(zaaab.flags, "width", 256)));
+    var zaaak = Math.max(1, Math.floor(zaaag(zaaab.flags, "height", 256)));
+    var zaaal;
+    try {
+        zaaal = await HeadlessRenderer.create({
+            width: zaaah,
+            height: zaaak,
+            ledger: true
+        });
+    } catch (zaaaa) {
+        zaaad("headless renderer init failed: " + zaaaa.message);
+    }
+    var zaaam = await zaaaj(zaaal, zaaae, zaaab.flags);
+    var zaaan = PNGCodec.decode(zaaam.png);
+    var zaaao = PNGCodec.decode(new Uint8Array(fs.readFileSync(zaaab.flags.golden)));
+    var zaaap = PNGCodec.compare(zaaan, zaaao, {
+        perChannel: zaaag(zaaab.flags, "per-channel", 2),
+        maxMean: zaaag(zaaab.flags, "max-mean", 1),
+        maxDiffRatio: zaaag(zaaab.flags, "max-diff-ratio", .002)
     });
-    var report = { command: "compare", a: parsed.positional[0], b: parsed.positional[1], comparison: comparison, passed: !!comparison.passed };
-    if (parsed.flags.json) fs.writeFileSync(parsed.flags.json, JSON.stringify(report, null, 2));
-    if (comparison.passed) {
-        console.log("faoxom compare: PASS " + a.width + "x" + a.height + " meanDiff " + comparison.meanAbsDiff.toFixed(4) + " maxDiff " + comparison.maxAbsDiff + " diffPixels " + comparison.diffPixels);
+    var zaaaq = {
+        command: "test",
+        scene: zaaae,
+        golden: zaaab.flags.golden,
+        width: zaaah,
+        height: zaaak,
+        pixelHash: zaaam.hash,
+        sceneHash: zaaam.loaded.hash,
+        comparison: zaaap,
+        passed: !!zaaap.passed
+    };
+    if (zaaab.flags.json) fs.writeFileSync(zaaab.flags.json, JSON.stringify(zaaaq, null, 2));
+    zaaal.dispose();
+    if (!zaaap.passed && zaaab.flags.update) {
+        fs.writeFileSync(zaaab.flags.golden, Buffer.from(zaaam.png));
+        console.log("faoxom test: FAIL (golden updated per --update) hash " + zaaam.hash + " meanDiff " + zaaap.meanAbsDiff.toFixed(3) + " maxDiff " + zaaap.maxAbsDiff + " diffPixels " + zaaap.diffPixels);
+        process.exit(1);
+    }
+    if (zaaap.passed) {
+        console.log("faoxom test: PASS hash " + zaaam.hash + " meanDiff " + zaaap.meanAbsDiff.toFixed(4) + " psnr " + (zaaap.psnr === Infinity ? "inf" : zaaap.psnr.toFixed(2)) + "dB");
     } else {
-        console.error("faoxom compare: FAIL " + (comparison.error || (a.width + "x" + a.height + " meanDiff " + comparison.meanAbsDiff.toFixed(3) + " maxDiff " + comparison.maxAbsDiff + " diffPixels " + comparison.diffPixels + "/" + (a.width * a.height))));
+        console.error("faoxom test: FAIL hash " + zaaam.hash + " meanDiff " + zaaap.meanAbsDiff.toFixed(3) + " maxDiff " + zaaap.maxAbsDiff + " diffPixels " + zaaap.diffPixels + "/" + zaaah * zaaak);
         process.exit(1);
     }
 }
 
-var command = process.argv[2];
-function loadCodemodRegistry() {
-    var registryPath = path.join(cliRoot, "codemods", "registry.json");
+function zaaam(zaaaa) {
+    var zaaab = zaaaf(zaaaa, [ "json", "per-channel", "max-mean", "max-diff-ratio" ]);
+    if (zaaab.positional.length !== 2) {
+        zaaac();
+        process.exit(1);
+    }
+    for (var zaaae = 0; zaaae < 2; zaaae++) if (!fs.existsSync(zaaab.positional[zaaae])) zaaad("image not found: " + zaaab.positional[zaaae]);
+    var zaaah, zaaai;
     try {
-        return JSON.parse(fs.readFileSync(registryPath, "utf8"));
-    } catch (error) {
-        fail("cannot read codemods/registry.json: " + error.message);
+        zaaah = PNGCodec.decode(new Uint8Array(fs.readFileSync(zaaab.positional[0])));
+        zaaai = PNGCodec.decode(new Uint8Array(fs.readFileSync(zaaab.positional[1])));
+    } catch (zaaaa) {
+        zaaad("decode failed: " + zaaaa.message);
+    }
+    var zaaaj = PNGCodec.compare(zaaah, zaaai, {
+        perChannel: zaaag(zaaab.flags, "per-channel", 2),
+        maxMean: zaaag(zaaab.flags, "max-mean", 1),
+        maxDiffRatio: zaaag(zaaab.flags, "max-diff-ratio", .002)
+    });
+    var zaaak = {
+        command: "compare",
+        a: zaaab.positional[0],
+        b: zaaab.positional[1],
+        comparison: zaaaj,
+        passed: !!zaaaj.passed
+    };
+    if (zaaab.flags.json) fs.writeFileSync(zaaab.flags.json, JSON.stringify(zaaak, null, 2));
+    if (zaaaj.passed) {
+        console.log("faoxom compare: PASS " + zaaah.width + "x" + zaaah.height + " meanDiff " + zaaaj.meanAbsDiff.toFixed(4) + " maxDiff " + zaaaj.maxAbsDiff + " diffPixels " + zaaaj.diffPixels);
+    } else {
+        console.error("faoxom compare: FAIL " + (zaaaj.error || zaaah.width + "x" + zaaah.height + " meanDiff " + zaaaj.meanAbsDiff.toFixed(3) + " maxDiff " + zaaaj.maxAbsDiff + " diffPixels " + zaaaj.diffPixels + "/" + zaaah.width * zaaah.height));
+        process.exit(1);
     }
 }
 
-function codemodCommand(args) {
-    var registry = loadCodemodRegistry();
-    var mode = args[0];
-    if (!mode || mode === "-h" || mode === "--help") { usage(); process.exit(0); }
-    if (mode === "list") {
-        console.log("registered codemods (codemods/registry.json v" + registry.version + "):");
-        for (var i = 0; i < registry.codemods.length; i++) {
-            var entry = registry.codemods[i];
-            var renames = Object.keys(entry.renames).map(function (from) { return from + " -> " + entry.renames[from]; }).join(", ");
-            console.log("  " + entry.name.padEnd(22) + entry.description);
-            console.log("  " + " ".repeat(22) + renames);
+var zaaan = process.argv[2];
+
+function zaaao() {
+    var zaaab = path.join(zaaaa, "codemods", "registry.json");
+    try {
+        return JSON.parse(fs.readFileSync(zaaab, "utf8"));
+    } catch (zaaaa) {
+        zaaad("cannot read codemods/registry.json: " + zaaaa.message);
+    }
+}
+
+function zaaap(zaaaa) {
+    var zaaab = zaaao();
+    var zaaae = zaaaa[0];
+    if (!zaaae || zaaae === "-h" || zaaae === "--help") {
+        zaaac();
+        process.exit(0);
+    }
+    if (zaaae === "list") {
+        console.log("registered codemods (codemods/registry.json v" + zaaab.version + "):");
+        for (var zaaaf = 0; zaaaf < zaaab.codemods.length; zaaaf++) {
+            var zaaag = zaaab.codemods[zaaaf];
+            var zaaah = Object.keys(zaaag.renames).map(function(zaaaa) {
+                return zaaaa + " -> " + zaaag.renames[zaaaa];
+            }).join(", ");
+            console.log("  " + zaaag.name.padEnd(22) + zaaag.description);
+            console.log("  " + " ".repeat(22) + zaaah);
         }
         process.exit(0);
     }
-    var codemod = null;
-    for (var c = 0; c < registry.codemods.length; c++) {
-        if (registry.codemods[c].name === mode) codemod = registry.codemods[c];
+    var zaaai = null;
+    for (var zaaaj = 0; zaaaj < zaaab.codemods.length; zaaaj++) {
+        if (zaaab.codemods[zaaaj].name === zaaae) zaaai = zaaab.codemods[zaaaj];
     }
-    if (!codemod) fail("unknown codemod: " + mode + " (run `faoxom codemod list`)");
-    var files = [];
-    var write = false;
-    for (var a = 1; a < args.length; a++) {
-        if (args[a] === "--write") write = true;
-        else if (args[a].charAt(0) === "-") fail("unknown option " + args[a]);
-        else files.push(args[a]);
+    if (!zaaai) zaaad("unknown codemod: " + zaaae + " (run `faoxom codemod list`)");
+    var zaaak = [];
+    var zaaal = false;
+    for (var zaaam = 1; zaaam < zaaaa.length; zaaam++) {
+        if (zaaaa[zaaam] === "--write") zaaal = true; else if (zaaaa[zaaam].charAt(0) === "-") zaaad("unknown option " + zaaaa[zaaam]); else zaaak.push(zaaaa[zaaam]);
     }
-    if (!files.length) fail("codemod requires at least one file (glob via your shell)");
-    var renames = Object.keys(codemod.renames).map(function (from) {
-        return { from: from, to: codemod.renames[from], re: new RegExp("\\b" + from.replace(/\$/g, "\\$") + "\\b", "g") };
+    if (!zaaak.length) zaaad("codemod requires at least one file (glob via your shell)");
+    var zaaah = Object.keys(zaaai.renames).map(function(zaaaa) {
+        return {
+            from: zaaaa,
+            to: zaaai.renames[zaaaa],
+            re: new RegExp("\\b" + zaaaa.replace(/\$/g, "\\$") + "\\b", "g")
+        };
     });
-    var totalPending = 0;
-    var totalFiles = 0;
-    for (var f = 0; f < files.length; f++) {
-        var file = files[f];
-        var text;
+    var zaaan = 0;
+    var zaaap = 0;
+    for (var zaaaq = 0; zaaaq < zaaak.length; zaaaq++) {
+        var zaaar = zaaak[zaaaq];
+        var zaaas;
         try {
-            text = fs.readFileSync(file, "utf8");
-        } catch (readError) {
-            fail("cannot read " + file + ": " + readError.message);
+            zaaas = fs.readFileSync(zaaar, "utf8");
+        } catch (zaaaa) {
+            zaaad("cannot read " + zaaar + ": " + zaaaa.message);
         }
-        var result = text;
-        var perFile = 0;
-        for (var r = 0; r < renames.length; r++) {
-            var matches = result.match(renames[r].re);
-            if (matches) {
-                perFile += matches.length;
-                result = result.replace(renames[r].re, renames[r].to);
+        var zaaat = zaaas;
+        var zaaau = 0;
+        for (var zaaav = 0; zaaav < zaaah.length; zaaav++) {
+            var zaaaw = zaaat.match(zaaah[zaaav].re);
+            if (zaaaw) {
+                zaaau += zaaaw.length;
+                zaaat = zaaat.replace(zaaah[zaaav].re, zaaah[zaaav].to);
             }
         }
-        if (perFile) {
-            totalPending += perFile;
-            totalFiles++;
-            console.log((write ? "wrote    " : "pending  ") + file + " (" + perFile + " replacement" + (perFile === 1 ? "" : "s") + ")");
-            if (!write) {
-                var lines = result.split("\n");
-                var original = text.split("\n");
-                var shown = 0;
-                for (var l = 0; l < lines.length && shown < 4; l++) {
-                    if (lines[l] !== original[l]) {
-                        console.log("    - " + original[l].trim());
-                        console.log("    + " + lines[l].trim());
-                        shown++;
+        if (zaaau) {
+            zaaan += zaaau;
+            zaaap++;
+            console.log((zaaal ? "wrote    " : "pending  ") + zaaar + " (" + zaaau + " replacement" + (zaaau === 1 ? "" : "s") + ")");
+            if (!zaaal) {
+                var zaaax = zaaat.split("\n");
+                var zaaay = zaaas.split("\n");
+                var zaaaz = 0;
+                for (var zaaaaa = 0; zaaaaa < zaaax.length && zaaaz < 4; zaaaaa++) {
+                    if (zaaax[zaaaaa] !== zaaay[zaaaaa]) {
+                        console.log("    - " + zaaay[zaaaaa].trim());
+                        console.log("    + " + zaaax[zaaaaa].trim());
+                        zaaaz++;
                     }
                 }
             }
         } else {
-            console.log("clean    " + file);
+            console.log("clean    " + zaaar);
         }
-        if (write && perFile) {
+        if (zaaal && zaaau) {
             try {
-                fs.writeFileSync(file, result);
-            } catch (writeError) {
-                fail("cannot write " + file + ": " + writeError.message);
+                fs.writeFileSync(zaaar, zaaat);
+            } catch (zaaaa) {
+                zaaad("cannot write " + zaaar + ": " + zaaaa.message);
             }
         }
     }
-    if (write) {
-        console.log("done: " + totalPending + " replacement" + (totalPending === 1 ? "" : "s") + " written across " + totalFiles + " file" + (totalFiles === 1 ? "" : "s"));
+    if (zaaal) {
+        console.log("done: " + zaaan + " replacement" + (zaaan === 1 ? "" : "s") + " written across " + zaaap + " file" + (zaaap === 1 ? "" : "s"));
         process.exit(0);
     }
-    if (totalPending) {
-        console.log("dry-run: " + totalPending + " pending replacement" + (totalPending === 1 ? "" : "s") + " in " + totalFiles + " file" + (totalFiles === 1 ? "" : "s") + " - re-run with --write to apply");
+    if (zaaan) {
+        console.log("dry-run: " + zaaan + " pending replacement" + (zaaan === 1 ? "" : "s") + " in " + zaaap + " file" + (zaaap === 1 ? "" : "s") + " - re-run with --write to apply");
         process.exit(1);
     }
     console.log("dry-run: no changes needed");
     process.exit(0);
 }
 
-if (command === "version") {
-    console.log(readVersion());
-} else if (command === "pack") {
-    packCommand(process.argv.slice(3));
-} else if (command === "render") {
-    renderCommand(process.argv.slice(3)).catch(function (error) { console.error("faoxom: " + error.message); process.exit(2); });
-} else if (command === "test") {
-    testCommand(process.argv.slice(3)).catch(function (error) { console.error("faoxom: " + error.message); process.exit(2); });
-} else if (command === "compare") {
-    compareCommand(process.argv.slice(3));
-} else if (command === "codemod") {
-    codemodCommand(process.argv.slice(3));
-} else if (command === "help" || command === "--help" || command === "-h" || command === undefined) {
-    usage();
-    if (command === undefined) process.exit(1);
+if (zaaan === "version") {
+    console.log(zaaab());
+} else if (zaaan === "pack") {
+    zaaae(process.argv.slice(3));
+} else if (zaaan === "render") {
+    zaaak(process.argv.slice(3)).catch(function(zaaaa) {
+        console.error("faoxom: " + zaaaa.message);
+        process.exit(2);
+    });
+} else if (zaaan === "test") {
+    zaaal(process.argv.slice(3)).catch(function(zaaaa) {
+        console.error("faoxom: " + zaaaa.message);
+        process.exit(2);
+    });
+} else if (zaaan === "compare") {
+    zaaam(process.argv.slice(3));
+} else if (zaaan === "codemod") {
+    zaaap(process.argv.slice(3));
+} else if (zaaan === "help" || zaaan === "--help" || zaaan === "-h" || zaaan === undefined) {
+    zaaac();
+    if (zaaan === undefined) process.exit(1);
 } else {
-    console.error("faoxom: unknown command '" + command + "'");
-    usage();
+    console.error("faoxom: unknown command '" + zaaan + "'");
+    zaaac();
     process.exit(1);
 }

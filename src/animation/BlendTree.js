@@ -1,8 +1,20 @@
 class BlendTree {
-    constructor(mixer) { this.mixer = mixer; this.actions = {}; }
-    add(name, clip) { this.actions[name] = this.mixer.clipAction(clip); return this; }
-    setWeight(name, weight) { if (this.actions[name]) this.actions[name].setWeight(weight).play(); return this; }
-    update(delta) { this.mixer.update(delta); return this; }
+    constructor(zabca) {
+        this.mixer = zabca;
+        this.actions = {};
+    }
+    add(zabca, zabcb) {
+        this.actions[zabca] = this.mixer.clipAction(zabcb);
+        return this;
+    }
+    setWeight(zabca, zabcb) {
+        if (this.actions[zabca]) this.actions[zabca].setWeight(zabcb).play();
+        return this;
+    }
+    update(zabca) {
+        this.mixer.update(zabca);
+        return this;
+    }
 }
 
 export { BlendTree };

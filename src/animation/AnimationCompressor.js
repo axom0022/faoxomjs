@@ -1,9 +1,42 @@
 import { faoxomvalue } from "../math/index.js";
+
 import { AnimationClip } from "./AnimationClip.js";
+
 import { AnimationTrack } from "./AnimationTrack.js";
 
 class AnimationCompressor {
-    static compress(clip, tolerance) { tolerance = faoxomvalue(tolerance, 0.001); var tracks = []; for (var i = 0; i < clip.tracks.length; i++) { var track = clip.tracks[i]; if (track.times.length <= 2) { tracks.push(track); continue; } var keep = [0]; var last = 0; for (var k = 1; k < track.times.length - 1; k++) { var a = track.getValue(last); var b = track.getValue(k); var distance = typeof b === "number" ? Math.abs(b - a) : b && a && b.distanceTo ? b.distanceTo(a) : 0; if (distance > tolerance) { keep.push(k); last = k; } } keep.push(track.times.length - 1); var times = [], values = []; for (var q = 0; q < keep.length; q++) { var index = keep[q]; times.push(track.times[index]); var value = track.getValue(index); if (typeof value === "number") values.push(value); else if (value && value.toArray) value.toArray(values); else for (var component = 0; component < value.length; component++) values.push(value[component]); } tracks.push(new AnimationTrack(track.name, times, values, track.valueType, track.interpolation)); } return new AnimationClip(clip.name, clip.duration, tracks, (clip.events || []).slice()); }
+    static compress(zaaua, zaaub) {
+        zaaub = faoxomvalue(zaaub, .001);
+        var zaauc = [];
+        for (var zaaud = 0; zaaud < zaaua.tracks.length; zaaud++) {
+            var zaaue = zaaua.tracks[zaaud];
+            if (zaaue.times.length <= 2) {
+                zaauc.push(zaaue);
+                continue;
+            }
+            var zaauf = [ 0 ];
+            var zaaug = 0;
+            for (var zaauh = 1; zaauh < zaaue.times.length - 1; zaauh++) {
+                var zaaui = zaaue.getValue(zaaug);
+                var zaauj = zaaue.getValue(zaauh);
+                var zaauk = typeof zaauj === "number" ? Math.abs(zaauj - zaaui) : zaauj && zaaui && zaauj.distanceTo ? zaauj.distanceTo(zaaui) : 0;
+                if (zaauk > zaaub) {
+                    zaauf.push(zaauh);
+                    zaaug = zaauh;
+                }
+            }
+            zaauf.push(zaaue.times.length - 1);
+            var zaaul = [], zaaum = [];
+            for (var zaaun = 0; zaaun < zaauf.length; zaaun++) {
+                var zaauo = zaauf[zaaun];
+                zaaul.push(zaaue.times[zaauo]);
+                var zaaup = zaaue.getValue(zaauo);
+                if (typeof zaaup === "number") zaaum.push(zaaup); else if (zaaup && zaaup.toArray) zaaup.toArray(zaaum); else for (var zaauq = 0; zaauq < zaaup.length; zaauq++) zaaum.push(zaaup[zaauq]);
+            }
+            zaauc.push(new AnimationTrack(zaaue.name, zaaul, zaaum, zaaue.valueType, zaaue.interpolation));
+        }
+        return new AnimationClip(zaaua.name, zaaua.duration, zaauc, (zaaua.events || []).slice());
+    }
 }
 
 export { AnimationCompressor };

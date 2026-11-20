@@ -1,24 +1,41 @@
 import { faoxomdecodedds } from "../core/index.js";
+
 import { CompressedCubeTexture, Texture } from "../textures/index.js";
+
 import { FileLoader } from "./FileLoader.js";
 
 class DDSLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var texture = self.parse(buffer); if (onLoad) onLoad(texture); } catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zalxa) {
+        this.manager = zalxa;
     }
-    parse(buffer) {
-        var decoded = faoxomdecodedds(buffer);
-        var options = { flipY: false, minFilter: decoded.mipmaps > 1 ? "linearMipmapLinear" : "linear", magFilter: "linear", colorSpace: "srgb" };
-        var texture = decoded.target === "cubemap" ? new CompressedCubeTexture(decoded, options) : new Texture(null, options);
-        if (decoded.target !== "cubemap") { texture.compressed = decoded; texture.loaded = true; }
-        texture.needsUpdate = true;
-        return texture;
+    load(zalxa, zalxb, zalxc, zalxd) {
+        var zalxe = this;
+        var zalxf = new FileLoader(this.manager);
+        zalxf.setResponseType("arraybuffer");
+        zalxf.load(zalxa, function(zalxa) {
+            try {
+                var zalxc = zalxe.parse(zalxa);
+                if (zalxb) zalxb(zalxc);
+            } catch (zalxa) {
+                if (zalxd) zalxd(zalxa);
+            }
+        }, zalxc, zalxd);
+    }
+    parse(zalxa) {
+        var zalxb = faoxomdecodedds(zalxa);
+        var zalxc = {
+            flipY: false,
+            minFilter: zalxb.mipmaps > 1 ? "linearMipmapLinear" : "linear",
+            magFilter: "linear",
+            colorSpace: "srgb"
+        };
+        var zalxd = zalxb.target === "cubemap" ? new CompressedCubeTexture(zalxb, zalxc) : new Texture(null, zalxc);
+        if (zalxb.target !== "cubemap") {
+            zalxd.compressed = zalxb;
+            zalxd.loaded = true;
+        }
+        zalxd.needsUpdate = true;
+        return zalxd;
     }
 }
 

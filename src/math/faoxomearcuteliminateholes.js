@@ -1,20 +1,23 @@
 import { faoxomearcutcomparexyslope } from "./faoxomearcutcomparexyslope.js";
+
 import { faoxomearcuteliminatehole } from "./faoxomearcuteliminatehole.js";
+
 import { faoxomearcutgetleftmost } from "./faoxomearcutgetleftmost.js";
+
 import { faoxomearcutlinkedlist } from "./faoxomearcutlinkedlist.js";
 
-function faoxomearcuteliminateholes(data, holeIndices, outerNode, dim) {
-    var queue = [];
-    for (var i = 0, len = holeIndices.length; i < len; i++) {
-        var start = holeIndices[i] * dim;
-        var end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
-        var list = faoxomearcutlinkedlist(data, start, end, dim, false);
-        if (list === list.next) list.steiner = true;
-        queue.push(faoxomearcutgetleftmost(list));
+function faoxomearcuteliminateholes(zapha, zaphb, zaphc, zaphd) {
+    var zaphe = [];
+    for (var zaphf = 0, zaphg = zaphb.length; zaphf < zaphg; zaphf++) {
+        var zaphh = zaphb[zaphf] * zaphd;
+        var zaphi = zaphf < zaphg - 1 ? zaphb[zaphf + 1] * zaphd : zapha.length;
+        var zaphj = faoxomearcutlinkedlist(zapha, zaphh, zaphi, zaphd, false);
+        if (zaphj === zaphj.next) zaphj.steiner = true;
+        zaphe.push(faoxomearcutgetleftmost(zaphj));
     }
-    queue.sort(faoxomearcutcomparexyslope);
-    for (var q = 0; q < queue.length; q++) outerNode = faoxomearcuteliminatehole(queue[q], outerNode);
-    return outerNode;
+    zaphe.sort(faoxomearcutcomparexyslope);
+    for (var zaphk = 0; zaphk < zaphe.length; zaphk++) zaphc = faoxomearcuteliminatehole(zaphe[zaphk], zaphc);
+    return zaphc;
 }
 
 export { faoxomearcuteliminateholes };

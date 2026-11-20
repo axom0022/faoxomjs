@@ -1,6 +1,72 @@
 import { Color, faoxomvalue } from "../math/index.js";
+
 import { Material } from "./Material.js";
 
-class StandardMaterial extends Material { constructor(options) { super(options); options = options || {}; this.type = "StandardMaterial"; this.metalness = faoxomvalue(options.metalness, options.metallic !== undefined ? options.metallic : 0); this.metallic = this.metalness; this.roughness = faoxomvalue(options.roughness, 0.5); this.clearcoat = faoxomvalue(options.clearcoat, 0); this.clearcoatRoughness = faoxomvalue(options.clearcoatRoughness, 0.03); this.sheen = faoxomvalue(options.sheen, 0); this.sheenColor = options.sheenColor || [0, 0, 0]; this.sheenRoughness = faoxomvalue(options.sheenRoughness, 0.5); this.transmission = faoxomvalue(options.transmission, 0); this.ior = faoxomvalue(options.ior, 1.5); this.iridescence = faoxomvalue(options.iridescence, 0); this.iridescenceIor = faoxomvalue(options.iridescenceIor, 1.3); this.iridescenceThicknessRange = options.iridescenceThicknessRange || [100, 400]; this.anisotropy = faoxomvalue(options.anisotropy, 0); this.anisotropyRotation = faoxomvalue(options.anisotropyRotation, 0); this.specularIntensity = faoxomvalue(options.specularIntensity, 1); this.specularColor = options.specularColor && options.specularColor.clone ? options.specularColor.clone() : new Color(0xffffff); this.emissiveStrength = faoxomvalue(options.emissiveStrength, 1); this.thickness = faoxomvalue(options.thickness, 0); this.attenuationDistance = faoxomvalue(options.attenuationDistance, Infinity); this.attenuationColor = options.attenuationColor && options.attenuationColor.clone ? options.attenuationColor.clone() : new Color(0xffffff); this.dispersion = faoxomvalue(options.dispersion, 0); this.subsurface = faoxomvalue(options.subsurface, 0); this.subsurfaceColor = options.subsurfaceColor && options.subsurfaceColor.clone ? options.subsurfaceColor.clone() : new Color(faoxomvalue(options.subsurfaceColor, 0xffffff)); this.subsurfaceRadius = faoxomvalue(options.subsurfaceRadius, 1); this.parallaxMap = options.parallaxMap || null; this.parallaxScale = faoxomvalue(options.parallaxScale, 0.05); this.parallaxMinLayers = faoxomvalue(options.parallaxMinLayers, 8); this.parallaxMaxLayers = faoxomvalue(options.parallaxMaxLayers, 32); } clone() { var copy = super.clone(); copy.clearcoat = this.clearcoat; copy.clearcoatRoughness = this.clearcoatRoughness; copy.sheen = this.sheen; copy.sheenColor = this.sheenColor.slice ? this.sheenColor.slice() : this.sheenColor; copy.sheenRoughness = this.sheenRoughness; copy.transmission = this.transmission; copy.ior = this.ior; copy.iridescence = this.iridescence; copy.iridescenceIor = this.iridescenceIor; copy.iridescenceThicknessRange = this.iridescenceThicknessRange.slice ? this.iridescenceThicknessRange.slice() : this.iridescenceThicknessRange; copy.anisotropy = this.anisotropy; copy.anisotropyRotation = this.anisotropyRotation; copy.specularIntensity = this.specularIntensity; copy.specularColor = this.specularColor.clone(); copy.emissiveStrength = this.emissiveStrength; copy.thickness = this.thickness; copy.attenuationDistance = this.attenuationDistance; copy.attenuationColor = this.attenuationColor.clone(); copy.dispersion = this.dispersion; copy.subsurface = this.subsurface; copy.subsurfaceColor = this.subsurfaceColor.clone(); copy.subsurfaceRadius = this.subsurfaceRadius; copy.parallaxMap = this.parallaxMap; copy.parallaxScale = this.parallaxScale; copy.parallaxMinLayers = this.parallaxMinLayers; copy.parallaxMaxLayers = this.parallaxMaxLayers; return copy; } }
+class StandardMaterial extends Material {
+    constructor(zanwa) {
+        super(zanwa);
+        zanwa = zanwa || {};
+        this.type = "StandardMaterial";
+        this.metalness = faoxomvalue(zanwa.metalness, zanwa.metallic !== undefined ? zanwa.metallic : 0);
+        this.metallic = this.metalness;
+        this.roughness = faoxomvalue(zanwa.roughness, .5);
+        this.clearcoat = faoxomvalue(zanwa.clearcoat, 0);
+        this.clearcoatRoughness = faoxomvalue(zanwa.clearcoatRoughness, .03);
+        this.sheen = faoxomvalue(zanwa.sheen, 0);
+        this.sheenColor = zanwa.sheenColor || [ 0, 0, 0 ];
+        this.sheenRoughness = faoxomvalue(zanwa.sheenRoughness, .5);
+        this.transmission = faoxomvalue(zanwa.transmission, 0);
+        this.ior = faoxomvalue(zanwa.ior, 1.5);
+        this.iridescence = faoxomvalue(zanwa.iridescence, 0);
+        this.iridescenceIor = faoxomvalue(zanwa.iridescenceIor, 1.3);
+        this.iridescenceThicknessRange = zanwa.iridescenceThicknessRange || [ 100, 400 ];
+        this.anisotropy = faoxomvalue(zanwa.anisotropy, 0);
+        this.anisotropyRotation = faoxomvalue(zanwa.anisotropyRotation, 0);
+        this.specularIntensity = faoxomvalue(zanwa.specularIntensity, 1);
+        this.specularColor = zanwa.specularColor && zanwa.specularColor.clone ? zanwa.specularColor.clone() : new Color(16777215);
+        this.emissiveStrength = faoxomvalue(zanwa.emissiveStrength, 1);
+        this.thickness = faoxomvalue(zanwa.thickness, 0);
+        this.attenuationDistance = faoxomvalue(zanwa.attenuationDistance, Infinity);
+        this.attenuationColor = zanwa.attenuationColor && zanwa.attenuationColor.clone ? zanwa.attenuationColor.clone() : new Color(16777215);
+        this.dispersion = faoxomvalue(zanwa.dispersion, 0);
+        this.subsurface = faoxomvalue(zanwa.subsurface, 0);
+        this.subsurfaceColor = zanwa.subsurfaceColor && zanwa.subsurfaceColor.clone ? zanwa.subsurfaceColor.clone() : new Color(faoxomvalue(zanwa.subsurfaceColor, 16777215));
+        this.subsurfaceRadius = faoxomvalue(zanwa.subsurfaceRadius, 1);
+        this.parallaxMap = zanwa.parallaxMap || null;
+        this.parallaxScale = faoxomvalue(zanwa.parallaxScale, .05);
+        this.parallaxMinLayers = faoxomvalue(zanwa.parallaxMinLayers, 8);
+        this.parallaxMaxLayers = faoxomvalue(zanwa.parallaxMaxLayers, 32);
+    }
+    clone() {
+        var zanwa = super.clone();
+        zanwa.clearcoat = this.clearcoat;
+        zanwa.clearcoatRoughness = this.clearcoatRoughness;
+        zanwa.sheen = this.sheen;
+        zanwa.sheenColor = this.sheenColor.slice ? this.sheenColor.slice() : this.sheenColor;
+        zanwa.sheenRoughness = this.sheenRoughness;
+        zanwa.transmission = this.transmission;
+        zanwa.ior = this.ior;
+        zanwa.iridescence = this.iridescence;
+        zanwa.iridescenceIor = this.iridescenceIor;
+        zanwa.iridescenceThicknessRange = this.iridescenceThicknessRange.slice ? this.iridescenceThicknessRange.slice() : this.iridescenceThicknessRange;
+        zanwa.anisotropy = this.anisotropy;
+        zanwa.anisotropyRotation = this.anisotropyRotation;
+        zanwa.specularIntensity = this.specularIntensity;
+        zanwa.specularColor = this.specularColor.clone();
+        zanwa.emissiveStrength = this.emissiveStrength;
+        zanwa.thickness = this.thickness;
+        zanwa.attenuationDistance = this.attenuationDistance;
+        zanwa.attenuationColor = this.attenuationColor.clone();
+        zanwa.dispersion = this.dispersion;
+        zanwa.subsurface = this.subsurface;
+        zanwa.subsurfaceColor = this.subsurfaceColor.clone();
+        zanwa.subsurfaceRadius = this.subsurfaceRadius;
+        zanwa.parallaxMap = this.parallaxMap;
+        zanwa.parallaxScale = this.parallaxScale;
+        zanwa.parallaxMinLayers = this.parallaxMinLayers;
+        zanwa.parallaxMaxLayers = this.parallaxMaxLayers;
+        return zanwa;
+    }
+}
 
 export { StandardMaterial };

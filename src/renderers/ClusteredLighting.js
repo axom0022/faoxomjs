@@ -1,71 +1,13 @@
-const clusteredwgsl = `struct clparams {
-    viewmatrix: mat4x4<f32>,
-    params0: vec4<f32>,
-    params1: vec4<f32>,
-    params2: vec4<f32>,
-};
-struct lightrec {
-    posradius: vec4<f32>,
-    colorintensity: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> params: clparams;
-@group(0) @binding(1) var<storage, read> lights: array<lightrec>;
-@group(0) @binding(2) var<storage, read_write> clusters: array<u32>;
-@compute @workgroup_size(8, 8, 4)
-fn clustmain(@builtin(global_invocation_id) gid: vec3<u32>) {
-    var gx = gid.x;
-    var gy = gid.y;
-    var gz = gid.z;
-    if (gx >= u32(params.params0.x) || gy >= u32(params.params0.y) || gz >= u32(params.params0.z)) {
-        return;
-    }
-    var zn = params.params1.z;
-    var logbase = params.params2.y;
-    var Z = f32(params.params0.z);
-    var d0 = zn * pow(logbase, f32(gz) / Z);
-    var d1 = zn * pow(logbase, (f32(gz) + 1.0) / Z);
-    var hy1 = d1 * params.params1.x;
-    var hx1 = hy1 * params.params1.y;
-    var GX = f32(params.params0.x);
-    var GY = f32(params.params0.y);
-    var xlo = -hx1 + (f32(gx) / GX) * 2.0 * hx1;
-    var xhi = -hx1 + ((f32(gx) + 1.0) / GX) * 2.0 * hx1;
-    var ylo = -hy1 + (f32(gy) / GY) * 2.0 * hy1;
-    var yhi = -hy1 + ((f32(gy) + 1.0) / GY) * 2.0 * hy1;
-    var zlo = -d1;
-    var zhi = -d0;
-    var count = 0u;
-    var slot = ((gz * u32(params.params0.y) + gy) * u32(params.params0.x) + gx) * 17u;
-    var n = u32(params.params0.w);
-    var maxc = u32(params.params2.x);
-    for (var i = 0u; i < n; i = i + 1u) {
-        if (count >= maxc) {
-            break;
-        }
-        var lp = params.viewmatrix * vec4<f32>(lights[i].posradius.xyz, 1.0);
-        var R = lights[i].posradius.w;
-        var cx = clamp(lp.x, xlo, xhi);
-        var cy = clamp(lp.y, ylo, yhi);
-        var cz = clamp(lp.z, zlo, zhi);
-        var dx = lp.x - cx;
-        var dy = lp.y - cy;
-        var dz = lp.z - cz;
-        if (dx * dx + dy * dy + dz * dz <= R * R) {
-            clusters[slot + 1u + count] = i;
-            count = count + 1u;
-        }
-    }
-    clusters[slot] = count;
-}`;
+const zasja = `struct clparams {\n    viewmatrix: mat4x4<f32>,\n    params0: vec4<f32>,\n    params1: vec4<f32>,\n    params2: vec4<f32>,\n};\nstruct lightrec {\n    posradius: vec4<f32>,\n    colorintensity: vec4<f32>,\n};\n@group(0) @binding(0) var<uniform> params: clparams;\n@group(0) @binding(1) var<storage, read> lights: array<lightrec>;\n@group(0) @binding(2) var<storage, read_write> clusters: array<u32>;\n@compute @workgroup_size(8, 8, 4)\nfn clustmain(@builtin(global_invocation_id) gid: vec3<u32>) {\n    var gx = gid.x;\n    var gy = gid.y;\n    var gz = gid.z;\n    if (gx >= u32(params.params0.x) || gy >= u32(params.params0.y) || gz >= u32(params.params0.z)) {\n        return;\n    }\n    var zn = params.params1.z;\n    var logbase = params.params2.y;\n    var Z = f32(params.params0.z);\n    var d0 = zn * pow(logbase, f32(gz) / Z);\n    var d1 = zn * pow(logbase, (f32(gz) + 1.0) / Z);\n    var hy1 = d1 * params.params1.x;\n    var hx1 = hy1 * params.params1.y;\n    var GX = f32(params.params0.x);\n    var GY = f32(params.params0.y);\n    var xlo = -hx1 + (f32(gx) / GX) * 2.0 * hx1;\n    var xhi = -hx1 + ((f32(gx) + 1.0) / GX) * 2.0 * hx1;\n    var ylo = -hy1 + (f32(gy) / GY) * 2.0 * hy1;\n    var yhi = -hy1 + ((f32(gy) + 1.0) / GY) * 2.0 * hy1;\n    var zlo = -d1;\n    var zhi = -d0;\n    var count = 0u;\n    var slot = ((gz * u32(params.params0.y) + gy) * u32(params.params0.x) + gx) * 17u;\n    var n = u32(params.params0.w);\n    var maxc = u32(params.params2.x);\n    for (var i = 0u; i < n; i = i + 1u) {\n        if (count >= maxc) {\n            break;\n        }\n        var lp = params.viewmatrix * vec4<f32>(lights[i].posradius.xyz, 1.0);\n        var R = lights[i].posradius.w;\n        var cx = clamp(lp.x, xlo, xhi);\n        var cy = clamp(lp.y, ylo, yhi);\n        var cz = clamp(lp.z, zlo, zhi);\n        var dx = lp.x - cx;\n        var dy = lp.y - cy;\n        var dz = lp.z - cz;\n        if (dx * dx + dy * dy + dz * dz <= R * R) {\n            clusters[slot + 1u + count] = i;\n            count = count + 1u;\n        }\n    }\n    clusters[slot] = count;\n}`;
 
 class ClusteredLighting {
-    constructor(renderer) {
-        this.renderer = renderer;
-        this.device = renderer.device;
+    constructor(zasja) {
+        this.renderer = zasja;
+        this.device = zasja.device;
         this.gridX = 16;
         this.gridY = 16;
         this.gridZ = 24;
-        this.near = 0.5;
+        this.near = .5;
         this.far = 100;
         this.maxPerCluster = 16;
         this.maxLights = 256;
@@ -75,147 +17,215 @@ class ClusteredLighting {
         this.clusterbuffer = null;
         this.readbackbuffer = null;
         this.bind = null;
-        this.stats = { froxels: 0, lights: 0, assigned: 0, clustms: 0 };
+        this.stats = {
+            froxels: 0,
+            lights: 0,
+            assigned: 0,
+            clustms: 0
+        };
     }
-    configure(camera, options) {
-        options = options || {};
-        this.gridX = options.gridX || this.gridX;
-        this.gridY = options.gridY || this.gridY;
-        this.gridZ = options.gridZ || this.gridZ;
-        this.maxPerCluster = options.maxPerCluster || this.maxPerCluster;
-        this.maxLights = options.maxLights || this.maxLights;
-        var pe = camera.projectionMatrix.elements;
-        var tanHalf = 1 / pe[5];
-        var aspect = pe[5] / pe[0];
-        this.tanHalf = tanHalf;
-        this.aspect = aspect;
-        this.near = options.near !== undefined ? options.near : (camera.near !== undefined ? camera.near : this.near);
-        this.far = options.far !== undefined ? options.far : (camera.far !== undefined ? camera.far : this.far);
-        this.viewmatrix = camera.matrixWorldInverse.clone();
+    configure(zasjb, zasjc) {
+        zasjc = zasjc || {};
+        this.gridX = zasjc.gridX || this.gridX;
+        this.gridY = zasjc.gridY || this.gridY;
+        this.gridZ = zasjc.gridZ || this.gridZ;
+        this.maxPerCluster = zasjc.maxPerCluster || this.maxPerCluster;
+        this.maxLights = zasjc.maxLights || this.maxLights;
+        var zasjd = zasjb.projectionMatrix.elements;
+        var zasje = 1 / zasjd[5];
+        var zasjf = zasjd[5] / zasjd[0];
+        this.tanHalf = zasje;
+        this.aspect = zasjf;
+        this.near = zasjc.near !== undefined ? zasjc.near : zasjb.near !== undefined ? zasjb.near : this.near;
+        this.far = zasjc.far !== undefined ? zasjc.far : zasjb.far !== undefined ? zasjb.far : this.far;
+        this.viewmatrix = zasjb.matrixWorldInverse.clone();
         this.stride = this.maxPerCluster + 1;
         this.stats.froxels = this.gridX * this.gridY * this.gridZ;
         if (!this.pipeline) {
-            this.pipeline = this.device.createComputePipeline({ layout: "auto", compute: { module: this.device.createShaderModule({ code: clusteredwgsl }), entryPoint: "clustmain" } });
-            this.paramsbuffer = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-            this.lightbuffer = this.device.createBuffer({ size: this.maxLights * 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-            this.clusterbuffer = this.device.createBuffer({ size: this.stats.froxels * this.stride * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
-            this.readbackbuffer = this.device.createBuffer({ size: this.stats.froxels * this.stride * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-            this.bind = this.device.createBindGroup({ layout: this.pipeline.getBindGroupLayout(0), entries: [
-                { binding: 0, resource: { buffer: this.paramsbuffer } },
-                { binding: 1, resource: { buffer: this.lightbuffer } },
-                { binding: 2, resource: { buffer: this.clusterbuffer } }
-            ] });
+            this.pipeline = this.device.createComputePipeline({
+                layout: "auto",
+                compute: {
+                    module: this.device.createShaderModule({
+                        code: zasja
+                    }),
+                    entryPoint: "clustmain"
+                }
+            });
+            this.paramsbuffer = this.device.createBuffer({
+                size: 128,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            });
+            this.lightbuffer = this.device.createBuffer({
+                size: this.maxLights * 32,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            });
+            this.clusterbuffer = this.device.createBuffer({
+                size: this.stats.froxels * this.stride * 4,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+            });
+            this.readbackbuffer = this.device.createBuffer({
+                size: this.stats.froxels * this.stride * 4,
+                usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+            });
+            this.bind = this.device.createBindGroup({
+                layout: this.pipeline.getBindGroupLayout(0),
+                entries: [ {
+                    binding: 0,
+                    resource: {
+                        buffer: this.paramsbuffer
+                    }
+                }, {
+                    binding: 1,
+                    resource: {
+                        buffer: this.lightbuffer
+                    }
+                }, {
+                    binding: 2,
+                    resource: {
+                        buffer: this.clusterbuffer
+                    }
+                } ]
+            });
         } else if (this.clusterbuffer.size !== this.stats.froxels * this.stride * 4) {
             this.clusterbuffer.destroy();
             this.readbackbuffer.destroy();
-            this.clusterbuffer = this.device.createBuffer({ size: this.stats.froxels * this.stride * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
-            this.readbackbuffer = this.device.createBuffer({ size: this.stats.froxels * this.stride * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-            this.bind = this.device.createBindGroup({ layout: this.pipeline.getBindGroupLayout(0), entries: [
-                { binding: 0, resource: { buffer: this.paramsbuffer } },
-                { binding: 1, resource: { buffer: this.lightbuffer } },
-                { binding: 2, resource: { buffer: this.clusterbuffer } }
-            ] });
+            this.clusterbuffer = this.device.createBuffer({
+                size: this.stats.froxels * this.stride * 4,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+            });
+            this.readbackbuffer = this.device.createBuffer({
+                size: this.stats.froxels * this.stride * 4,
+                usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+            });
+            this.bind = this.device.createBindGroup({
+                layout: this.pipeline.getBindGroupLayout(0),
+                entries: [ {
+                    binding: 0,
+                    resource: {
+                        buffer: this.paramsbuffer
+                    }
+                }, {
+                    binding: 1,
+                    resource: {
+                        buffer: this.lightbuffer
+                    }
+                }, {
+                    binding: 2,
+                    resource: {
+                        buffer: this.clusterbuffer
+                    }
+                } ]
+            });
         }
-        this.camera = camera;
+        this.camera = zasjb;
         return this;
     }
-    normalizeLights(lights) {
-        var out = [];
-        for (var i = 0; i < lights.length && i < this.maxLights; i++) {
-            var light = lights[i];
-            if (light && light.type === "PointLight") {
-                var m = light.matrixWorld ? light.matrixWorld.elements : null;
-                out.push({
-                    position: m ? [m[12], m[13], m[14]] : [0, 0, 0],
-                    distance: light.distance && light.distance > 0 ? light.distance : 1e30,
-                    color: light.color ? [light.color.r, light.color.g, light.color.b] : [1, 1, 1],
-                    intensity: light.intensity !== undefined ? light.intensity : 1
+    normalizeLights(zasja) {
+        var zasjb = [];
+        for (var zasjc = 0; zasjc < zasja.length && zasjc < this.maxLights; zasjc++) {
+            var zasjd = zasja[zasjc];
+            if (zasjd && zasjd.type === "PointLight") {
+                var zasje = zasjd.matrixWorld ? zasjd.matrixWorld.elements : null;
+                zasjb.push({
+                    position: zasje ? [ zasje[12], zasje[13], zasje[14] ] : [ 0, 0, 0 ],
+                    distance: zasjd.distance && zasjd.distance > 0 ? zasjd.distance : 1e30,
+                    color: zasjd.color ? [ zasjd.color.r, zasjd.color.g, zasjd.color.b ] : [ 1, 1, 1 ],
+                    intensity: zasjd.intensity !== undefined ? zasjd.intensity : 1
                 });
-            } else if (light && light.position && light.distance !== undefined) {
-                out.push({
-                    position: [light.position[0] || 0, light.position[1] || 0, light.position[2] || 0],
-                    distance: light.distance > 0 ? light.distance : 1e30,
-                    color: light.color || [1, 1, 1],
-                    intensity: light.intensity !== undefined ? light.intensity : 1
+            } else if (zasjd && zasjd.position && zasjd.distance !== undefined) {
+                zasjb.push({
+                    position: [ zasjd.position[0] || 0, zasjd.position[1] || 0, zasjd.position[2] || 0 ],
+                    distance: zasjd.distance > 0 ? zasjd.distance : 1e30,
+                    color: zasjd.color || [ 1, 1, 1 ],
+                    intensity: zasjd.intensity !== undefined ? zasjd.intensity : 1
                 });
-            } else if (light && light.position) {
-                out.push({
-                    position: [light.position[0] || 0, light.position[1] || 0, light.position[2] || 0],
-                    distance: light.distance || 1e30,
-                    color: light.color || [1, 1, 1],
-                    intensity: light.intensity !== undefined ? light.intensity : 1
+            } else if (zasjd && zasjd.position) {
+                zasjb.push({
+                    position: [ zasjd.position[0] || 0, zasjd.position[1] || 0, zasjd.position[2] || 0 ],
+                    distance: zasjd.distance || 1e30,
+                    color: zasjd.color || [ 1, 1, 1 ],
+                    intensity: zasjd.intensity !== undefined ? zasjd.intensity : 1
                 });
             }
         }
-        return out;
+        return zasjb;
     }
-    update(lights) {
+    update(zasja) {
         if (!this.pipeline) return this;
-        var norm = this.normalizeLights(lights || []);
-        var lightdata = new Float32Array(this.maxLights * 8);
-        for (var i = 0; i < norm.length; i++) {
-            lightdata[i * 8] = norm[i].position[0];
-            lightdata[i * 8 + 1] = norm[i].position[1];
-            lightdata[i * 8 + 2] = norm[i].position[2];
-            lightdata[i * 8 + 3] = norm[i].distance;
-            lightdata[i * 8 + 4] = norm[i].color[0];
-            lightdata[i * 8 + 5] = norm[i].color[1];
-            lightdata[i * 8 + 6] = norm[i].color[2];
-            lightdata[i * 8 + 7] = norm[i].intensity;
+        var zasjb = this.normalizeLights(zasja || []);
+        var zasjc = new Float32Array(this.maxLights * 8);
+        for (var zasjd = 0; zasjd < zasjb.length; zasjd++) {
+            zasjc[zasjd * 8] = zasjb[zasjd].position[0];
+            zasjc[zasjd * 8 + 1] = zasjb[zasjd].position[1];
+            zasjc[zasjd * 8 + 2] = zasjb[zasjd].position[2];
+            zasjc[zasjd * 8 + 3] = zasjb[zasjd].distance;
+            zasjc[zasjd * 8 + 4] = zasjb[zasjd].color[0];
+            zasjc[zasjd * 8 + 5] = zasjb[zasjd].color[1];
+            zasjc[zasjd * 8 + 6] = zasjb[zasjd].color[2];
+            zasjc[zasjd * 8 + 7] = zasjb[zasjd].intensity;
         }
-        if (norm.length > 0) this.device.queue.writeBuffer(this.lightbuffer, 0, lightdata.subarray(0, norm.length * 8));
-        var ve = this.viewmatrix.elements;
-        var data = new Float32Array(32);
-        for (var v = 0; v < 16; v++) data[v] = ve[v];
-        data[16] = this.gridX; data[17] = this.gridY; data[18] = this.gridZ; data[19] = norm.length;
-        data[20] = this.tanHalf; data[21] = this.aspect; data[22] = this.near; data[23] = this.far;
-        data[24] = this.maxPerCluster; data[25] = this.far / this.near; data[26] = 0; data[27] = 0;
-        this.device.queue.writeBuffer(this.paramsbuffer, 0, data);
-        var t0 = performance.now();
-        var encoder = this.device.createCommandEncoder();
-        var pass = encoder.beginComputePass();
-        pass.setPipeline(this.pipeline);
-        pass.setBindGroup(0, this.bind);
-        pass.dispatchWorkgroups(Math.ceil(this.gridX / 8), Math.ceil(this.gridY / 8), Math.ceil(this.gridZ / 4));
-        pass.end();
-        this.device.queue.submit([encoder.finish()]);
-        this.stats.lights = norm.length;
-        this.stats.clustms = performance.now() - t0;
-        this.normalized = norm;
+        if (zasjb.length > 0) this.device.queue.writeBuffer(this.lightbuffer, 0, zasjc.subarray(0, zasjb.length * 8));
+        var zasje = this.viewmatrix.elements;
+        var zasjf = new Float32Array(32);
+        for (var zasjg = 0; zasjg < 16; zasjg++) zasjf[zasjg] = zasje[zasjg];
+        zasjf[16] = this.gridX;
+        zasjf[17] = this.gridY;
+        zasjf[18] = this.gridZ;
+        zasjf[19] = zasjb.length;
+        zasjf[20] = this.tanHalf;
+        zasjf[21] = this.aspect;
+        zasjf[22] = this.near;
+        zasjf[23] = this.far;
+        zasjf[24] = this.maxPerCluster;
+        zasjf[25] = this.far / this.near;
+        zasjf[26] = 0;
+        zasjf[27] = 0;
+        this.device.queue.writeBuffer(this.paramsbuffer, 0, zasjf);
+        var zasjh = performance.now();
+        var zasji = this.device.createCommandEncoder();
+        var zasjj = zasji.beginComputePass();
+        zasjj.setPipeline(this.pipeline);
+        zasjj.setBindGroup(0, this.bind);
+        zasjj.dispatchWorkgroups(Math.ceil(this.gridX / 8), Math.ceil(this.gridY / 8), Math.ceil(this.gridZ / 4));
+        zasjj.end();
+        this.device.queue.submit([ zasji.finish() ]);
+        this.stats.lights = zasjb.length;
+        this.stats.clustms = performance.now() - zasjh;
+        this.normalized = zasjb;
         return this;
     }
     readback() {
-        var self = this;
-        var encoder = this.device.createCommandEncoder();
-        encoder.copyBufferToBuffer(this.clusterbuffer, 0, this.readbackbuffer, 0, this.readbackbuffer.size);
-        this.device.queue.submit([encoder.finish()]);
+        var zasja = this;
+        var zasjb = this.device.createCommandEncoder();
+        zasjb.copyBufferToBuffer(this.clusterbuffer, 0, this.readbackbuffer, 0, this.readbackbuffer.size);
+        this.device.queue.submit([ zasjb.finish() ]);
         return this.device.queue.onSubmittedWorkDone().then(function() {
-            return self.readbackbuffer.mapAsync(GPUMapMode.READ).then(function() {
-                var out = new Uint32Array(self.readbackbuffer.getMappedRange()).slice();
-                self.readbackbuffer.unmap();
-                var assigned = 0;
-                for (var f = 0; f < self.stats.froxels; f++) assigned += out[f * self.stride];
-                self.stats.assigned = assigned;
-                return out;
+            return zasja.readbackbuffer.mapAsync(GPUMapMode.READ).then(function() {
+                var zasjb = new Uint32Array(zasja.readbackbuffer.getMappedRange()).slice();
+                zasja.readbackbuffer.unmap();
+                var zasjc = 0;
+                for (var zasjd = 0; zasjd < zasja.stats.froxels; zasjd++) zasjc += zasjb[zasjd * zasja.stride];
+                zasja.stats.assigned = zasjc;
+                return zasjb;
             });
         });
     }
-    clusterOf(cameraPoint) {
-        var d = -cameraPoint[2];
-        if (d <= this.near || d > this.far) return -1;
-        var gz = Math.floor(this.gridZ * Math.log(d / this.near) / Math.log(this.far / this.near));
-        if (gz < 0) gz = 0;
-        if (gz > this.gridZ - 1) gz = this.gridZ - 1;
-        var d1 = this.near * Math.pow(this.far / this.near, (gz + 1) / this.gridZ);
-        var hy1 = d1 * this.tanHalf;
-        var hx1 = hy1 * this.aspect;
-        var gx = Math.floor((cameraPoint[0] + hx1) / (2 * hx1) * this.gridX);
-        var gy = Math.floor((cameraPoint[1] + hy1) / (2 * hy1) * this.gridY);
-        if (gx < 0) gx = 0;
-        if (gx > this.gridX - 1) gx = this.gridX - 1;
-        if (gy < 0) gy = 0;
-        if (gy > this.gridY - 1) gy = this.gridY - 1;
-        return (gz * this.gridY + gy) * this.gridX + gx;
+    clusterOf(zasja) {
+        var zasjb = -zasja[2];
+        if (zasjb <= this.near || zasjb > this.far) return -1;
+        var zasjc = Math.floor(this.gridZ * Math.log(zasjb / this.near) / Math.log(this.far / this.near));
+        if (zasjc < 0) zasjc = 0;
+        if (zasjc > this.gridZ - 1) zasjc = this.gridZ - 1;
+        var zasjd = this.near * Math.pow(this.far / this.near, (zasjc + 1) / this.gridZ);
+        var zasje = zasjd * this.tanHalf;
+        var zasjf = zasje * this.aspect;
+        var zasjg = Math.floor((zasja[0] + zasjf) / (2 * zasjf) * this.gridX);
+        var zasjh = Math.floor((zasja[1] + zasje) / (2 * zasje) * this.gridY);
+        if (zasjg < 0) zasjg = 0;
+        if (zasjg > this.gridX - 1) zasjg = this.gridX - 1;
+        if (zasjh < 0) zasjh = 0;
+        if (zasjh > this.gridY - 1) zasjh = this.gridY - 1;
+        return (zasjc * this.gridY + zasjh) * this.gridX + zasjg;
     }
     dispose() {
         if (this.lightbuffer) this.lightbuffer.destroy();

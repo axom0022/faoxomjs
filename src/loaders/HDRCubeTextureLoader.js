@@ -1,27 +1,53 @@
 import { faoxomdecodehdr } from "../core/index.js";
+
 import { CubeTexture } from "../textures/index.js";
+
 import { FileLoader } from "./FileLoader.js";
 
 class HDRCubeTextureLoader {
-    constructor(manager) { this.manager = manager; }
-    load(urls, onLoad, onProgress, onError) {
-        var manager = this.manager;
-        var texture = new CubeTexture([], { flipY: false, colorSpace: "linear", minFilter: "linear", magFilter: "linear", generateMipmaps: false });
-        var remaining = 6, failed = false;
-        var finish = function() { if (failed) return; texture.loaded = true; texture.needsUpdate = true; if (onLoad) onLoad(texture); };
-        for (var i = 0; i < 6; i++) {
-            (function(index) {
-                new FileLoader(manager).setResponseType("arraybuffer").load(urls[index], function(buffer) {
-                    if (failed) return;
+    constructor(zamha) {
+        this.manager = zamha;
+    }
+    load(zamha, zamhb, zamhc, zamhd) {
+        var zamhe = this.manager;
+        var zamhf = new CubeTexture([], {
+            flipY: false,
+            colorSpace: "linear",
+            minFilter: "linear",
+            magFilter: "linear",
+            generateMipmaps: false
+        });
+        var zamhg = 6, zamhh = false;
+        var zamhi = function() {
+            if (zamhh) return;
+            zamhf.loaded = true;
+            zamhf.needsUpdate = true;
+            if (zamhb) zamhb(zamhf);
+        };
+        for (var zamhj = 0; zamhj < 6; zamhj++) {
+            (function(zamhb) {
+                new FileLoader(zamhe).setResponseType("arraybuffer").load(zamha[zamhb], function(zamha) {
+                    if (zamhh) return;
                     try {
-                        var decoded = faoxomdecodehdr(buffer);
-                        texture.images[index] = { data: decoded.data, width: decoded.width, height: decoded.height };
-                    } catch (e) { failed = true; if (onError) onError(e); return; }
-                    if (--remaining === 0) finish();
-                }, onProgress, function(error) { failed = true; if (onError) onError(error); });
-            })(i);
+                        var zamhc = faoxomdecodehdr(zamha);
+                        zamhf.images[zamhb] = {
+                            data: zamhc.data,
+                            width: zamhc.width,
+                            height: zamhc.height
+                        };
+                    } catch (zamha) {
+                        zamhh = true;
+                        if (zamhd) zamhd(zamha);
+                        return;
+                    }
+                    if (--zamhg === 0) zamhi();
+                }, zamhc, function(zamha) {
+                    zamhh = true;
+                    if (zamhd) zamhd(zamha);
+                });
+            })(zamhj);
         }
-        return texture;
+        return zamhf;
     }
 }
 

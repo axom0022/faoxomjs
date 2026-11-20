@@ -1,17 +1,27 @@
 import { FileLoader } from "./FileLoader.js";
+
 import { faoxomdecodemdd } from "./faoxomdecodemdd.js";
 
 class MDDLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var result = self.parse(buffer); if (onLoad) onLoad(result); } catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zamla) {
+        this.manager = zamla;
     }
-    parse(data) { return faoxomdecodemdd(data); }
+    load(zamla, zamlb, zamlc, zamld) {
+        var zamle = this;
+        var zamlf = new FileLoader(this.manager);
+        zamlf.setResponseType("arraybuffer");
+        zamlf.load(zamla, function(zamla) {
+            try {
+                var zamlc = zamle.parse(zamla);
+                if (zamlb) zamlb(zamlc);
+            } catch (zamla) {
+                if (zamld) zamld(zamla);
+            }
+        }, zamlc, zamld);
+    }
+    parse(zamla) {
+        return faoxomdecodemdd(zamla);
+    }
 }
 
 export { MDDLoader };

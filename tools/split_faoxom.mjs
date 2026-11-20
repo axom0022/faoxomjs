@@ -1,702 +1,931 @@
 import fs from "node:fs";
+
 import path from "node:path";
+
 import ts from "typescript";
 
-const rootdir = process.cwd();
-const source = fs.readFileSync(path.join(rootdir, "tools", ".faoxomoriginal.js"), "utf8");
-const sf = ts.createSourceFile("FaoxomJs.js", source, ts.ScriptTarget.ES2022, true);
+const zavta = process.cwd();
 
-const folders = ["animation", "audio", "camera", "core", "extras", "geometries", "helpers", "lights", "loaders", "materials", "math", "nodes", "objects", "renderers", "scenes", "textures"];
+const zavtb = fs.readFileSync(path.join(zavta, "tools", ".faoxomoriginal.js"), "utf8");
 
-const explicit = {
-    math: ["Vector2", "Vector3", "Vector4", "Matrix3", "Matrix4", "Quaternion", "Euler", "Color", "Box3", "Sphere", "Plane", "Ray", "Segment3", "Tri3", "MathUtils", "Curve", "LineCurve3", "CatmullRomCurve3", "CubicBezierCurve3", "QuadraticBezierCurve3", "NURBSCurve", "NURBSSurface", "NURBSUtils", "Path", "Shape", "ShapePath", "ShapeUtils"],
-    core: ["EventDispatcher", "Object3D", "Node", "Clock", "Raycaster", "BufferAttribute", "Float32BufferAttribute", "InstancedBufferAttribute", "BufferGeometry", "Fog", "FogExp2"],
-    objects: ["Mesh", "Group", "Line", "LineLoop", "LineSegments", "Points", "Sprite", "SkinnedMesh", "Bone", "Skeleton", "InstancedMesh", "MeshPool", "ObjectPool", "LOD", "WideLine", "ClipVolume", "ClipVolumeArray", "ParticleSystem"],
-    scenes: ["Scene"],
-    camera: ["PerspectiveCamera", "OrthographicCamera", "Camera", "OrbitControls", "MapControls", "FirstPersonControls", "PointerLockControls", "ArcballControls", "TransformControls", "InputManager"],
-    lights: ["Light", "AmbientLight", "DirectionalLight", "HemisphereLight", "PointLight", "SpotLight", "RectAreaLight", "LightClusterGrid", "ClusteredLightingManager"],
-    helpers: ["CameraHelper", "DirectionalLightHelper", "PointLightHelper", "SkeletonHelper", "StatsPanel"],
-    loaders: ["FileLoader", "LoadingManager", "AssetLoader", "registerModel", "embedModel", "listEmbeddedModels", "removeEmbeddedModel", "createBlenderFidelityProfile", "BlenderFidelityProfile", "ModelBuilder", "SceneExporter", "Font", "MSDFText"],
-    textures: ["Texture", "TextureStreamer", "TextureFormatSelector", "PMREMGenerator", "PMREMEnvironment"],
-    renderers: ["WebGLRenderTarget", "GBufferTarget", "OcclusionCuller", "GPUCullingPipeline", "GPUIndirectDrawBuffer", "SunBeam", "GPUCompute", "GPUComputePass", "WebGPUCompute", "RenderTarget", "CascadedShadowMap", "RenderLayers"],
-    nodes: ["tsl", "TSLBufferPacker", "ShaderNode", "NodeMaterial"],
-    animation: ["BlendTree", "MotionMatcher", "RootMotionExtractor", "FacialAnimation", "TwoBoneIKSolver"],
-    extras: ["PhysicsWorld", "RigidBody", "CharacterController", "CCDSolver", "GJK", "EPA", "DestructionBody", "HeightfieldShape", "CollisionShape", "CompoundCollisionShape", "ConvexCollisionShape", "ConvexHullCollider", "CylinderCollisionShape", "MeshCollisionShape", "TriMeshBVH", "TriMeshCollider", "BVHNode", "Ragdoll", "RagdollChain", "Vehicle", "VehicleWheel", "Navmesh", "NavmeshManager", "Pathfinder", "SoftBody", "SoftBodySimulation", "Cloth", "ClothSimulation", "SPHFluidSimulation", "Fluid", "Rope", "AtmosphericSky", "Decal", "ReflectionProbe", "ReflectionProbeEnvironment", "Terrain", "TerrainManager", "FaoxomReact", "createFaoxomRoot", "GPUParticleComputeSystem", "WorldStreamer", "JointLimit"],
-    geometries: ["Geometry", "GeometryFactory", "mergeGeometries", "simplifyGeometry", "MeshDecimator", "ContinuousLOD", "VirtualGeometryStreamer", "EdgeOutlineGeometry"],
-    audio: ["AudioListener", "AudioEnvironment", "PositionalAudio"],
-    materials: ["SSSSProfile"]
+const zavtc = ts.createSourceFile("FaoxomJs.js", zavtb, ts.ScriptTarget.ES2022, true);
+
+const zavtd = [ "animation", "audio", "camera", "core", "extras", "geometries", "helpers", "lights", "loaders", "materials", "math", "nodes", "objects", "renderers", "scenes", "textures" ];
+
+const zavte = {
+    math: [ "Vector2", "Vector3", "Vector4", "Matrix3", "Matrix4", "Quaternion", "Euler", "Color", "Box3", "Sphere", "Plane", "Ray", "Segment3", "Tri3", "MathUtils", "Curve", "LineCurve3", "CatmullRomCurve3", "CubicBezierCurve3", "QuadraticBezierCurve3", "NURBSCurve", "NURBSSurface", "NURBSUtils", "Path", "Shape", "ShapePath", "ShapeUtils" ],
+    core: [ "EventDispatcher", "Object3D", "Node", "Clock", "Raycaster", "BufferAttribute", "Float32BufferAttribute", "InstancedBufferAttribute", "BufferGeometry", "Fog", "FogExp2" ],
+    objects: [ "Mesh", "Group", "Line", "LineLoop", "LineSegments", "Points", "Sprite", "SkinnedMesh", "Bone", "Skeleton", "InstancedMesh", "MeshPool", "ObjectPool", "LOD", "WideLine", "ClipVolume", "ClipVolumeArray", "ParticleSystem" ],
+    scenes: [ "Scene" ],
+    camera: [ "PerspectiveCamera", "OrthographicCamera", "Camera", "OrbitControls", "MapControls", "FirstPersonControls", "PointerLockControls", "ArcballControls", "TransformControls", "InputManager" ],
+    lights: [ "Light", "AmbientLight", "DirectionalLight", "HemisphereLight", "PointLight", "SpotLight", "RectAreaLight", "LightClusterGrid", "ClusteredLightingManager" ],
+    helpers: [ "CameraHelper", "DirectionalLightHelper", "PointLightHelper", "SkeletonHelper", "StatsPanel" ],
+    loaders: [ "FileLoader", "LoadingManager", "AssetLoader", "registerModel", "embedModel", "listEmbeddedModels", "removeEmbeddedModel", "createBlenderFidelityProfile", "BlenderFidelityProfile", "ModelBuilder", "SceneExporter", "Font", "MSDFText" ],
+    textures: [ "Texture", "TextureStreamer", "TextureFormatSelector", "PMREMGenerator", "PMREMEnvironment" ],
+    renderers: [ "WebGLRenderTarget", "GBufferTarget", "OcclusionCuller", "GPUCullingPipeline", "GPUIndirectDrawBuffer", "SunBeam", "GPUCompute", "GPUComputePass", "WebGPUCompute", "RenderTarget", "CascadedShadowMap", "RenderLayers" ],
+    nodes: [ "tsl", "TSLBufferPacker", "ShaderNode", "NodeMaterial" ],
+    animation: [ "BlendTree", "MotionMatcher", "RootMotionExtractor", "FacialAnimation", "TwoBoneIKSolver" ],
+    extras: [ "PhysicsWorld", "RigidBody", "CharacterController", "CCDSolver", "GJK", "EPA", "DestructionBody", "HeightfieldShape", "CollisionShape", "CompoundCollisionShape", "ConvexCollisionShape", "ConvexHullCollider", "CylinderCollisionShape", "MeshCollisionShape", "TriMeshBVH", "TriMeshCollider", "BVHNode", "Ragdoll", "RagdollChain", "Vehicle", "VehicleWheel", "Navmesh", "NavmeshManager", "Pathfinder", "SoftBody", "SoftBodySimulation", "Cloth", "ClothSimulation", "SPHFluidSimulation", "Fluid", "Rope", "AtmosphericSky", "Decal", "ReflectionProbe", "ReflectionProbeEnvironment", "Terrain", "TerrainManager", "FaoxomReact", "createFaoxomRoot", "GPUParticleComputeSystem", "WorldStreamer", "JointLimit" ],
+    geometries: [ "Geometry", "GeometryFactory", "mergeGeometries", "simplifyGeometry", "MeshDecimator", "ContinuousLOD", "VirtualGeometryStreamer", "EdgeOutlineGeometry" ],
+    audio: [ "AudioListener", "AudioEnvironment", "PositionalAudio" ],
+    materials: [ "SSSSProfile" ]
 };
 
-const nametofolder = {};
-for (const folder of Object.keys(explicit)) for (const name of explicit[folder]) nametofolder[name] = folder;
+const zavtf = {};
 
-function classify(name) {
-    if (nametofolder[name]) return nametofolder[name];
-    if (/^faoxom/.test(name)) return "core";
-    if (/(Format|Type|Filter|Wrapping|Blending|ToneMapping|ColorSpace|DrawUsage|Side)$/.test(name)) return "core";
-    if (/NodeMaterial$/.test(name)) return "nodes";
-    if (/(Loader|Exporter)$/.test(name)) return "loaders";
-    if (/Material$/.test(name)) return "materials";
-    if (/Geometry$/.test(name)) return "geometries";
-    if (/Helper$/.test(name)) return "helpers";
-    if (/Light$/.test(name)) return "lights";
-    if (/Node$/.test(name)) return "nodes";
-    if (/(Pass|Composer)$/.test(name)) return "renderers";
-    if (/Camera$/.test(name)) return "camera";
-    if (/Controls$/.test(name)) return "camera";
-    if (/Texture/.test(name)) return "textures";
-    if (/^Animation/.test(name)) return "animation";
-    if (/^Audio/.test(name)) return "audio";
-    if (/Joint$/.test(name) || /Constraint$/.test(name)) return "extras";
-    if (/^WebXR/.test(name)) return "extras";
-    if (/^Web(GL|GPU)/.test(name)) return "renderers";
-    if (/^PMREM/.test(name)) return "textures";
-    if (/^Scene/.test(name)) return "scenes";
-    if (/^Terrain/.test(name)) return "extras";
+for (const zavta of Object.keys(zavte)) for (const zavtb of zavte[zavta]) zavtf[zavtb] = zavta;
+
+function zavtg(zavta) {
+    if (zavtf[zavta]) return zavtf[zavta];
+    if (/^faoxom/.test(zavta)) return "core";
+    if (/(Format|Type|Filter|Wrapping|Blending|ToneMapping|ColorSpace|DrawUsage|Side)$/.test(zavta)) return "core";
+    if (/NodeMaterial$/.test(zavta)) return "nodes";
+    if (/(Loader|Exporter)$/.test(zavta)) return "loaders";
+    if (/Material$/.test(zavta)) return "materials";
+    if (/Geometry$/.test(zavta)) return "geometries";
+    if (/Helper$/.test(zavta)) return "helpers";
+    if (/Light$/.test(zavta)) return "lights";
+    if (/Node$/.test(zavta)) return "nodes";
+    if (/(Pass|Composer)$/.test(zavta)) return "renderers";
+    if (/Camera$/.test(zavta)) return "camera";
+    if (/Controls$/.test(zavta)) return "camera";
+    if (/Texture/.test(zavta)) return "textures";
+    if (/^Animation/.test(zavta)) return "animation";
+    if (/^Audio/.test(zavta)) return "audio";
+    if (/Joint$/.test(zavta) || /Constraint$/.test(zavta)) return "extras";
+    if (/^WebXR/.test(zavta)) return "extras";
+    if (/^Web(GL|GPU)/.test(zavta)) return "renderers";
+    if (/^PMREM/.test(zavta)) return "textures";
+    if (/^Scene/.test(zavta)) return "scenes";
+    if (/^Terrain/.test(zavta)) return "extras";
     return "core";
 }
 
-function propertyName(node) {
-    const p = node.parent;
-    if (!p) return false;
-    if (ts.isPropertyAccessExpression(p) && p.name === node) return true;
-    if (ts.isPropertyAssignment(p) && p.name === node) return true;
-    if (ts.isMethodDeclaration(p) && p.name === node) return true;
-    if (ts.isPropertyDeclaration(p) && p.name === node) return true;
-    if (ts.isVariableDeclaration(p) && p.name === node) return true;
-    if ((ts.isFunctionDeclaration(p) || ts.isClassDeclaration(p)) && p.name === node) return true;
-    if (ts.isBindingElement(p) && p.name === node) return true;
+function zavth(zavta) {
+    const zavtb = zavta.parent;
+    if (!zavtb) return false;
+    if (ts.isPropertyAccessExpression(zavtb) && zavtb.name === zavta) return true;
+    if (ts.isPropertyAssignment(zavtb) && zavtb.name === zavta) return true;
+    if (ts.isMethodDeclaration(zavtb) && zavtb.name === zavta) return true;
+    if (ts.isPropertyDeclaration(zavtb) && zavtb.name === zavta) return true;
+    if (ts.isVariableDeclaration(zavtb) && zavtb.name === zavta) return true;
+    if ((ts.isFunctionDeclaration(zavtb) || ts.isClassDeclaration(zavtb)) && zavtb.name === zavta) return true;
+    if (ts.isBindingElement(zavtb) && zavtb.name === zavta) return true;
     return false;
 }
 
-function collectRefs(node, set) {
-    if (ts.isIdentifier(node)) {
-        if (!propertyName(node)) set.add(node.text);
+function zavti(zavta, zavtb) {
+    if (ts.isIdentifier(zavta)) {
+        if (!zavth(zavta)) zavtb.add(zavta.text);
         return;
     }
-    ts.forEachChild(node, child => collectRefs(child, set));
+    ts.forEachChild(zavta, zavta => zavti(zavta, zavtb));
 }
 
-function collectEvalRefs(node, set) {
-    if (ts.isIdentifier(node)) {
-        if (!propertyName(node)) set.add(node.text);
+function zavtj(zavta, zavtb) {
+    if (ts.isIdentifier(zavta)) {
+        if (!zavth(zavta)) zavtb.add(zavta.text);
         return;
     }
-    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return;
-    if (ts.isMethodDeclaration(node) || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node) || ts.isConstructorDeclaration(node)) return;
-    if (ts.isPropertyDeclaration(node) && !(node.modifiers && node.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword))) return;
-    if (ts.isClassDeclaration(node)) {
-        for (const clause of node.herenceClauses || []) {}
-        for (const clause of node.heritageClauses || []) collectEvalRefs(clause, set);
-        for (const member of node.members) {
-            if (member.modifiers && member.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword)) collectEvalRefs(member, set);
+    if (ts.isFunctionDeclaration(zavta) || ts.isFunctionExpression(zavta) || ts.isArrowFunction(zavta)) return;
+    if (ts.isMethodDeclaration(zavta) || ts.isGetAccessorDeclaration(zavta) || ts.isSetAccessorDeclaration(zavta) || ts.isConstructorDeclaration(zavta)) return;
+    if (ts.isPropertyDeclaration(zavta) && !(zavta.modifiers && zavta.modifiers.some(zavta => zavta.kind === ts.SyntaxKind.StaticKeyword))) return;
+    if (ts.isClassDeclaration(zavta)) {
+        for (const zavtb of zavta.herenceClauses || []) {}
+        for (const zavtc of zavta.heritageClauses || []) zavtj(zavtc, zavtb);
+        for (const zavtc of zavta.members) {
+            if (zavtc.modifiers && zavtc.modifiers.some(zavta => zavta.kind === ts.SyntaxKind.StaticKeyword)) zavtj(zavtc, zavtb);
         }
         return;
     }
-    ts.forEachChild(node, child => collectEvalRefs(child, set));
+    ts.forEachChild(zavta, zavta => zavtj(zavta, zavtb));
 }
 
-const statements = [];
-const namefolder = {};
-const declaredorder = [];
+const zavtk = [];
 
-const declaredcamel = [];
-for (const stmt of sf.statements) {
-    if (ts.isVariableStatement(stmt)) {
-        for (const decl of stmt.declarationList.declarations) {
-            if (ts.isIdentifier(decl.name)) declaredcamel.push(decl.name.text);
-            else for (const el of decl.name.elements) if (ts.isIdentifier(el.name)) declaredcamel.push(el.name.text);
+const zavtl = {};
+
+const zavtm = [];
+
+const zavtn = [];
+
+for (const zavta of zavtc.statements) {
+    if (ts.isVariableStatement(zavta)) {
+        for (const zavtb of zavta.declarationList.declarations) {
+            if (ts.isIdentifier(zavtb.name)) zavtn.push(zavtb.name.text); else for (const zavta of zavtb.name.elements) if (ts.isIdentifier(zavta.name)) zavtn.push(zavta.name.text);
         }
-    } else if ((ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt)) && stmt.name) declaredcamel.push(stmt.name.text);
+    } else if ((ts.isFunctionDeclaration(zavta) || ts.isClassDeclaration(zavta)) && zavta.name) zavtn.push(zavta.name.text);
 }
-const renamemap = {};
-const taken = {};
-for (const n of declaredcamel) taken[n] = true;
-for (const n of declaredcamel) {
-    if (!/^[a-z]/.test(n) || !/[A-Z]/.test(n)) continue;
-    let ln = n.toLowerCase();
-    if (taken[ln] && taken[ln] !== n) ln = ln + "alt";
-    while (taken[ln] && taken[ln] !== n) ln = ln + "x";
-    taken[ln] = n;
-    renamemap[n] = ln;
+
+const zavto = {};
+
+const zavtp = {};
+
+for (const zavta of zavtn) zavtp[zavta] = true;
+
+for (const zavta of zavtn) {
+    if (!/^[a-z]/.test(zavta) || !/[A-Z]/.test(zavta)) continue;
+    let zavtb = zavta.toLowerCase();
+    if (zavtp[zavtb] && zavtp[zavtb] !== zavta) zavtb = zavtb + "alt";
+    while (zavtp[zavtb] && zavtp[zavtb] !== zavta) zavtb = zavtb + "x";
+    zavtp[zavtb] = zavta;
+    zavto[zavta] = zavtb;
 }
-function isKeyPosition(node) {
-    const p = node.parent;
-    if (!p) return false;
-    if (ts.isPropertyAccessExpression(p) && p.name === node) return true;
-    if (ts.isQualifiedName(p) && p.name === node) return true;
-    if ((ts.isPropertyAssignment(p) || ts.isPropertySignature(p) || ts.isEnumMember(p)) && p.name === node) return true;
-    if (ts.isShorthandPropertyAssignment(p)) throw new Error("shorthand property with renamed name: " + node.text);
-    if (ts.isBindingElement(p) && p.name === node && !p.propertyName) throw new Error("shorthand binding element with renamed name: " + node.text);
+
+function zavtq(zavta) {
+    const zavtb = zavta.parent;
+    if (!zavtb) return false;
+    if (ts.isPropertyAccessExpression(zavtb) && zavtb.name === zavta) return true;
+    if (ts.isQualifiedName(zavtb) && zavtb.name === zavta) return true;
+    if ((ts.isPropertyAssignment(zavtb) || ts.isPropertySignature(zavtb) || ts.isEnumMember(zavtb)) && zavtb.name === zavta) return true;
+    if (ts.isShorthandPropertyAssignment(zavtb)) throw new Error("shorthand property with renamed name: " + zavta.text);
+    if (ts.isBindingElement(zavtb) && zavtb.name === zavta && !zavtb.propertyName) throw new Error("shorthand binding element with renamed name: " + zavta.text);
     return false;
 }
-function renametext(stmt) {
-    const spans = [];
-    function walk(node) {
-        if (ts.isIdentifier(node)) {
-            if (renamemap[node.text] && !isKeyPosition(node)) spans.push([node.getStart(sf), node.getEnd(), node.text]);
+
+function zavtr(zavta) {
+    const zavtd = [];
+    function zavte(zavta) {
+        if (ts.isIdentifier(zavta)) {
+            if (zavto[zavta.text] && !zavtq(zavta)) zavtd.push([ zavta.getStart(zavtc), zavta.getEnd(), zavta.text ]);
             return;
         }
-        ts.forEachChild(node, walk);
+        ts.forEachChild(zavta, zavte);
     }
-    walk(stmt);
-    if (!spans.length) return null;
-    spans.sort((a, b) => a[0] - b[0]);
-    let out = "";
-    let pos = stmt.getStart(sf);
-    for (const sp of spans) { out += source.slice(pos, sp[0]) + renamemap[sp[2]]; pos = sp[1]; }
-    out += source.slice(pos, stmt.getEnd());
-    return out;
+    zavte(zavta);
+    if (!zavtd.length) return null;
+    zavtd.sort((zavta, zavtb) => zavta[0] - zavtb[0]);
+    let zavtf = "";
+    let zavtg = zavta.getStart(zavtc);
+    for (const zavta of zavtd) {
+        zavtf += zavtb.slice(zavtg, zavta[0]) + zavto[zavta[2]];
+        zavtg = zavta[1];
+    }
+    zavtf += zavtb.slice(zavtg, zavta.getEnd());
+    return zavtf;
 }
 
-for (const stmt of sf.statements) {
-    let text = source.slice(stmt.getStart(sf), stmt.getEnd());
-    if (ts.isExportAssignment(stmt)) continue;
-    const renamed = renametext(stmt);
-    if (renamed !== null) text = renamed;
-    const names = [];
-    if (ts.isVariableStatement(stmt)) {
-        for (const decl of stmt.declarationList.declarations) {
-            if (ts.isIdentifier(decl.name)) names.push(decl.name.text);
-            else for (const el of decl.name.elements) if (ts.isIdentifier(el.name)) names.push(el.name.text);
+for (const zavta of zavtc.statements) {
+    let zavtd = zavtb.slice(zavta.getStart(zavtc), zavta.getEnd());
+    if (ts.isExportAssignment(zavta)) continue;
+    const zavte = zavtr(zavta);
+    if (zavte !== null) zavtd = zavte;
+    const zavtf = [];
+    if (ts.isVariableStatement(zavta)) {
+        for (const zavtb of zavta.declarationList.declarations) {
+            if (ts.isIdentifier(zavtb.name)) zavtf.push(zavtb.name.text); else for (const zavta of zavtb.name.elements) if (ts.isIdentifier(zavta.name)) zavtf.push(zavta.name.text);
         }
-    } else if ((ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt)) && stmt.name) {
-        names.push(stmt.name.text);
-    } else if (ts.isExpressionStatement(stmt)) {
-        const exprtext = text.trim();
-        const refs = new Set();
-        collectRefs(stmt, refs);
-        const evalrefs = new Set();
-        collectEvalRefs(stmt, evalrefs);
-        if (exprtext.startsWith("FaoxomJs.prototype.")) statements.push({ folder: "__facade", text, refs: [...refs].map(r => renamemap[r] || r), evalrefs: [...evalrefs].map(r => renamemap[r] || r) });
-        else if (exprtext.startsWith("FaoxomJs.")) statements.push({ folder: "__namespace", text, refs: [...refs].map(r => renamemap[r] || r), evalrefs: [...evalrefs].map(r => renamemap[r] || r) });
-        else statements.push({ folder: "__sideeffect", text, refs: [...refs].map(r => renamemap[r] || r), evalrefs: [...evalrefs].map(r => renamemap[r] || r) });
+    } else if ((ts.isFunctionDeclaration(zavta) || ts.isClassDeclaration(zavta)) && zavta.name) {
+        zavtf.push(zavta.name.text);
+    } else if (ts.isExpressionStatement(zavta)) {
+        const zavtb = zavtd.trim();
+        const zavtc = new Set;
+        zavti(zavta, zavtc);
+        const zavte = new Set;
+        zavtj(zavta, zavte);
+        if (zavtb.startsWith("FaoxomJs.prototype.")) zavtk.push({
+            folder: "__facade",
+            text: zavtd,
+            refs: [ ...zavtc ].map(zavta => zavto[zavta] || zavta),
+            evalrefs: [ ...zavte ].map(zavta => zavto[zavta] || zavta)
+        }); else if (zavtb.startsWith("FaoxomJs.")) zavtk.push({
+            folder: "__namespace",
+            text: zavtd,
+            refs: [ ...zavtc ].map(zavta => zavto[zavta] || zavta),
+            evalrefs: [ ...zavte ].map(zavta => zavto[zavta] || zavta)
+        }); else zavtk.push({
+            folder: "__sideeffect",
+            text: zavtd,
+            refs: [ ...zavtc ].map(zavta => zavto[zavta] || zavta),
+            evalrefs: [ ...zavte ].map(zavta => zavto[zavta] || zavta)
+        });
         continue;
     } else {
-        const refs = new Set();
-        collectRefs(stmt, refs);
-        const evalrefs = new Set();
-        collectEvalRefs(stmt, evalrefs);
-        statements.push({ folder: "__sideeffect", text, refs: [...refs].map(r => renamemap[r] || r), evalrefs: [...evalrefs].map(r => renamemap[r] || r) });
+        const zavtb = new Set;
+        zavti(zavta, zavtb);
+        const zavtc = new Set;
+        zavtj(zavta, zavtc);
+        zavtk.push({
+            folder: "__sideeffect",
+            text: zavtd,
+            refs: [ ...zavtb ].map(zavta => zavto[zavta] || zavta),
+            evalrefs: [ ...zavtc ].map(zavta => zavto[zavta] || zavta)
+        });
         continue;
     }
-    let folder = classify(names[0]);
-    if (names[0] === "FaoxomJs") folder = "__facade";
-    for (const name of names) namefolder[name] = folder;
-    declaredorder.push(...names);
-    const refs = new Set();
-    collectRefs(stmt, refs);
-    const evalrefs = new Set();
-    collectEvalRefs(stmt, evalrefs);
-    statements.push({ folder, text, names: names.map(n => renamemap[n] || n), refs: [...refs].map(r => renamemap[r] || r), evalrefs: [...evalrefs].map(r => renamemap[r] || r) });
+    let zavth = zavtg(zavtf[0]);
+    if (zavtf[0] === "FaoxomJs") zavth = "__facade";
+    for (const zavta of zavtf) zavtl[zavta] = zavth;
+    zavtm.push(...zavtf);
+    const zavtn = new Set;
+    zavti(zavta, zavtn);
+    const zavtp = new Set;
+    zavtj(zavta, zavtp);
+    zavtk.push({
+        folder: zavth,
+        text: zavtd,
+        names: zavtf.map(zavta => zavto[zavta] || zavta),
+        refs: [ ...zavtn ].map(zavta => zavto[zavta] || zavta),
+        evalrefs: [ ...zavtp ].map(zavta => zavto[zavta] || zavta)
+    });
 }
 
-const folderrank = { math: 0, core: 1, geometries: 2, materials: 3, textures: 4, objects: 5, lights: 6, camera: 7, animation: 8, audio: 9, helpers: 10, nodes: 11, renderers: 12, extras: 13, loaders: 14, __facade: 15, __namespace: 16 };
-function isreal(f) { return folders.indexOf(f) !== -1; }
+const zavts = {
+    math: 0,
+    core: 1,
+    geometries: 2,
+    materials: 3,
+    textures: 4,
+    objects: 5,
+    lights: 6,
+    camera: 7,
+    animation: 8,
+    audio: 9,
+    helpers: 10,
+    nodes: 11,
+    renderers: 12,
+    extras: 13,
+    loaders: 14,
+    __facade: 15,
+    __namespace: 16
+};
 
-const faoxomstatemap = { faoxomid: "faoxomstate.faoxomidx", faoxomdefaultrenderer: "faoxomstate.faoxomdefaultrenderer", faoxommodelstoreversion: "faoxomstate.faoxommodelstoreversion" };
-const faoxomstatekeys = Object.keys(faoxomstatemap);
-for (const e of statements) {
-    const t = e.text.trim();
-    if (t === "var faoxomid = 1;") {
-        e.text = "var faoxomstate = { faoxomidx: 1, faoxomdefaultrenderer: null, faoxommodelstoreversion: 0 };";
-        e.names = ["faoxomstate"];
+function zavtt(zavta) {
+    return zavtd.indexOf(zavta) !== -1;
+}
+
+const zavtu = {
+    faoxomid: "faoxomstate.faoxomidx",
+    faoxomdefaultrenderer: "faoxomstate.faoxomdefaultrenderer",
+    faoxommodelstoreversion: "faoxomstate.faoxommodelstoreversion"
+};
+
+const zavtv = Object.keys(zavtu);
+
+for (const zavta of zavtk) {
+    const zavtb = zavta.text.trim();
+    if (zavtb === "var faoxomid = 1;") {
+        zavta.text = "var faoxomstate = { faoxomidx: 1, faoxomdefaultrenderer: null, faoxommodelstoreversion: 0 };";
+        zavta.names = [ "faoxomstate" ];
         continue;
     }
-    if (t === "var faoxomdefaultrenderer = null;" || t === "var faoxommodelstoreversion = 0;") {
-        e.text = "";
-        e.names = [];
+    if (zavtb === "var faoxomdefaultrenderer = null;" || zavtb === "var faoxommodelstoreversion = 0;") {
+        zavta.text = "";
+        zavta.names = [];
         continue;
     }
-    if (faoxomstatekeys.some(k => new RegExp("(?<![.\\w$])" + k + "\\b").test(e.text))) {
-        for (const k of faoxomstatekeys) e.text = e.text.replace(new RegExp("(?<![.\\w$])" + k + "\\b", "g"), faoxomstatemap[k]);
-        if (e.refs) e.refs = e.refs.map(r => r === "faoxomid" || r === "faoxomdefaultrenderer" || r === "faoxommodelstoreversion" ? "faoxomstate" : r);
-        if (e.evalrefs) e.evalrefs = e.evalrefs.map(r => faoxomstatekeys.indexOf(r) !== -1 ? "faoxomstate" : r);
+    if (zavtv.some(zavtb => new RegExp("(?<![.\\w$])" + zavtb + "\\b").test(zavta.text))) {
+        for (const zavtb of zavtv) zavta.text = zavta.text.replace(new RegExp("(?<![.\\w$])" + zavtb + "\\b", "g"), zavtu[zavtb]);
+        if (zavta.refs) zavta.refs = zavta.refs.map(zavta => zavta === "faoxomid" || zavta === "faoxomdefaultrenderer" || zavta === "faoxommodelstoreversion" ? "faoxomstate" : zavta);
+        if (zavta.evalrefs) zavta.evalrefs = zavta.evalrefs.map(zavta => zavtv.indexOf(zavta) !== -1 ? "faoxomstate" : zavta);
     }
 }
 
-const duckrewrites = [
-    ["obj instanceof Mesh && obj.setMaterialVariant", "obj.isMesh && obj.setMaterialVariant", 1, "Mesh"],
-    ["obj instanceof Mesh && obj.getAvailableMaterialVariants", "obj.isMesh && obj.getAvailableMaterialVariants", 1, "Mesh"],
-    ["this instanceof Camera) this.quaternion", "this.isCamera) this.quaternion", 1, "Camera"],
-    ["camera.isPerspectiveCamera || camera instanceof PerspectiveCamera", "camera.isPerspectiveCamera", 1, "PerspectiveCamera"]
-];
-for (const rw of duckrewrites) {
-    let hits = 0;
-    for (const e of statements) {
-        const parts = e.text.split(rw[0]);
-        if (parts.length > 1) {
-            hits += parts.length - 1;
-            e.text = parts.join(rw[1]);
-            if (!new RegExp("(?<![.\\w$\\\"'])" + rw[3] + "\\b").test(e.text)) {
-                if (e.refs) e.refs = e.refs.filter(r => r !== rw[3]);
-                if (e.evalrefs) e.evalrefs = e.evalrefs.filter(r => r !== rw[3]);
+const zavtw = [ [ "obj instanceof Mesh && obj.setMaterialVariant", "obj.isMesh && obj.setMaterialVariant", 1, "Mesh" ], [ "obj instanceof Mesh && obj.getAvailableMaterialVariants", "obj.isMesh && obj.getAvailableMaterialVariants", 1, "Mesh" ], [ "this instanceof Camera) this.quaternion", "this.isCamera) this.quaternion", 1, "Camera" ], [ "camera.isPerspectiveCamera || camera instanceof PerspectiveCamera", "camera.isPerspectiveCamera", 1, "PerspectiveCamera" ] ];
+
+for (const zavta of zavtw) {
+    let zavtb = 0;
+    for (const zavtc of zavtk) {
+        const zavtd = zavtc.text.split(zavta[0]);
+        if (zavtd.length > 1) {
+            zavtb += zavtd.length - 1;
+            zavtc.text = zavtd.join(zavta[1]);
+            if (!new RegExp("(?<![.\\w$\\\"'])" + zavta[3] + "\\b").test(zavtc.text)) {
+                if (zavtc.refs) zavtc.refs = zavtc.refs.filter(zavtb => zavtb !== zavta[3]);
+                if (zavtc.evalrefs) zavtc.evalrefs = zavtc.evalrefs.filter(zavtb => zavtb !== zavta[3]);
             }
         }
     }
-    if (hits !== rw[2]) throw new Error("duckrewrite count mismatch: '" + rw[0] + "' expected " + rw[2] + " got " + hits);
+    if (zavtb !== zavta[2]) throw new Error("duckrewrite count mismatch: '" + zavta[0] + "' expected " + zavta[2] + " got " + zavtb);
 }
 
-for (const e of statements) {
-    if (isreal(e.folder) && e.refs && e.refs.indexOf("FaoxomJs") !== -1) e.folder = "__facade";
+for (const zavta of zavtk) {
+    if (zavtt(zavta.folder) && zavta.refs && zavta.refs.indexOf("FaoxomJs") !== -1) zavta.folder = "__facade";
 }
 
-const versionhits = { expected: 1, found: 0 };
-for (const e of statements) {
-    if (e.text.split('FaoxomJs.VERSION = "v5"').length > 1) {
-        versionhits.found += e.text.split('FaoxomJs.VERSION = "v5"').length - 1;
-        e.text = e.text.split('FaoxomJs.VERSION = "v5"').join('FaoxomJs.VERSION = "v6"');
+const zavtx = {
+    expected: 1,
+    found: 0
+};
+
+for (const zavta of zavtk) {
+    if (zavta.text.split('FaoxomJs.VERSION = "v5"').length > 1) {
+        zavtx.found += zavta.text.split('FaoxomJs.VERSION = "v5"').length - 1;
+        zavta.text = zavta.text.split('FaoxomJs.VERSION = "v5"').join('FaoxomJs.VERSION = "v6"');
     }
 }
-if (versionhits.found !== versionhits.expected) throw new Error("version transform expected 1 got " + versionhits.found);
 
-const forcedfolders = {
-    faoxomcollisioncontact: "extras", faoxomdecodegcode: "loaders", faoxomdecodepcd: "loaders", faoxomfrustumvisible: "helpers", faoxomsimplifygeometry: "objects", LineLoop: "objects", LineSegments: "objects", ContinuousLOD: "extras", faoxomtrianglebody: "extras", faoxommeshcontact: "extras", faoxomgeometry: "geometries", faoxomfbxgeometry: "loaders", faoxomdecodeply: "loaders", faoxomdecodevtk: "loaders", faoxomdecodemd2: "loaders", faoxomdecodemdd: "loaders", faoxommd2animations: "loaders", faoxomsvgbuildgradienttexture: "textures", RenderLayers: "core", DecalGeometry: "objects", FaoxomReact: "extras" };
-for (const e of statements) {
-    if (e.names && e.names.length === 1 && forcedfolders[e.names[0]]) e.folder = forcedfolders[e.names[0]];
+if (zavtx.found !== zavtx.expected) throw new Error("version transform expected 1 got " + zavtx.found);
+
+const zavty = {
+    faoxomcollisioncontact: "extras",
+    faoxomdecodegcode: "loaders",
+    faoxomdecodepcd: "loaders",
+    faoxomfrustumvisible: "helpers",
+    faoxomsimplifygeometry: "objects",
+    LineLoop: "objects",
+    LineSegments: "objects",
+    ContinuousLOD: "extras",
+    faoxomtrianglebody: "extras",
+    faoxommeshcontact: "extras",
+    faoxomgeometry: "geometries",
+    faoxomfbxgeometry: "loaders",
+    faoxomdecodeply: "loaders",
+    faoxomdecodevtk: "loaders",
+    faoxomdecodemd2: "loaders",
+    faoxomdecodemdd: "loaders",
+    faoxommd2animations: "loaders",
+    faoxomsvgbuildgradienttexture: "textures",
+    RenderLayers: "core",
+    DecalGeometry: "objects",
+    FaoxomReact: "extras"
+};
+
+for (const zavta of zavtk) {
+    if (zavta.names && zavta.names.length === 1 && zavty[zavta.names[0]]) zavta.folder = zavty[zavta.names[0]];
 }
 
-const mathutils = ["faoxomcatmullrompoint", "faoxomclamp", "faoxomearcut", "faoxomellipsecurvepoint", "faoxomhuetorgb", "faoxomsrgbtolinear", "faoxomsrgbtolinearalt", "faoxomvalue", "faoxomcolorkeywords"];
-function issinkmath(name) {
-    return mathutils.indexOf(name) !== -1 || /^faoxomearcut/.test(name);
-}
-for (const e of statements) {
-    if (e.names && e.names.length === 1 && issinkmath(e.names[0])) e.folder = "math";
+const zavtz = [ "faoxomcatmullrompoint", "faoxomclamp", "faoxomearcut", "faoxomellipsecurvepoint", "faoxomhuetorgb", "faoxomsrgbtolinear", "faoxomsrgbtolinearalt", "faoxomvalue", "faoxomcolorkeywords" ];
+
+function zavtaa(zavta) {
+    return zavtz.indexOf(zavta) !== -1 || /^faoxomearcut/.test(zavta);
 }
 
-function buildnamemap() {
-    const nmap = {};
-    for (const e of statements) if (e.names) for (const n of e.names) nmap[n] = e.folder;
-    return nmap;
+for (const zavta of zavtk) {
+    if (zavta.names && zavta.names.length === 1 && zavtaa(zavta.names[0])) zavta.folder = "math";
 }
 
-const movelog = [];
-let internalized = 0;
-
-function depresolve(from, rel) {
-    const parts = rel.split("/");
-    parts.shift();
-    let folder;
-    let file;
-    if (from === "index" || from === "tsl") {
-        folder = parts[0];
-        file = parts[1];
-    } else if (from === "@facade" || from === "@namespace") {
-        if (parts.length === 1) { folder = "core"; file = parts[0]; }
-        else { folder = parts[0]; file = parts[1]; }
-    } else {
-        if (parts.length === 1) { folder = from.split("/")[0]; file = parts[0]; }
-        else { folder = parts[0]; file = parts[1]; }
-    }
-    if (file === "facade.js") return "@facade";
-    if (file === "namespace.js") return "@namespace";
-    if (file === "index.js") return folder + "/@index";
-    return folder + "/" + file;
+function zavtab() {
+    const zavta = {};
+    for (const zavtb of zavtk) if (zavtb.names) for (const zavtc of zavtb.names) zavta[zavtc] = zavtb.folder;
+    return zavta;
 }
 
-function simulate() {
-    const srcdir = path.join(rootdir, "src");
-    const files = { index: path.join(srcdir, "index.js"), tsl: path.join(srcdir, "tsl.js"), "@facade": path.join(srcdir, "core", "facade.js"), "@namespace": path.join(srcdir, "core", "namespace.js") };
-    for (const folder of folders) {
-        const dir = path.join(srcdir, folder);
-        let list = [];
-        try { list = fs.readdirSync(dir); } catch (e) {}
-        for (const f of list) if (f.endsWith(".js")) files[f === "index.js" ? folder + "/@index" : folder + "/" + f] = path.join(dir, f);
-    }
-    const imports = {};
-    const re = /from\s*"([^"]+)"/g;
-    for (const id of Object.keys(files)) {
-        const text = fs.readFileSync(files[id], "utf-8");
-        const deps = [];
-        let m;
-        re.lastIndex = 0;
-        while ((m = re.exec(text))) deps.push(depresolve(id, m[1]));
-        imports[id] = deps;
-    }
-    const declstmt = {};
-    for (const e of statements) if (e.names) for (const n of e.names) declstmt[n] = e;
-    function moduleof(e) {
-        if (e.folder === "__facade") return "@facade";
-        if (e.folder === "__namespace") return "@namespace";
-        return e.file;
-    }
-    const seen = new Set();
-    const conflicts = [];
-    const entries = ["index", "tsl"];
-    for (const id of Object.keys(files)) if (id.indexOf("/") !== -1 || id === "@facade" || id === "@namespace") entries.push(id);
-    for (const entry of entries) {
-        const evaluated = {};
-        const inprogress = {};
-        let counter = 0;
-        function req(id) {
-            if (evaluated[id] !== undefined || inprogress[id]) return;
-            inprogress[id] = true;
-            const deps = imports[id] || [];
-            for (let i = 0; i < deps.length; i++) req(deps[i]);
-            inprogress[id] = false;
-            evaluated[id] = counter++;
+const zavtac = [];
+
+let zavtad = 0;
+
+function zavtae(zavta, zavtb) {
+    const zavtc = zavtb.split("/");
+    zavtc.shift();
+    let zavtd;
+    let zavte;
+    if (zavta === "index" || zavta === "tsl") {
+        zavtd = zavtc[0];
+        zavte = zavtc[1];
+    } else if (zavta === "@facade" || zavta === "@namespace") {
+        if (zavtc.length === 1) {
+            zavtd = "core";
+            zavte = zavtc[0];
+        } else {
+            zavtd = zavtc[0];
+            zavte = zavtc[1];
         }
-        req(entry);
-        for (const e of statements) {
-            const mA = moduleof(e);
-            if (!mA || evaluated[mA] === undefined) continue;
-            for (const ref of e.evalrefs || []) {
-                if (e.names && e.names.indexOf(ref) !== -1) continue;
-                const d = declstmt[ref];
-                if (!d) continue;
-                const mB = moduleof(d);
-                if (!mB) continue;
-                if (mB === mA) {
-                    if (e.fileorder !== undefined && d.fileorder !== undefined && d.fileorder > e.fileorder) {
-                        const key = "intra:" + mA + ":" + ref + ":" + e.fileorder;
-                        if (!seen.has(key)) { seen.add(key); conflicts.push({ stmt: e, target: null, intra: ref }); }
+    } else {
+        if (zavtc.length === 1) {
+            zavtd = zavta.split("/")[0];
+            zavte = zavtc[0];
+        } else {
+            zavtd = zavtc[0];
+            zavte = zavtc[1];
+        }
+    }
+    if (zavte === "facade.js") return "@facade";
+    if (zavte === "namespace.js") return "@namespace";
+    if (zavte === "index.js") return zavtd + "/@index";
+    return zavtd + "/" + zavte;
+}
+
+function zavtaf() {
+    const zavtb = path.join(zavta, "src");
+    const zavtc = {
+        index: path.join(zavtb, "index.js"),
+        tsl: path.join(zavtb, "tsl.js"),
+        "@facade": path.join(zavtb, "core", "facade.js"),
+        "@namespace": path.join(zavtb, "core", "namespace.js")
+    };
+    for (const zavtm of zavtd) {
+        const zavtn = path.join(zavtb, zavtm);
+        let zavto = [];
+        try {
+            zavto = fs.readdirSync(zavtn);
+        } catch (zavtp) {}
+        for (const zavtq of zavto) if (zavtq.endsWith(".js")) zavtc[zavtq === "index.js" ? zavtm + "/@index" : zavtm + "/" + zavtq] = path.join(zavtn, zavtq);
+    }
+    const zavte = {};
+    const zavtf = /from\s*"([^"]+)"/g;
+    for (const zavtr of Object.keys(zavtc)) {
+        const zavts = fs.readFileSync(zavtc[zavtr], "utf-8");
+        const zavtt = [];
+        let zavtu;
+        zavtf.lastIndex = 0;
+        while (zavtu = zavtf.exec(zavts)) zavtt.push(zavtae(zavtr, zavtu[1]));
+        zavte[zavtr] = zavtt;
+    }
+    const zavtg = {};
+    for (const zavtv of zavtk) if (zavtv.names) for (const zavtw of zavtv.names) zavtg[zavtw] = zavtv;
+    function zavth(zavta) {
+        if (zavta.folder === "__facade") return "@facade";
+        if (zavta.folder === "__namespace") return "@namespace";
+        return zavta.file;
+    }
+    const zavti = new Set;
+    const zavtj = [];
+    const zavtl = [ "index", "tsl" ];
+    for (const zavtx of Object.keys(zavtc)) if (zavtx.indexOf("/") !== -1 || zavtx === "@facade" || zavtx === "@namespace") zavtl.push(zavtx);
+    for (const zavty of zavtl) {
+        const zavtz = {};
+        const zavtaa = {};
+        let zavtab = 0;
+        function zavtac(zavta) {
+            if (zavtz[zavta] !== undefined || zavtaa[zavta]) return;
+            zavtaa[zavta] = true;
+            const zavtb = zavte[zavta] || [];
+            for (let zavta = 0; zavta < zavtb.length; zavta++) zavtac(zavtb[zavta]);
+            zavtaa[zavta] = false;
+            zavtz[zavta] = zavtab++;
+        }
+        zavtac(zavty);
+        for (const zavtad of zavtk) {
+            const zavtaf = zavth(zavtad);
+            if (!zavtaf || zavtz[zavtaf] === undefined) continue;
+            for (const zavtah of zavtad.evalrefs || []) {
+                if (zavtad.names && zavtad.names.indexOf(zavtah) !== -1) continue;
+                const zavtai = zavtg[zavtah];
+                if (!zavtai) continue;
+                const zavtak = zavth(zavtai);
+                if (!zavtak) continue;
+                if (zavtak === zavtaf) {
+                    if (zavtad.fileorder !== undefined && zavtai.fileorder !== undefined && zavtai.fileorder > zavtad.fileorder) {
+                        const zavtal = "intra:" + zavtaf + ":" + zavtah + ":" + zavtad.fileorder;
+                        if (!zavti.has(zavtal)) {
+                            zavti.add(zavtal);
+                            zavtj.push({
+                                stmt: zavtad,
+                                target: null,
+                                intra: zavtah
+                            });
+                        }
                     }
                 } else {
-                    if (evaluated[mB] === undefined || evaluated[mB] > evaluated[mA]) {
-                        const key = si_key(e) + ":" + mB;
-                        if (!seen.has(key)) { seen.add(key); conflicts.push({ stmt: e, target: namefolderfinal[ref] || d.folder }); }
+                    if (zavtz[zavtak] === undefined || zavtz[zavtak] > zavtz[zavtaf]) {
+                        const zavtam = zavtag(zavtad) + ":" + zavtak;
+                        if (!zavti.has(zavtam)) {
+                            zavti.add(zavtam);
+                            zavtj.push({
+                                stmt: zavtad,
+                                target: zavtaj[zavtah] || zavtai.folder
+                            });
+                        }
                     }
                 }
             }
         }
     }
-    return conflicts;
+    return zavtj;
 }
 
-function si_key(e) {
-    return e.names ? e.names[0] : "sideeffect" + statements.indexOf(e);
+function zavtag(zavta) {
+    return zavta.names ? zavta.names[0] : "sideeffect" + zavtk.indexOf(zavta);
 }
 
-function fullgraphcycles() {
-    const graph = {};
-    const nmap = buildnamemap();
-    for (const e of statements) {
-        if (!graph[e.folder]) graph[e.folder] = new Set();
-        for (const ref of e.refs || []) {
-            const G = nmap[ref];
-            if (G && G !== e.folder) graph[e.folder].add(G);
+function zavtah() {
+    const zavta = {};
+    const zavtb = zavtab();
+    for (const zavtc of zavtk) {
+        if (!zavta[zavtc.folder]) zavta[zavtc.folder] = new Set;
+        for (const zavtd of zavtc.refs || []) {
+            const zavte = zavtb[zavtd];
+            if (zavte && zavte !== zavtc.folder) zavta[zavtc.folder].add(zavte);
         }
     }
-    const state = {};
-    const stack = [];
-    const cycles = [];
-    function visit(node) {
-        if (state[node] === 2) return;
-        if (state[node] === 1) { cycles.push(stack.slice(stack.indexOf(node)).concat(node).join(" -> ")); return; }
-        state[node] = 1;
-        stack.push(node);
-        for (const next of graph[node] || []) visit(next);
-        stack.pop();
-        state[node] = 2;
-    }
-    for (const node of Object.keys(graph)) visit(node);
-    return cycles;
-}
-
-const remainingcycles = fullgraphcycles();
-
-for (const entry of statements) {
-    if (entry.folder === "__sideeffect") {
-        if ((entry.refs || []).indexOf("FaoxomJs") !== -1) { entry.folder = "__facade"; continue; }
-        if (entry.text.startsWith("Geometry.prototype.simplify")) { entry.folder = "objects"; continue; }
-        let target = "core";
-        for (const ref of entry.refs || []) {
-            const f = namefolder[ref];
-            if (f && f !== "__facade" && f !== "__namespace" && f !== "__sideeffect") { target = f; break; }
+    const zavtc = {};
+    const zavtd = [];
+    const zavte = [];
+    function zavtf(zavtb) {
+        if (zavtc[zavtb] === 2) return;
+        if (zavtc[zavtb] === 1) {
+            zavte.push(zavtd.slice(zavtd.indexOf(zavtb)).concat(zavtb).join(" -> "));
+            return;
         }
-        entry.folder = target;
+        zavtc[zavtb] = 1;
+        zavtd.push(zavtb);
+        for (const zavtc of zavta[zavtb] || []) zavtf(zavtc);
+        zavtd.pop();
+        zavtc[zavtb] = 2;
     }
+    for (const zavtb of Object.keys(zavta)) zavtf(zavtb);
+    return zavte;
 }
 
-let namefolderfinal = {};
+const zavtai = zavtah();
 
-function folderof(name) {
-    return namefolderfinal[name] || namefolder[name];
-}
-
-const evalgraph = {};
-const runtimegraph = {};
-for (const entry of statements) {
-    const from = entry.folder;
-    if (!evalgraph[from]) evalgraph[from] = new Set();
-    if (!runtimegraph[from]) runtimegraph[from] = new Set();
-    for (const ref of entry.refs) {
-        const to = folderof(ref);
-        if (to && to !== from) runtimegraph[from].add(to);
-    }
-    for (const ref of entry.evalrefs) {
-        const to = folderof(ref);
-        if (to && to !== from) evalgraph[from].add(to);
-    }
-}
-
-const visiting = new Set();
-const visited = new Set();
-const cycleedges = [];
-function dfs(node, stack) {
-    if (visited.has(node)) return;
-    if (visiting.has(node)) {
-        const idx = stack.indexOf(node);
-        cycleedges.push(stack.slice(idx).concat(node).join(" -> "));
-        return;
-    }
-    visiting.add(node);
-    for (const next of evalgraph[node] || []) dfs(next, stack.concat(node));
-    visiting.delete(node);
-    visited.add(node);
-}
-for (const node of Object.keys(evalgraph)) dfs(node, []);
-
-const evalnodes = [...new Set([...Object.keys(evalgraph), ...Object.values(evalgraph).flatMap(s => [...s])])];
-const indegree = {};
-for (const n of evalnodes) indegree[n] = 0;
-for (const from of Object.keys(evalgraph)) for (const to of evalgraph[from]) indegree[to] = (indegree[to] || 0) + 1;
-const evalqueue = evalnodes.filter(n => !indegree[n]).sort();
-const evalorder = [];
-const evalrank = {};
-while (evalqueue.length) {
-    const n = evalqueue.shift();
-    evalorder.push(n);
-    evalrank[n] = evalorder.length;
-    for (const to of evalgraph[n] || []) {
-        indegree[to]--;
-        if (indegree[to] === 0) evalqueue.push(to);
-    }
-}
-for (const folder of folders) if (evalrank[folder] === undefined) { evalrank[folder] = 1000 + folders.indexOf(folder); evalorder.push(folder); }
-evalrank.__facade = 2000;
-evalrank.__namespace = 3000;
-
-function importsort(a, b) {
-    const ra = evalrank[a] === undefined ? 1500 : evalrank[a];
-    const rb = evalrank[b] === undefined ? 1500 : evalrank[b];
-    if (ra !== rb) return ra - rb;
-    return a < b ? -1 : a > b ? 1 : 0;
-}
-
-let folderstatements = {};
-function rebuildfolderstatements() {
-    folderstatements = {};
-    namefolderfinal = {};
-    for (const entry of statements) {
-        if (!folderstatements[entry.folder]) folderstatements[entry.folder] = [];
-        folderstatements[entry.folder].push(entry);
-        if (entry.names) for (const n of entry.names) namefolderfinal[n] = entry.folder;
-    }
-}
-
-function importline(target, names, fromdir) {
-    const rel = fromdir === "core" && target === "core" ? "./index.js" : fromdir === "core" ? "../" + target + "/index.js" : target === "core" ? "../core/index.js" : "../" + target + "/index.js";
-    return 'import { ' + names.sort().join(", ") + ' } from "' + rel + '";';
-}
-
-function buildfolderfiles(folder) {
-    const entries = (folderstatements[folder] || []).filter(e => e.text.trim().length > 0);
-    const fileofname = {};
-    for (const e of entries) if (e.names && e.names.length) fileofname[e.names[0]] = e.names[0] + ".js";
-    const files = [];
-    const filemap = {};
-    function getfile(fname) {
-        if (!filemap[fname]) { const f = { name: fname, statements: [] }; filemap[fname] = f; files.push(f); }
-        return filemap[fname];
-    }
-    for (const e of entries) {
-        if (e.names && e.names.length) getfile(e.names[0] + ".js").statements.push({ e, k: statements.indexOf(e) });
-    }
-    for (const e of entries) {
-        if (e.names && e.names.length) continue;
-        const idx = statements.indexOf(e);
-        let hostkey = null;
-        for (const ref of e.refs || []) {
-            if (namefolderfinal[ref] === folder && fileofname[ref]) { hostkey = fileofname[ref]; break; }
+for (const zavta of zavtk) {
+    if (zavta.folder === "__sideeffect") {
+        if ((zavta.refs || []).indexOf("FaoxomJs") !== -1) {
+            zavta.folder = "__facade";
+            continue;
         }
-        if (hostkey) {
-            const hoststmt = filemap[hostkey].statements.find(st => st.e.names && st.e.names[0] + ".js" === hostkey);
-            const hostk = hoststmt ? hoststmt.k : -1;
-            getfile(hostkey).statements.push({ e, k: hostk + 0.5 + idx / 1000000 });
-        } else {
-            getfile("sideeffects.js").statements.push({ e, k: idx });
+        if (zavta.text.startsWith("Geometry.prototype.simplify")) {
+            zavta.folder = "objects";
+            continue;
         }
-    }
-    for (const f of files) f.statements.sort((a, b) => a.k - b.k);
-    return { files, fileofname };
-}
-
-function emitfolder(folder) {
-    const { files, fileofname } = buildfolderfiles(folder);
-    const folderdir = path.join(rootdir, "src", folder);
-    fs.rmSync(folderdir, { recursive: true, force: true });
-    fs.mkdirSync(folderdir, { recursive: true });
-    const crosstargets = new Set();
-    let exportscount = 0;
-    let size = 0;
-    let fileorder = 0;
-    for (const f of files) {
-        const declared = new Set();
-        for (const st of f.statements) { st.e.file = folder + "/" + f.name; st.e.fileorder = fileorder++; }
-        for (const st of f.statements) for (const n of st.e.names || []) declared.add(n);
-        const importmap = {};
-        for (const st of f.statements) {
-            for (const ref of st.e.refs || []) {
-                if (declared.has(ref)) continue;
-                const target = folderof(ref);
-                if (!target || target === "__sideeffect") continue;
-                let key;
-                if (target === folder) key = "./" + fileofname[ref];
-                else if (target === "__facade") key = folder === "core" ? "./facade.js" : "../core/facade.js";
-                else if (target === "__namespace") continue;
-                else { key = "../" + target + "/index.js"; crosstargets.add(target); }
-                if (!importmap[key]) importmap[key] = new Set();
-                importmap[key].add(ref);
+        let zavtb = "core";
+        for (const zavtc of zavta.refs || []) {
+            const zavta = zavtl[zavtc];
+            if (zavta && zavta !== "__facade" && zavta !== "__namespace" && zavta !== "__sideeffect") {
+                zavtb = zavta;
+                break;
             }
         }
-        const lines = [];
-        for (const key of Object.keys(importmap).sort()) lines.push('import { ' + [...importmap[key]].sort().join(", ") + ' } from "' + key + '";');
-        if (lines.length) lines.push("");
-        for (const st of f.statements) lines.push(st.e.text);
-        lines.push("");
-        const exportnames = [...declared].sort();
-        if (exportnames.length) lines.push("export { " + exportnames.join(", ") + " };");
-        const body = lines.join("\n") + "\n";
-        fs.writeFileSync(path.join(folderdir, f.name), body);
-        exportscount += exportnames.length;
-        size += body.length;
+        zavta.folder = zavtb;
     }
-    const barrel = files.map(f => 'export * from "./' + f.name + '";').join("\n") + "\n";
-    fs.writeFileSync(path.join(folderdir, "index.js"), barrel);
-    return { imports: [...crosstargets], exports: exportscount, size: size + barrel.length, statements: files.length, files: files.map(f => f.name) };
 }
 
-function emitfacade() {
-    const entries = folderstatements["__facade"] || [];
-    for (let i = 0; i < entries.length; i++) { entries[i].file = "@facade"; entries[i].fileorder = i; }
-    const refs = new Set();
-    for (const entry of entries) for (const r of entry.refs || []) refs.add(r);
-    const importmap = {};
-    for (const ref of refs) {
-        const target = folderof(ref);
-        if (!target || target === "__facade" || target === "__namespace") continue;
-        if (!importmap[target]) importmap[target] = new Set();
-        importmap[target].add(ref);
-    }
-    const lines = [];
-    for (const target of Object.keys(importmap).sort(importsort)) {
-        if (target === "__namespace") continue;
-        lines.push(importline(target, [...importmap[target]], "core"));
-    }
-    lines.push("");
-    for (const entry of entries) lines.push(entry.text);
-    lines.push("");
-    const facadexports = new Set();
-    for (const entry of entries) for (const n of entry.names || []) facadexports.add(n);
-    if (facadexports.size) lines.push("export { " + [...facadexports].sort().join(", ") + " };");
-    fs.writeFileSync(path.join(rootdir, "src", "core", "facade.js"), lines.join("\n") + "\n");
-    return { imports: Object.keys(importmap), statements: entries.length };
+let zavtaj = {};
+
+function zavtak(zavta) {
+    return zavtaj[zavta] || zavtl[zavta];
 }
 
-function emitnamespace() {
-    const entries = folderstatements["__namespace"] || [];
-    for (let i = 0; i < entries.length; i++) { entries[i].file = "@namespace"; entries[i].fileorder = i; }
-    const refs = new Set();
-    for (const entry of entries) for (const r of entry.refs || []) refs.add(r);
-    const importmap = {};
-    for (const ref of refs) {
-        const target = folderof(ref);
-        if (!target) continue;
-        if (!importmap[target]) importmap[target] = new Set();
-        importmap[target].add(ref);
+const zavtal = {};
+
+const zavtam = {};
+
+for (const zavta of zavtk) {
+    const zavtb = zavta.folder;
+    if (!zavtal[zavtb]) zavtal[zavtb] = new Set;
+    if (!zavtam[zavtb]) zavtam[zavtb] = new Set;
+    for (const zavtc of zavta.refs) {
+        const zavta = zavtak(zavtc);
+        if (zavta && zavta !== zavtb) zavtam[zavtb].add(zavta);
     }
-    const lines = ['import { FaoxomJs } from "./facade.js";'];
-    for (const target of Object.keys(importmap).sort(importsort)) {
-        if (target === "__facade") {
-            const names = [...importmap[target]].filter(n => n !== "FaoxomJs");
-            if (names.length) lines.push('import { ' + names.sort().join(", ") + ' } from "./facade.js";');
-        } else if (target !== "__namespace" && target !== "__sideeffect") {
-            lines.push(importline(target, [...importmap[target]], "core"));
+    for (const zavtc of zavta.evalrefs) {
+        const zavta = zavtak(zavtc);
+        if (zavta && zavta !== zavtb) zavtal[zavtb].add(zavta);
+    }
+}
+
+const zavtan = new Set;
+
+const zavtao = new Set;
+
+const zavtap = [];
+
+function zavtaq(zavta, zavtb) {
+    if (zavtao.has(zavta)) return;
+    if (zavtan.has(zavta)) {
+        const zavtc = zavtb.indexOf(zavta);
+        zavtap.push(zavtb.slice(zavtc).concat(zavta).join(" -> "));
+        return;
+    }
+    zavtan.add(zavta);
+    for (const zavtc of zavtal[zavta] || []) zavtaq(zavtc, zavtb.concat(zavta));
+    zavtan.delete(zavta);
+    zavtao.add(zavta);
+}
+
+for (const zavta of Object.keys(zavtal)) zavtaq(zavta, []);
+
+const zavtar = [ ...new Set([ ...Object.keys(zavtal), ...Object.values(zavtal).flatMap(zavta => [ ...zavta ]) ]) ];
+
+const zavtas = {};
+
+for (const zavta of zavtar) zavtas[zavta] = 0;
+
+for (const zavta of Object.keys(zavtal)) for (const zavtb of zavtal[zavta]) zavtas[zavtb] = (zavtas[zavtb] || 0) + 1;
+
+const zavtat = zavtar.filter(zavta => !zavtas[zavta]).sort();
+
+const zavtau = [];
+
+const zavtav = {};
+
+while (zavtat.length) {
+    const zavta = zavtat.shift();
+    zavtau.push(zavta);
+    zavtav[zavta] = zavtau.length;
+    for (const zavtb of zavtal[zavta] || []) {
+        zavtas[zavtb]--;
+        if (zavtas[zavtb] === 0) zavtat.push(zavtb);
+    }
+}
+
+for (const zavta of zavtd) if (zavtav[zavta] === undefined) {
+    zavtav[zavta] = 1e3 + zavtd.indexOf(zavta);
+    zavtau.push(zavta);
+}
+
+zavtav.__facade = 2e3;
+
+zavtav.__namespace = 3e3;
+
+function zavtaw(zavta, zavtb) {
+    const zavtc = zavtav[zavta] === undefined ? 1500 : zavtav[zavta];
+    const zavtd = zavtav[zavtb] === undefined ? 1500 : zavtav[zavtb];
+    if (zavtc !== zavtd) return zavtc - zavtd;
+    return zavta < zavtb ? -1 : zavta > zavtb ? 1 : 0;
+}
+
+let zavtax = {};
+
+function zavtay() {
+    zavtax = {};
+    zavtaj = {};
+    for (const zavta of zavtk) {
+        if (!zavtax[zavta.folder]) zavtax[zavta.folder] = [];
+        zavtax[zavta.folder].push(zavta);
+        if (zavta.names) for (const zavtb of zavta.names) zavtaj[zavtb] = zavta.folder;
+    }
+}
+
+function zavtaz(zavta, zavtb, zavtc) {
+    const zavtd = zavtc === "core" && zavta === "core" ? "./index.js" : zavtc === "core" ? "../" + zavta + "/index.js" : zavta === "core" ? "../core/index.js" : "../" + zavta + "/index.js";
+    return "import { " + zavtb.sort().join(", ") + ' } from "' + zavtd + '";';
+}
+
+function zavtba(zavta) {
+    const zavtb = (zavtax[zavta] || []).filter(zavta => zavta.text.trim().length > 0);
+    const zavtc = {};
+    for (const zavta of zavtb) if (zavta.names && zavta.names.length) zavtc[zavta.names[0]] = zavta.names[0] + ".js";
+    const zavtd = [];
+    const zavte = {};
+    function zavtf(zavta) {
+        if (!zavte[zavta]) {
+            const zavtb = {
+                name: zavta,
+                statements: []
+            };
+            zavte[zavta] = zavtb;
+            zavtd.push(zavtb);
+        }
+        return zavte[zavta];
+    }
+    for (const zavta of zavtb) {
+        if (zavta.names && zavta.names.length) zavtf(zavta.names[0] + ".js").statements.push({
+            e: zavta,
+            k: zavtk.indexOf(zavta)
+        });
+    }
+    for (const zavtd of zavtb) {
+        if (zavtd.names && zavtd.names.length) continue;
+        const zavtb = zavtk.indexOf(zavtd);
+        let zavtg = null;
+        for (const zavtb of zavtd.refs || []) {
+            if (zavtaj[zavtb] === zavta && zavtc[zavtb]) {
+                zavtg = zavtc[zavtb];
+                break;
+            }
+        }
+        if (zavtg) {
+            const zavta = zavte[zavtg].statements.find(zavta => zavta.e.names && zavta.e.names[0] + ".js" === zavtg);
+            const zavtc = zavta ? zavta.k : -1;
+            zavtf(zavtg).statements.push({
+                e: zavtd,
+                k: zavtc + .5 + zavtb / 1e6
+            });
+        } else {
+            zavtf("sideeffects.js").statements.push({
+                e: zavtd,
+                k: zavtb
+            });
         }
     }
-    lines.push("");
-    for (const entry of entries) lines.push(entry.text);
-    fs.writeFileSync(path.join(rootdir, "src", "core", "namespace.js"), lines.join("\n") + "\n");
-    return { imports: Object.keys(importmap).length, statements: entries.length };
+    for (const zavta of zavtd) zavta.statements.sort((zavta, zavtb) => zavta.k - zavtb.k);
+    return {
+        files: zavtd,
+        fileofname: zavtc
+    };
 }
 
-function emitindex() {
-    const lines = [];
-    const indexorder = folders.slice().sort(importsort);
-    for (const folder of indexorder) lines.push('import * as ' + folder + ' from "./' + folder + '/index.js";');
-    lines.push('import { FaoxomJs } from "./core/facade.js";');
-    lines.push('import "./core/namespace.js";');
-    lines.push("var FAOXOM = {};");
-    lines.push("var faoxomseen = {};");
-    lines.push("var faoxomfolders = [" + folders.join(", ") + "];");
-    lines.push("for (var faoxomfi = 0; faoxomfi < faoxomfolders.length; faoxomfi++) {");
-    lines.push("    var faoxommod = faoxomfolders[faoxomfi];");
-    lines.push("    var faoxomkeys = Object.getOwnPropertyNames(faoxommod);");
-    lines.push("    for (var faoxomki = 0; faoxomki < faoxomkeys.length; faoxomki++) {");
-    lines.push("        var faoxomkey = faoxomkeys[faoxomki];");
-    lines.push('        if (faoxomkey === "default") continue;');
-    lines.push("        if (!faoxomseen[faoxomkey]) { faoxomseen[faoxomkey] = true; FAOXOM[faoxomkey] = faoxommod[faoxomkey]; }");
-    lines.push("    }");
-    lines.push("}");
-    lines.push("FAOXOM.FaoxomJs = FaoxomJs;");
-    lines.push("var faoxomstat = Object.getOwnPropertyNames(FaoxomJs);");
-    lines.push("for (var faoxomsi = 0; faoxomsi < faoxomstat.length; faoxomsi++) {");
-    lines.push("    var faoxomsk = faoxomstat[faoxomsi];");
-    lines.push('    if (faoxomsk === "length" || faoxomsk === "name" || faoxomsk === "prototype") continue;');
-    lines.push("    if (!FAOXOM[faoxomsk]) FAOXOM[faoxomsk] = FaoxomJs[faoxomsk];");
-    lines.push("}");
-    lines.push('if (typeof window !== "undefined") { window.FAOXOM = FAOXOM; window.FaoxomJs = FaoxomJs; }');
-    lines.push('else if (typeof globalThis !== "undefined") { globalThis.FAOXOM = FAOXOM; }');
-    for (const folder of indexorder) lines.push('export * from "./' + folder + '/index.js";');
-    lines.push("export { FaoxomJs, FAOXOM };");
-    lines.push("export default FAOXOM;");
-    fs.writeFileSync(path.join(rootdir, "src", "index.js"), lines.join("\n") + "\n");
-}
-
-function emittsl() {
-    const nodenames = [...new Set(declaredorder)].filter(n => folderof(n) === "nodes");
-    const matnames = [...new Set(declaredorder)].filter(n => folderof(n) === "materials" && /Node/.test(n));
-    const lines = [];
-    if (nodenames.length) lines.push('export { ' + nodenames.sort().join(", ") + ' } from "./nodes/index.js";');
-    if (matnames.length) lines.push('export { ' + matnames.sort().join(", ") + ' } from "./materials/index.js";');
-    fs.writeFileSync(path.join(rootdir, "src", "tsl.js"), lines.join("\n") + "\n");
-}
-
-let report = {};
-let simconflicts = [];
-let simround = 0;
-while (simround < 40) {
-    simround++;
-    rebuildfolderstatements();
-    report = {};
-    for (const folder of folders) report[folder] = emitfolder(folder);
-    report.facade = emitfacade();
-    report.namespace = emitnamespace();
-    emitindex();
-    emittsl();
-    simconflicts = simulate();
-    if (!simconflicts.length) break;
-    let movedthis = 0;
-    for (const c of simconflicts) {
-        if (!c.target) continue;
-        if (!c.stmt.visited) c.stmt.visited = [c.stmt.folder];
-        if (c.stmt.visited.indexOf(c.target) !== -1) continue;
-        movelog.push("sim-internalize " + (c.stmt.names ? c.stmt.names[0] : "sideeffect" + statements.indexOf(c.stmt)) + ": " + c.stmt.folder + " -> " + c.target + (c.intra ? " (INTRA " + c.intra + ")" : ""));
-        c.stmt.visited.push(c.target);
-        c.stmt.folder = c.target;
-        internalized++;
-        movedthis++;
+function zavtbb(zavtb) {
+    const {files: zavtc, fileofname: zavtd} = zavtba(zavtb);
+    const zavte = path.join(zavta, "src", zavtb);
+    fs.rmSync(zavte, {
+        recursive: true,
+        force: true
+    });
+    fs.mkdirSync(zavte, {
+        recursive: true
+    });
+    const zavtf = new Set;
+    let zavtg = 0;
+    let zavth = 0;
+    let zavti = 0;
+    for (const zavta of zavtc) {
+        const zavtc = new Set;
+        for (const zavtc of zavta.statements) {
+            zavtc.e.file = zavtb + "/" + zavta.name;
+            zavtc.e.fileorder = zavti++;
+        }
+        for (const zavtb of zavta.statements) for (const zavta of zavtb.e.names || []) zavtc.add(zavta);
+        const zavtj = {};
+        for (const zavte of zavta.statements) {
+            for (const zavta of zavte.e.refs || []) {
+                if (zavtc.has(zavta)) continue;
+                const zavte = zavtak(zavta);
+                if (!zavte || zavte === "__sideeffect") continue;
+                let zavtg;
+                if (zavte === zavtb) zavtg = "./" + zavtd[zavta]; else if (zavte === "__facade") zavtg = zavtb === "core" ? "./facade.js" : "../core/facade.js"; else if (zavte === "__namespace") continue; else {
+                    zavtg = "../" + zavte + "/index.js";
+                    zavtf.add(zavte);
+                }
+                if (!zavtj[zavtg]) zavtj[zavtg] = new Set;
+                zavtj[zavtg].add(zavta);
+            }
+        }
+        const zavtk = [];
+        for (const zavta of Object.keys(zavtj).sort()) zavtk.push("import { " + [ ...zavtj[zavta] ].sort().join(", ") + ' } from "' + zavta + '";');
+        if (zavtk.length) zavtk.push("");
+        for (const zavtb of zavta.statements) zavtk.push(zavtb.e.text);
+        zavtk.push("");
+        const zavtl = [ ...zavtc ].sort();
+        if (zavtl.length) zavtk.push("export { " + zavtl.join(", ") + " };");
+        const zavtm = zavtk.join("\n") + "\n";
+        fs.writeFileSync(path.join(zavte, zavta.name), zavtm);
+        zavtg += zavtl.length;
+        zavth += zavtm.length;
     }
-    if (!movedthis) break;
+    const zavtj = zavtc.map(zavta => 'export * from "./' + zavta.name + '";').join("\n") + "\n";
+    fs.writeFileSync(path.join(zavte, "index.js"), zavtj);
+    return {
+        imports: [ ...zavtf ],
+        exports: zavtg,
+        size: zavth + zavtj.length,
+        statements: zavtc.length,
+        files: zavtc.map(zavta => zavta.name)
+    };
 }
 
-fs.writeFileSync(path.join(rootdir, "tools", ".faoxombody.js"), statements.map(e => e.text).join("\n") + "\n");
-fs.writeFileSync(path.join(rootdir, "tools", ".faoxomstatements.json"), JSON.stringify(statements.map(e => ({ text: e.text, names: e.names || [], folder: e.folder })), null, 0));
-fs.writeFileSync(path.join(rootdir, "tools", ".faoxomnames.json"), JSON.stringify({ namefolder: namefolderfinal, declaredorder: [...new Set(declaredorder)] }));
+function zavtbc() {
+    const zavtb = zavtax["__facade"] || [];
+    for (let zavta = 0; zavta < zavtb.length; zavta++) {
+        zavtb[zavta].file = "@facade";
+        zavtb[zavta].fileorder = zavta;
+    }
+    const zavtc = new Set;
+    for (const zavta of zavtb) for (const zavtb of zavta.refs || []) zavtc.add(zavtb);
+    const zavtd = {};
+    for (const zavta of zavtc) {
+        const zavtb = zavtak(zavta);
+        if (!zavtb || zavtb === "__facade" || zavtb === "__namespace") continue;
+        if (!zavtd[zavtb]) zavtd[zavtb] = new Set;
+        zavtd[zavtb].add(zavta);
+    }
+    const zavte = [];
+    for (const zavta of Object.keys(zavtd).sort(zavtaw)) {
+        if (zavta === "__namespace") continue;
+        zavte.push(zavtaz(zavta, [ ...zavtd[zavta] ], "core"));
+    }
+    zavte.push("");
+    for (const zavta of zavtb) zavte.push(zavta.text);
+    zavte.push("");
+    const zavtf = new Set;
+    for (const zavta of zavtb) for (const zavtb of zavta.names || []) zavtf.add(zavtb);
+    if (zavtf.size) zavte.push("export { " + [ ...zavtf ].sort().join(", ") + " };");
+    fs.writeFileSync(path.join(zavta, "src", "core", "facade.js"), zavte.join("\n") + "\n");
+    return {
+        imports: Object.keys(zavtd),
+        statements: zavtb.length
+    };
+}
 
-const counts = {};
-for (const entry of statements) counts[entry.folder] = (counts[entry.folder] || 0) + 1;
-console.error('moves: ' + movelog.length + ' | sim internalized: ' + internalized + ' | sim rounds: ' + simround + ' | eval conflicts remaining: ' + (simconflicts.length ? JSON.stringify(simconflicts.map(c => (c.stmt.names ? c.stmt.names[0] : 'sideeffect') + (c.intra ? ' INTRA:' + c.intra : ' -> ' + c.target))) : 'none') + ' | runtime cycles: ' + remainingcycles.length);
-const evalcycles = cycleedges.length ? cycleedges : "none";
-console.log(JSON.stringify({ folders: Object.fromEntries(Object.entries(report).map(([k, v]) => [k, { exports: v.exports, imports: v.imports, size: v.size, statements: v.statements }])), evalcycles, statementcounts: counts, totalstatements: statements.length, totalnames: new Set(declaredorder).size }, null, 1));
+function zavtbd() {
+    const zavtb = zavtax["__namespace"] || [];
+    for (let zavta = 0; zavta < zavtb.length; zavta++) {
+        zavtb[zavta].file = "@namespace";
+        zavtb[zavta].fileorder = zavta;
+    }
+    const zavtc = new Set;
+    for (const zavta of zavtb) for (const zavtb of zavta.refs || []) zavtc.add(zavtb);
+    const zavtd = {};
+    for (const zavta of zavtc) {
+        const zavtb = zavtak(zavta);
+        if (!zavtb) continue;
+        if (!zavtd[zavtb]) zavtd[zavtb] = new Set;
+        zavtd[zavtb].add(zavta);
+    }
+    const zavte = [ 'import { FaoxomJs } from "./facade.js";' ];
+    for (const zavta of Object.keys(zavtd).sort(zavtaw)) {
+        if (zavta === "__facade") {
+            const zavtb = [ ...zavtd[zavta] ].filter(zavta => zavta !== "FaoxomJs");
+            if (zavtb.length) zavte.push("import { " + zavtb.sort().join(", ") + ' } from "./facade.js";');
+        } else if (zavta !== "__namespace" && zavta !== "__sideeffect") {
+            zavte.push(zavtaz(zavta, [ ...zavtd[zavta] ], "core"));
+        }
+    }
+    zavte.push("");
+    for (const zavta of zavtb) zavte.push(zavta.text);
+    fs.writeFileSync(path.join(zavta, "src", "core", "namespace.js"), zavte.join("\n") + "\n");
+    return {
+        imports: Object.keys(zavtd).length,
+        statements: zavtb.length
+    };
+}
+
+function zavtbe() {
+    const zavtb = [];
+    const zavtc = zavtd.slice().sort(zavtaw);
+    for (const zavta of zavtc) zavtb.push("import * as " + zavta + ' from "./' + zavta + '/index.js";');
+    zavtb.push('import { FaoxomJs } from "./core/facade.js";');
+    zavtb.push('import "./core/namespace.js";');
+    zavtb.push("var FAOXOM = {};");
+    zavtb.push("var faoxomseen = {};");
+    zavtb.push("var faoxomfolders = [" + zavtd.join(", ") + "];");
+    zavtb.push("for (var faoxomfi = 0; faoxomfi < faoxomfolders.length; faoxomfi++) {");
+    zavtb.push("    var faoxommod = faoxomfolders[faoxomfi];");
+    zavtb.push("    var faoxomkeys = Object.getOwnPropertyNames(faoxommod);");
+    zavtb.push("    for (var faoxomki = 0; faoxomki < faoxomkeys.length; faoxomki++) {");
+    zavtb.push("        var faoxomkey = faoxomkeys[faoxomki];");
+    zavtb.push('        if (faoxomkey === "default") continue;');
+    zavtb.push("        if (!faoxomseen[faoxomkey]) { faoxomseen[faoxomkey] = true; FAOXOM[faoxomkey] = faoxommod[faoxomkey]; }");
+    zavtb.push("    }");
+    zavtb.push("}");
+    zavtb.push("FAOXOM.FaoxomJs = FaoxomJs;");
+    zavtb.push("var faoxomstat = Object.getOwnPropertyNames(FaoxomJs);");
+    zavtb.push("for (var faoxomsi = 0; faoxomsi < faoxomstat.length; faoxomsi++) {");
+    zavtb.push("    var faoxomsk = faoxomstat[faoxomsi];");
+    zavtb.push('    if (faoxomsk === "length" || faoxomsk === "name" || faoxomsk === "prototype") continue;');
+    zavtb.push("    if (!FAOXOM[faoxomsk]) FAOXOM[faoxomsk] = FaoxomJs[faoxomsk];");
+    zavtb.push("}");
+    zavtb.push('if (typeof window !== "undefined") { window.FAOXOM = FAOXOM; window.FaoxomJs = FaoxomJs; }');
+    zavtb.push('else if (typeof globalThis !== "undefined") { globalThis.FAOXOM = FAOXOM; }');
+    for (const zavta of zavtc) zavtb.push('export * from "./' + zavta + '/index.js";');
+    zavtb.push("export { FaoxomJs, FAOXOM };");
+    zavtb.push("export default FAOXOM;");
+    fs.writeFileSync(path.join(zavta, "src", "index.js"), zavtb.join("\n") + "\n");
+}
+
+function zavtbf() {
+    const zavtb = [ ...new Set(zavtm) ].filter(zavta => zavtak(zavta) === "nodes");
+    const zavtc = [ ...new Set(zavtm) ].filter(zavta => zavtak(zavta) === "materials" && /Node/.test(zavta));
+    const zavtd = [];
+    if (zavtb.length) zavtd.push("export { " + zavtb.sort().join(", ") + ' } from "./nodes/index.js";');
+    if (zavtc.length) zavtd.push("export { " + zavtc.sort().join(", ") + ' } from "./materials/index.js";');
+    fs.writeFileSync(path.join(zavta, "src", "tsl.js"), zavtd.join("\n") + "\n");
+}
+
+let zavtbg = {};
+
+let zavtbh = [];
+
+let zavtbi = 0;
+
+while (zavtbi < 40) {
+    zavtbi++;
+    zavtay();
+    zavtbg = {};
+    for (const zavta of zavtd) zavtbg[zavta] = zavtbb(zavta);
+    zavtbg.facade = zavtbc();
+    zavtbg.namespace = zavtbd();
+    zavtbe();
+    zavtbf();
+    zavtbh = zavtaf();
+    if (!zavtbh.length) break;
+    let zavta = 0;
+    for (const zavtb of zavtbh) {
+        if (!zavtb.target) continue;
+        if (!zavtb.stmt.visited) zavtb.stmt.visited = [ zavtb.stmt.folder ];
+        if (zavtb.stmt.visited.indexOf(zavtb.target) !== -1) continue;
+        zavtac.push("sim-internalize " + (zavtb.stmt.names ? zavtb.stmt.names[0] : "sideeffect" + zavtk.indexOf(zavtb.stmt)) + ": " + zavtb.stmt.folder + " -> " + zavtb.target + (zavtb.intra ? " (INTRA " + zavtb.intra + ")" : ""));
+        zavtb.stmt.visited.push(zavtb.target);
+        zavtb.stmt.folder = zavtb.target;
+        zavtad++;
+        zavta++;
+    }
+    if (!zavta) break;
+}
+
+fs.writeFileSync(path.join(zavta, "tools", ".faoxombody.js"), zavtk.map(zavta => zavta.text).join("\n") + "\n");
+
+fs.writeFileSync(path.join(zavta, "tools", ".faoxomstatements.json"), JSON.stringify(zavtk.map(zavta => ({
+    text: zavta.text,
+    names: zavta.names || [],
+    folder: zavta.folder
+})), null, 0));
+
+fs.writeFileSync(path.join(zavta, "tools", ".faoxomnames.json"), JSON.stringify({
+    namefolder: zavtaj,
+    declaredorder: [ ...new Set(zavtm) ]
+}));
+
+const zavtbj = {};
+
+for (const zavta of zavtk) zavtbj[zavta.folder] = (zavtbj[zavta.folder] || 0) + 1;
+
+console.error("moves: " + zavtac.length + " | sim internalized: " + zavtad + " | sim rounds: " + zavtbi + " | eval conflicts remaining: " + (zavtbh.length ? JSON.stringify(zavtbh.map(zavta => (zavta.stmt.names ? zavta.stmt.names[0] : "sideeffect") + (zavta.intra ? " INTRA:" + zavta.intra : " -> " + zavta.target))) : "none") + " | runtime cycles: " + zavtai.length);
+
+const zavtbk = zavtap.length ? zavtap : "none";
+
+console.log(JSON.stringify({
+    folders: Object.fromEntries(Object.entries(zavtbg).map(([zavta, zavtb]) => [ zavta, {
+        exports: zavtb.exports,
+        imports: zavtb.imports,
+        size: zavtb.size,
+        statements: zavtb.statements
+    } ])),
+    evalcycles: zavtbk,
+    statementcounts: zavtbj,
+    totalstatements: zavtk.length,
+    totalnames: new Set(zavtm).size
+}, null, 1));

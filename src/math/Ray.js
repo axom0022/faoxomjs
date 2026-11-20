@@ -1,47 +1,142 @@
 import { Vector3 } from "./Vector3.js";
 
 class Ray {
-    constructor(origin, direction) { this.origin = origin ? origin.clone() : new Vector3(); this.direction = direction ? direction.clone().normalize() : new Vector3(0, 0, -1); }
-    set(origin, direction) { this.origin.copy(origin); this.direction.copy(direction).normalize(); return this; }
-    clone() { return new Ray(this.origin, this.direction); }
-    at(t, target) { return (target || new Vector3()).copy(this.direction).multiplyScalar(t).add(this.origin); }
-    lookAt(v) { this.direction.copy(v).sub(this.origin).normalize(); return this; }
-    recast(t) { this.origin.copy(this.at(t, new Vector3())); return this; }
-    distanceToPoint(point) { var directionDistance = this.direction.dot(new Vector3().subVectors(point, this.origin)); var v = this.at(directionDistance, new Vector3()); return v.distanceTo(point); }
-    intersectSphere(sphere, target) { if (!sphere || !(sphere.radius > 0)) return undefined; var v1 = new Vector3().subVectors(sphere.center, this.origin); var tca = v1.dot(this.direction); var d2 = v1.dot(v1) - tca * tca; var radius2 = sphere.radius * sphere.radius; if (d2 > radius2) return undefined; var thc = Math.sqrt(Math.max(0, radius2 - d2)); var t0 = tca - thc; var t1 = tca + thc; if (t1 < 0) return undefined; return this.at(t0 < 0 ? t1 : t0, target || new Vector3()); }
-    intersectBox(box, target) { var tmin = 0; var tmax = Infinity; var axes = ["x", "y", "z"]; for (var i = 0; i < 3; i++) { var axis = axes[i]; var direction = this.direction[axis]; var origin = this.origin[axis]; if (Math.abs(direction) < 1e-12) { if (origin < box.min[axis] || origin > box.max[axis]) return undefined; continue; } var a = (box.min[axis] - origin) / direction; var b = (box.max[axis] - origin) / direction; if (a > b) { var swap = a; a = b; b = swap; } tmin = Math.max(tmin, a); tmax = Math.min(tmax, b); if (tmin > tmax) return undefined; } if (tmax < 0) return undefined; return this.at(tmin >= 0 ? tmin : tmax, target || new Vector3()); }
-    intersectTriangle(a, b, c, backfaceCulling, target) { var edge1 = new Vector3().subVectors(b, a); var edge2 = new Vector3().subVectors(c, a); var pvec = new Vector3().crossVectors(this.direction, edge2); var det = edge1.dot(pvec); var epsilon = 1e-8; if (backfaceCulling ? det <= epsilon : Math.abs(det) <= epsilon) return undefined; var invdet = 1 / det; var tvec = new Vector3().subVectors(this.origin, a); var u = tvec.dot(pvec) * invdet; if (u < 0 || u > 1) return undefined; var qvec = new Vector3().crossVectors(tvec, edge1); var v = this.direction.dot(qvec) * invdet; if (v < 0 || u + v > 1) return undefined; var t = edge2.dot(qvec) * invdet; if (t < 0) return undefined; return this.at(t, target || new Vector3()); }
-    intersectTriangleSealed(a, b, c, backfaceCulling, target) {
-        var o = this.origin, d = this.direction;
-        var ox = o.x, oy = o.y, oz = o.z, dx = d.x, dy = d.y, dz = d.z;
-        var ax = a.x, ay = a.y, az = a.z, bx = b.x, by = b.y, bz = b.z, cx = c.x, cy = c.y, cz = c.z;
-        var adx = Math.abs(dx), ady = Math.abs(dy), adz = Math.abs(dz);
-        var kz, kx, ky;
-        if (adx < ady) { if (ady < adz) { kz = 2; kx = 0; ky = 1; } else { kz = 1; kx = 2; ky = 0; } }
-        else if (adx < adz) { kz = 2; kx = 0; ky = 1; }
-        else { kz = 0; kx = 1; ky = 2; }
-        var dzc = kz === 0 ? dx : kz === 1 ? dy : dz;
-        if (dzc === 0) return undefined;
-        if (dzc < 0) { var swapAxes = kx; kx = ky; ky = swapAxes; }
-        var ac = [ax - ox, ay - oy, az - oz], bc = [bx - ox, by - oy, bz - oz], cc = [cx - ox, cy - oy, cz - oz];
-        var dxc = kx === 0 ? dx : kx === 1 ? dy : dz;
-        var dyc = ky === 0 ? dx : ky === 1 ? dy : dz;
-        var sx = dxc / dzc, sy = dyc / dzc, sz = 1 / dzc;
-        var axp = ac[kx] - sx * ac[kz], ayp = ac[ky] - sy * ac[kz];
-        var bxp = bc[kx] - sx * bc[kz], byp = bc[ky] - sy * bc[kz];
-        var cxp = cc[kx] - sx * cc[kz], cyp = cc[ky] - sy * cc[kz];
-        var u = cxp * byp - cyp * bxp;
-        var v = axp * cyp - ayp * cxp;
-        var w = bxp * ayp - byp * axp;
-        if ((u < 0 || v < 0 || w < 0) && (u > 0 || v > 0 || w > 0)) return undefined;
-        var det = u + v + w;
-        if (det === 0) return undefined;
-        if (backfaceCulling && det < 0) return undefined;
-        var t = sz * (u * ac[kz] + v * bc[kz] + w * cc[kz]) / det;
-        if (t < 0 || !isFinite(t)) return undefined;
-        var hit = target || new Vector3();
-        hit.set(ox + t * dx, oy + t * dy, oz + t * dz);
-        return hit;
+    constructor(zaooa, zaoob) {
+        this.origin = zaooa ? zaooa.clone() : new Vector3;
+        this.direction = zaoob ? zaoob.clone().normalize() : new Vector3(0, 0, -1);
+    }
+    set(zaooa, zaoob) {
+        this.origin.copy(zaooa);
+        this.direction.copy(zaoob).normalize();
+        return this;
+    }
+    clone() {
+        return new Ray(this.origin, this.direction);
+    }
+    at(zaooa, zaoob) {
+        return (zaoob || new Vector3).copy(this.direction).multiplyScalar(zaooa).add(this.origin);
+    }
+    lookAt(zaooa) {
+        this.direction.copy(zaooa).sub(this.origin).normalize();
+        return this;
+    }
+    recast(zaooa) {
+        this.origin.copy(this.at(zaooa, new Vector3));
+        return this;
+    }
+    distanceToPoint(zaooa) {
+        var zaoob = this.direction.dot((new Vector3).subVectors(zaooa, this.origin));
+        var zaooc = this.at(zaoob, new Vector3);
+        return zaooc.distanceTo(zaooa);
+    }
+    intersectSphere(zaooa, zaoob) {
+        if (!zaooa || !(zaooa.radius > 0)) return undefined;
+        var zaooc = (new Vector3).subVectors(zaooa.center, this.origin);
+        var zaood = zaooc.dot(this.direction);
+        var zaooe = zaooc.dot(zaooc) - zaood * zaood;
+        var zaoof = zaooa.radius * zaooa.radius;
+        if (zaooe > zaoof) return undefined;
+        var zaoog = Math.sqrt(Math.max(0, zaoof - zaooe));
+        var zaooh = zaood - zaoog;
+        var zaooi = zaood + zaoog;
+        if (zaooi < 0) return undefined;
+        return this.at(zaooh < 0 ? zaooi : zaooh, zaoob || new Vector3);
+    }
+    intersectBox(zaooa, zaoob) {
+        var zaooc = 0;
+        var zaood = Infinity;
+        var zaooe = [ "x", "y", "z" ];
+        for (var zaoof = 0; zaoof < 3; zaoof++) {
+            var zaoog = zaooe[zaoof];
+            var zaooh = this.direction[zaoog];
+            var zaooi = this.origin[zaoog];
+            if (Math.abs(zaooh) < 1e-12) {
+                if (zaooi < zaooa.min[zaoog] || zaooi > zaooa.max[zaoog]) return undefined;
+                continue;
+            }
+            var zaooj = (zaooa.min[zaoog] - zaooi) / zaooh;
+            var zaook = (zaooa.max[zaoog] - zaooi) / zaooh;
+            if (zaooj > zaook) {
+                var zaool = zaooj;
+                zaooj = zaook;
+                zaook = zaool;
+            }
+            zaooc = Math.max(zaooc, zaooj);
+            zaood = Math.min(zaood, zaook);
+            if (zaooc > zaood) return undefined;
+        }
+        if (zaood < 0) return undefined;
+        return this.at(zaooc >= 0 ? zaooc : zaood, zaoob || new Vector3);
+    }
+    intersectTriangle(zaooa, zaoob, zaooc, zaood, zaooe) {
+        var zaoof = (new Vector3).subVectors(zaoob, zaooa);
+        var zaoog = (new Vector3).subVectors(zaooc, zaooa);
+        var zaooh = (new Vector3).crossVectors(this.direction, zaoog);
+        var zaooi = zaoof.dot(zaooh);
+        var zaooj = 1e-8;
+        if (zaood ? zaooi <= zaooj : Math.abs(zaooi) <= zaooj) return undefined;
+        var zaook = 1 / zaooi;
+        var zaool = (new Vector3).subVectors(this.origin, zaooa);
+        var zaoom = zaool.dot(zaooh) * zaook;
+        if (zaoom < 0 || zaoom > 1) return undefined;
+        var zaoon = (new Vector3).crossVectors(zaool, zaoof);
+        var zaooo = this.direction.dot(zaoon) * zaook;
+        if (zaooo < 0 || zaoom + zaooo > 1) return undefined;
+        var zaoop = zaoog.dot(zaoon) * zaook;
+        if (zaoop < 0) return undefined;
+        return this.at(zaoop, zaooe || new Vector3);
+    }
+    intersectTriangleSealed(zaooa, zaoob, zaooc, zaood, zaooe) {
+        var zaoof = this.origin, zaoog = this.direction;
+        var zaooh = zaoof.x, zaooi = zaoof.y, zaooj = zaoof.z, zaook = zaoog.x, zaool = zaoog.y, zaoom = zaoog.z;
+        var zaoon = zaooa.x, zaooo = zaooa.y, zaoop = zaooa.z, zaooq = zaoob.x, zaoor = zaoob.y, zaoos = zaoob.z, zaoot = zaooc.x, zaoou = zaooc.y, zaoov = zaooc.z;
+        var zaoow = Math.abs(zaook), zaoox = Math.abs(zaool), zaooy = Math.abs(zaoom);
+        var zaooz, zaooaa, zaooab;
+        if (zaoow < zaoox) {
+            if (zaoox < zaooy) {
+                zaooz = 2;
+                zaooaa = 0;
+                zaooab = 1;
+            } else {
+                zaooz = 1;
+                zaooaa = 2;
+                zaooab = 0;
+            }
+        } else if (zaoow < zaooy) {
+            zaooz = 2;
+            zaooaa = 0;
+            zaooab = 1;
+        } else {
+            zaooz = 0;
+            zaooaa = 1;
+            zaooab = 2;
+        }
+        var zaooac = zaooz === 0 ? zaook : zaooz === 1 ? zaool : zaoom;
+        if (zaooac === 0) return undefined;
+        if (zaooac < 0) {
+            var zaooad = zaooaa;
+            zaooaa = zaooab;
+            zaooab = zaooad;
+        }
+        var zaooae = [ zaoon - zaooh, zaooo - zaooi, zaoop - zaooj ], zaooaf = [ zaooq - zaooh, zaoor - zaooi, zaoos - zaooj ], zaooag = [ zaoot - zaooh, zaoou - zaooi, zaoov - zaooj ];
+        var zaooah = zaooaa === 0 ? zaook : zaooaa === 1 ? zaool : zaoom;
+        var zaooai = zaooab === 0 ? zaook : zaooab === 1 ? zaool : zaoom;
+        var zaooaj = zaooah / zaooac, zaooak = zaooai / zaooac, zaooal = 1 / zaooac;
+        var zaooam = zaooae[zaooaa] - zaooaj * zaooae[zaooz], zaooan = zaooae[zaooab] - zaooak * zaooae[zaooz];
+        var zaooao = zaooaf[zaooaa] - zaooaj * zaooaf[zaooz], zaooap = zaooaf[zaooab] - zaooak * zaooaf[zaooz];
+        var zaooaq = zaooag[zaooaa] - zaooaj * zaooag[zaooz], zaooar = zaooag[zaooab] - zaooak * zaooag[zaooz];
+        var zaooas = zaooaq * zaooap - zaooar * zaooao;
+        var zaooat = zaooam * zaooar - zaooan * zaooaq;
+        var zaooau = zaooao * zaooan - zaooap * zaooam;
+        if ((zaooas < 0 || zaooat < 0 || zaooau < 0) && (zaooas > 0 || zaooat > 0 || zaooau > 0)) return undefined;
+        var zaooav = zaooas + zaooat + zaooau;
+        if (zaooav === 0) return undefined;
+        if (zaood && zaooav < 0) return undefined;
+        var zaooaw = zaooal * (zaooas * zaooae[zaooz] + zaooat * zaooaf[zaooz] + zaooau * zaooag[zaooz]) / zaooav;
+        if (zaooaw < 0 || !isFinite(zaooaw)) return undefined;
+        var zaooax = zaooe || new Vector3;
+        zaooax.set(zaooh + zaooaw * zaook, zaooi + zaooaw * zaool, zaooj + zaooaw * zaoom);
+        return zaooax;
     }
 }
 

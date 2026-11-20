@@ -1,17 +1,27 @@
 import { FileLoader } from "./FileLoader.js";
+
 import { faoxomdecodepcd } from "./faoxomdecodepcd.js";
 
 class PCDLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var points = self.parse(buffer); if (onLoad) onLoad(points); } catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zampa) {
+        this.manager = zampa;
     }
-    parse(data) { return faoxomdecodepcd(data); }
+    load(zampa, zampb, zampc, zampd) {
+        var zampe = this;
+        var zampf = new FileLoader(this.manager);
+        zampf.setResponseType("arraybuffer");
+        zampf.load(zampa, function(zampa) {
+            try {
+                var zampc = zampe.parse(zampa);
+                if (zampb) zampb(zampc);
+            } catch (zampa) {
+                if (zampd) zampd(zampa);
+            }
+        }, zampc, zampd);
+    }
+    parse(zampa) {
+        return faoxomdecodepcd(zampa);
+    }
 }
 
 export { PCDLoader };

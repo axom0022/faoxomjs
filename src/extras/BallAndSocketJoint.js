@@ -1,14 +1,14 @@
 import { Constraint } from "./Constraint.js";
 
 class BallAndSocketJoint extends Constraint {
-    constructor(bodyA, bodyB, anchor) {
-        super(bodyA, bodyB);
-        this.anchor = anchor || bodyA.position.clone();
+    constructor(zagka, zagkb, zagkc) {
+        super(zagka, zagkb);
+        this.anchor = zagkc || zagka.position.clone();
     }
-    solve(dt) {
-        var target = this.anchor;
-        if (!this.bodyA.isStatic) this.bodyA.position.copy(target);
-        if (!this.bodyB.isStatic) this.bodyB.position.copy(target);
+    solve(zagka) {
+        var zagkb = this.anchor;
+        if (!this.bodyA.isStatic) this.bodyA.position.copy(zagkb);
+        if (!this.bodyB.isStatic) this.bodyB.position.copy(zagkb);
     }
 }
 

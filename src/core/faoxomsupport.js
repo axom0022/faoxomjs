@@ -1,8 +1,51 @@
 import { Quaternion, Vector3 } from "../math/index.js";
+
 import { faoxominverserotatevector } from "./faoxominverserotatevector.js";
+
 import { faoxomshapevertices } from "./faoxomshapevertices.js";
+
 import { faoxomworldpoint } from "./faoxomworldpoint.js";
 
-function faoxomsupport(shape, position, rotation, direction) { var localDirection = faoxominverserotatevector(direction, rotation); var local; if (shape.type === "sphere") local = localDirection.normalize().multiplyScalar(shape.radius); else if (shape.type === "capsule") { var axis = localDirection.y < 0 ? -shape.height * 0.5 : shape.height * 0.5; local = localDirection.normalize().multiplyScalar(shape.radius); local.y += axis; } else if (shape.type === "cylinder") { var radial = new Vector3(localDirection.x, 0, localDirection.z); if (radial.lengthSq() > 0) radial.normalize().multiplyScalar(shape.radius); local = radial; local.y = localDirection.y < 0 ? -shape.height * 0.5 : shape.height * 0.5; } else if (shape.type === "compound") { var best = null; var bestDot = -Infinity; for (var i = 0; i < shape.children.length; i++) { var child = shape.children[i]; var childRotation = (rotation || new Quaternion()).clone().multiply(child.quaternion || new Quaternion()); var childPosition = faoxomworldpoint(position, rotation, child.position || new Vector3()); var candidate = faoxomsupport(child.shape, childPosition, childRotation, direction); var score = candidate.dot(direction); if (score > bestDot) { bestDot = score; best = candidate; } } return best || position.clone(); } else { var vertices = faoxomshapevertices(shape); local = vertices[0].clone(); var score0 = local.dot(localDirection); for (var j = 1; j < vertices.length; j++) { var score = vertices[j].dot(localDirection); if (score > score0) { score0 = score; local = vertices[j].clone(); } } } return faoxomworldpoint(position, rotation, local); }
+function faoxomsupport(zafza, zafzb, zafzc, zafzd) {
+    var zafze = faoxominverserotatevector(zafzd, zafzc);
+    var zafzf;
+    if (zafza.type === "sphere") zafzf = zafze.normalize().multiplyScalar(zafza.radius); else if (zafza.type === "capsule") {
+        var zafzg = zafze.y < 0 ? -zafza.height * .5 : zafza.height * .5;
+        zafzf = zafze.normalize().multiplyScalar(zafza.radius);
+        zafzf.y += zafzg;
+    } else if (zafza.type === "cylinder") {
+        var zafzh = new Vector3(zafze.x, 0, zafze.z);
+        if (zafzh.lengthSq() > 0) zafzh.normalize().multiplyScalar(zafza.radius);
+        zafzf = zafzh;
+        zafzf.y = zafze.y < 0 ? -zafza.height * .5 : zafza.height * .5;
+    } else if (zafza.type === "compound") {
+        var zafzi = null;
+        var zafzj = -Infinity;
+        for (var zafzk = 0; zafzk < zafza.children.length; zafzk++) {
+            var zafzl = zafza.children[zafzk];
+            var zafzm = (zafzc || new Quaternion).clone().multiply(zafzl.quaternion || new Quaternion);
+            var zafzn = faoxomworldpoint(zafzb, zafzc, zafzl.position || new Vector3);
+            var zafzo = faoxomsupport(zafzl.shape, zafzn, zafzm, zafzd);
+            var zafzp = zafzo.dot(zafzd);
+            if (zafzp > zafzj) {
+                zafzj = zafzp;
+                zafzi = zafzo;
+            }
+        }
+        return zafzi || zafzb.clone();
+    } else {
+        var zafzq = faoxomshapevertices(zafza);
+        zafzf = zafzq[0].clone();
+        var zafzr = zafzf.dot(zafze);
+        for (var zafzs = 1; zafzs < zafzq.length; zafzs++) {
+            var zafzp = zafzq[zafzs].dot(zafze);
+            if (zafzp > zafzr) {
+                zafzr = zafzp;
+                zafzf = zafzq[zafzs].clone();
+            }
+        }
+    }
+    return faoxomworldpoint(zafzb, zafzc, zafzf);
+}
 
 export { faoxomsupport };

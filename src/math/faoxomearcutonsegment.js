@@ -1,3 +1,5 @@
-function faoxomearcutonsegment(p, q, r) { return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y); }
+function faoxomearcutonsegment(zapxa, zapxb, zapxc) {
+    return zapxb.x <= Math.max(zapxa.x, zapxc.x) && zapxb.x >= Math.min(zapxa.x, zapxc.x) && zapxb.y <= Math.max(zapxa.y, zapxc.y) && zapxb.y >= Math.min(zapxa.y, zapxc.y);
+}
 
 export { faoxomearcutonsegment };

@@ -1,17 +1,27 @@
 import { FileLoader } from "./FileLoader.js";
+
 import { faoxomdecodevtk } from "./faoxomdecodevtk.js";
 
 class VTKLoader {
-    constructor(manager) { this.manager = manager; }
-    load(url, onLoad, onProgress, onError) {
-        var self = this;
-        var loader = new FileLoader(this.manager);
-        loader.setResponseType("arraybuffer");
-        loader.load(url, function(buffer) {
-            try { var geometry = self.parse(buffer); if (onLoad) onLoad(geometry); } catch (e) { if (onError) onError(e); }
-        }, onProgress, onError);
+    constructor(zanca) {
+        this.manager = zanca;
     }
-    parse(data) { return faoxomdecodevtk(data); }
+    load(zanca, zancb, zancc, zancd) {
+        var zance = this;
+        var zancf = new FileLoader(this.manager);
+        zancf.setResponseType("arraybuffer");
+        zancf.load(zanca, function(zanca) {
+            try {
+                var zancc = zance.parse(zanca);
+                if (zancb) zancb(zancc);
+            } catch (zanca) {
+                if (zancd) zancd(zanca);
+            }
+        }, zancc, zancd);
+    }
+    parse(zanca) {
+        return faoxomdecodevtk(zanca);
+    }
 }
 
 export { VTKLoader };

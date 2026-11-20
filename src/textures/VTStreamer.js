@@ -1,120 +1,150 @@
 import { faoxomvalue } from "../math/index.js";
 
 class VTStreamer {
-    constructor(virtualTexture, options) {
-        options = options || {};
-        this.vt = virtualTexture;
-        this.provider = options.provider || null;
-        this.budget = Math.max(1, Math.floor(faoxomvalue(options.budget, virtualTexture ? virtualTexture.tileCount : 16)));
-        this.maxInflight = Math.max(1, Math.floor(faoxomvalue(options.maxInflight, 4)));
-        this.pinLowMips = Math.max(0, Math.floor(faoxomvalue(options.pinLowMips, 1)));
+    constructor(zavha, zavhb) {
+        zavhb = zavhb || {};
+        this.vt = zavha;
+        this.provider = zavhb.provider || null;
+        this.budget = Math.max(1, Math.floor(faoxomvalue(zavhb.budget, zavha ? zavha.tileCount : 16)));
+        this.maxInflight = Math.max(1, Math.floor(faoxomvalue(zavhb.maxInflight, 4)));
+        this.pinLowMips = Math.max(0, Math.floor(faoxomvalue(zavhb.pinLowMips, 1)));
         this.queue = [];
         this.queued = {};
         this.inflightKeys = {};
         this.inflight = 0;
         this.dirty = false;
-        this.stats = { resident: 0, pending: 0, inflight: 0, uploaded: 0, evicted: 0, feedbackPages: 0 };
+        this.stats = {
+            resident: 0,
+            pending: 0,
+            inflight: 0,
+            uploaded: 0,
+            evicted: 0,
+            feedbackPages: 0
+        };
         this.pinned = false;
     }
-    requestPage(mip, layer, px, py, priority) {
-        var vt = this.vt;
-        mip = Math.min(mip, vt.maxMip);
-        var side = vt.tableSide(mip);
-        if (px < 0 || py < 0 || px >= side || py >= side || layer < 0 || layer >= vt.layers) return false;
-        var key = vt.pageKey(mip, layer, px, py);
-        if (vt.pages.has(key) || this.queued[key] || this.inflightKeys[key]) return false;
-        var request = { key: key, mip: mip, layer: layer, px: px, py: py, priority: faoxomvalue(priority, 0) + mip };
-        this.queued[key] = request;
-        this.queue.push(request);
+    requestPage(zavha, zavhb, zavhc, zavhd, zavhe) {
+        var zavhf = this.vt;
+        zavha = Math.min(zavha, zavhf.maxMip);
+        var zavhg = zavhf.tableSide(zavha);
+        if (zavhc < 0 || zavhd < 0 || zavhc >= zavhg || zavhd >= zavhg || zavhb < 0 || zavhb >= zavhf.layers) return false;
+        var zavhh = zavhf.pageKey(zavha, zavhb, zavhc, zavhd);
+        if (zavhf.pages.has(zavhh) || this.queued[zavhh] || this.inflightKeys[zavhh]) return false;
+        var zavhi = {
+            key: zavhh,
+            mip: zavha,
+            layer: zavhb,
+            px: zavhc,
+            py: zavhd,
+            priority: faoxomvalue(zavhe, 0) + zavha
+        };
+        this.queued[zavhh] = zavhi;
+        this.queue.push(zavhi);
         return true;
     }
-    processFeedback(feedbackWords) {
-        var vt = this.vt;
-        if (!feedbackWords || !feedbackWords.length) return 0;
-        var touched = 0;
-        var wordCount = Math.ceil(vt.totalPages / 32);
-        for (var word = 0; word < wordCount && word < feedbackWords.length; word++) {
-            var bits = feedbackWords[word] >>> 0;
-            if (!bits) continue;
-            for (var bit = 0; bit < 32; bit++) {
-                if ((bits & (1 << bit)) === 0) continue;
-                var id = word * 32 + bit;
-                if (id >= vt.totalPages) continue;
-                var page = vt.pageFromId(id);
-                vt.touch(page.mip, page.layer, page.px, page.py);
-                if (this.requestPage(page.mip, page.layer, page.px, page.py, 100 - page.mip)) touched++;
+    processFeedback(zavha) {
+        var zavhb = this.vt;
+        if (!zavha || !zavha.length) return 0;
+        var zavhc = 0;
+        var zavhd = Math.ceil(zavhb.totalPages / 32);
+        for (var zavhe = 0; zavhe < zavhd && zavhe < zavha.length; zavhe++) {
+            var zavhf = zavha[zavhe] >>> 0;
+            if (!zavhf) continue;
+            for (var zavhg = 0; zavhg < 32; zavhg++) {
+                if ((zavhf & 1 << zavhg) === 0) continue;
+                var zavhh = zavhe * 32 + zavhg;
+                if (zavhh >= zavhb.totalPages) continue;
+                var zavhi = zavhb.pageFromId(zavhh);
+                zavhb.touch(zavhi.mip, zavhi.layer, zavhi.px, zavhi.py);
+                if (this.requestPage(zavhi.mip, zavhi.layer, zavhi.px, zavhi.py, 100 - zavhi.mip)) zavhc++;
             }
         }
-        this.stats.feedbackPages = touched;
-        return touched;
+        this.stats.feedbackPages = zavhc;
+        return zavhc;
     }
     pinCoarseMips() {
-        var vt = this.vt;
-        for (var layer = 0; layer < vt.layers; layer++) for (var m = vt.maxMip; m > vt.maxMip - this.pinLowMips && m >= 0; m--) {
-            var side = vt.tableSide(m);
-            for (var py = 0; py < side; py++) for (var px = 0; px < side; px++) {
-                this.requestPage(m, layer, px, py, 1000);
-                var key = vt.pageKey(m, layer, px, py);
-                var entry = vt.pages.get(key);
-                if (entry) entry.pinned = true;
+        var zavha = this.vt;
+        for (var zavhb = 0; zavhb < zavha.layers; zavhb++) for (var zavhc = zavha.maxMip; zavhc > zavha.maxMip - this.pinLowMips && zavhc >= 0; zavhc--) {
+            var zavhd = zavha.tableSide(zavhc);
+            for (var zavhe = 0; zavhe < zavhd; zavhe++) for (var zavhf = 0; zavhf < zavhd; zavhf++) {
+                this.requestPage(zavhc, zavhb, zavhf, zavhe, 1e3);
+                var zavhg = zavha.pageKey(zavhc, zavhb, zavhf, zavhe);
+                var zavhh = zavha.pages.get(zavhg);
+                if (zavhh) zavhh.pinned = true;
             }
         }
         this.pinned = true;
         return this;
     }
     async update() {
-        var self = this, vt = this.vt;
-        this.queue.sort(function(a, b) { return b.priority - a.priority; });
-        var started = [];
+        var zavha = this, zavhb = this.vt;
+        this.queue.sort(function(zavha, zavhb) {
+            return zavhb.priority - zavha.priority;
+        });
+        var zavhc = [];
         while (this.inflight < this.maxInflight && this.queue.length) {
-            var request = this.queue.shift();
-            delete this.queued[request.key];
-            if (vt.pages.has(request.key) || this.inflightKeys[request.key]) continue;
-            this.inflightKeys[request.key] = true;
-            var tile = vt.allocateTile();
-            if (tile === null) {
-                var evicted = vt.evictLRU(1);
-                if (evicted === 0) { this.queue.unshift(request); this.queued[request.key] = request; break; }
-                tile = vt.allocateTile();
-                if (tile === null) { this.queue.unshift(request); this.queued[request.key] = request; break; }
+            var zavhd = this.queue.shift();
+            delete this.queued[zavhd.key];
+            if (zavhb.pages.has(zavhd.key) || this.inflightKeys[zavhd.key]) continue;
+            this.inflightKeys[zavhd.key] = true;
+            var zavhe = zavhb.allocateTile();
+            if (zavhe === null) {
+                var zavhf = zavhb.evictLRU(1);
+                if (zavhf === 0) {
+                    this.queue.unshift(zavhd);
+                    this.queued[zavhd.key] = zavhd;
+                    break;
+                }
+                zavhe = zavhb.allocateTile();
+                if (zavhe === null) {
+                    this.queue.unshift(zavhd);
+                    this.queued[zavhd.key] = zavhd;
+                    break;
+                }
             }
             this.inflight++;
-            started.push(this.loadPage(request, tile));
+            zavhc.push(this.loadPage(zavhd, zavhe));
         }
-        if (started.length) await Promise.all(started);
-        while (vt.pages.size > this.budget) {
-            var evictedCount = vt.evictLRU(vt.pages.size - this.budget);
-            this.stats.evicted += evictedCount;
+        if (zavhc.length) await Promise.all(zavhc);
+        while (zavhb.pages.size > this.budget) {
+            var zavhg = zavhb.evictLRU(zavhb.pages.size - this.budget);
+            this.stats.evicted += zavhg;
             this.dirty = true;
-            if (evictedCount === 0) break;
+            if (zavhg === 0) break;
         }
-        if (this.dirty) vt.flushTable();
+        if (this.dirty) zavhb.flushTable();
         this.dirty = false;
-        this.stats.resident = vt.pages.size;
+        this.stats.resident = zavhb.pages.size;
         this.stats.pending = this.queue.length;
         this.stats.inflight = this.inflight;
         return this;
     }
-    async loadPage(request, tile) {
-        var self = this, vt = this.vt;
+    async loadPage(zavha, zavhb) {
+        var zavhc = this, zavhd = this.vt;
         try {
-            if (!self.provider) throw new Error("VTStreamer has no page provider");
-            var content = await self.provider({ mip: request.mip, layer: request.layer, px: request.px, py: request.py, size: vt.pageSize });
-            if (!vt.pages.has(request.key)) {
-                vt.uploadTile(tile, content);
-                vt.setPage(request.mip, request.layer, request.px, request.py, tile);
-                if (request.priority >= 1000) vt.pinPage(request.mip, request.layer, request.px, request.py, true);
-                self.stats.uploaded++;
-                self.dirty = true;
+            if (!zavhc.provider) throw new Error("VTStreamer has no page provider");
+            var zavhe = await zavhc.provider({
+                mip: zavha.mip,
+                layer: zavha.layer,
+                px: zavha.px,
+                py: zavha.py,
+                size: zavhd.pageSize
+            });
+            if (!zavhd.pages.has(zavha.key)) {
+                zavhd.uploadTile(zavhb, zavhe);
+                zavhd.setPage(zavha.mip, zavha.layer, zavha.px, zavha.py, zavhb);
+                if (zavha.priority >= 1e3) zavhd.pinPage(zavha.mip, zavha.layer, zavha.px, zavha.py, true);
+                zavhc.stats.uploaded++;
+                zavhc.dirty = true;
             } else {
-                if (vt.freeTiles.indexOf(tile) === -1) vt.freeTiles.push(tile);
+                if (zavhd.freeTiles.indexOf(zavhb) === -1) zavhd.freeTiles.push(zavhb);
             }
-        } catch (error) {
-            if (vt.freeTiles.indexOf(tile) === -1) vt.freeTiles.push(tile);
-            self.lastError = error;
+        } catch (zavha) {
+            if (zavhd.freeTiles.indexOf(zavhb) === -1) zavhd.freeTiles.push(zavhb);
+            zavhc.lastError = zavha;
         } finally {
-            delete self.inflightKeys[request.key];
-            self.inflight--;
+            delete zavhc.inflightKeys[zavha.key];
+            zavhc.inflight--;
         }
     }
     clear() {

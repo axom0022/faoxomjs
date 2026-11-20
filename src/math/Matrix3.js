@@ -1,24 +1,116 @@
 import { Vector3 } from "./Vector3.js";
 
 class Matrix3 {
-    constructor() { this.elements = new Float64Array(9); this.identity(); }
-    set(n11, n12, n13, n21, n22, n23, n31, n32, n33) { var e = this.elements; e[0] = n11; e[3] = n12; e[6] = n13; e[1] = n21; e[4] = n22; e[7] = n23; e[2] = n31; e[5] = n32; e[8] = n33; return this; }
-    identity() { return this.set(1, 0, 0, 0, 1, 0, 0, 0, 1); }
-    clone() { return new Matrix3().copy(this); }
-    copy(matrix) { this.elements.set(matrix.elements); return this; }
-    setFromMatrix4(matrix) { var me = matrix.elements; return this.set(me[0], me[4], me[8], me[1], me[5], me[9], me[2], me[6], me[10]); }
-    multiply(matrix) { return this.multiplyMatrices(this, matrix); }
-    premultiply(matrix) { return this.multiplyMatrices(matrix, this); }
-    multiplyMatrices(a, b) { var ae = a.elements, be = b.elements, e = this.elements; var a11 = ae[0], a12 = ae[3], a13 = ae[6], a21 = ae[1], a22 = ae[4], a23 = ae[7], a31 = ae[2], a32 = ae[5], a33 = ae[8]; var b11 = be[0], b12 = be[3], b13 = be[6], b21 = be[1], b22 = be[4], b23 = be[7], b31 = be[2], b32 = be[5], b33 = be[8]; e[0] = a11 * b11 + a12 * b21 + a13 * b31; e[3] = a11 * b12 + a12 * b22 + a13 * b32; e[6] = a11 * b13 + a12 * b23 + a13 * b33; e[1] = a21 * b11 + a22 * b21 + a23 * b31; e[4] = a21 * b12 + a22 * b22 + a23 * b32; e[7] = a21 * b13 + a22 * b23 + a23 * b33; e[2] = a31 * b11 + a32 * b21 + a33 * b31; e[5] = a31 * b12 + a32 * b22 + a33 * b32; e[8] = a31 * b13 + a32 * b23 + a33 * b33; return this; }
-    makeTranslation(x, y) { return this.set(1, 0, x, 0, 1, y, 0, 0, 1); }
-    makeRotation(theta) { var c = Math.cos(theta), s = Math.sin(theta); return this.set(c, -s, 0, s, c, 0, 0, 0, 1); }
-    makeScale(x, y) { return this.set(x, 0, 0, 0, y, 0, 0, 0, 1); }
-    transpose() { var e = this.elements, swap; swap = e[1]; e[1] = e[3]; e[3] = swap; swap = e[2]; e[2] = e[6]; e[6] = swap; swap = e[5]; e[5] = e[7]; e[7] = swap; return this; }
-    determinant() { var te = this.elements; var a = te[0], b = te[1], c = te[2], d = te[3], e = te[4], f = te[5], g = te[6], h = te[7], i = te[8]; return a * (e * i - f * h) - d * (b * i - c * h) + g * (b * f - c * e); }
-    invert() { var te = this.elements; var n11 = te[0], n21 = te[1], n31 = te[2], n12 = te[3], n22 = te[4], n32 = te[5], n13 = te[6], n23 = te[7], n33 = te[8]; var t11 = n33 * n22 - n32 * n23, t12 = n32 * n13 - n33 * n12, t13 = n23 * n12 - n22 * n13; var det = n11 * t11 + n21 * t12 + n31 * t13; if (det === 0) return this.identity(); var detInv = 1 / det; te[0] = t11 * detInv; te[1] = (n31 * n23 - n33 * n21) * detInv; te[2] = (n32 * n21 - n31 * n22) * detInv; te[3] = t12 * detInv; te[4] = (n33 * n11 - n31 * n13) * detInv; te[5] = (n31 * n12 - n32 * n11) * detInv; te[6] = t13 * detInv; te[7] = (n21 * n13 - n23 * n11) * detInv; te[8] = (n22 * n11 - n21 * n12) * detInv; return this; }
-    getNormalMatrix(matrix4) { return this.setFromMatrix4(matrix4).invert().transpose(); }
-    applyToBufferAttribute(attribute) { for (var i = 0; i < attribute.count; i++) { var v = new Vector3(attribute.getX(i), attribute.getY(i), attribute.getZ(i)).applyNormalMatrix(this); attribute.setXYZ(i, v.x, v.y, v.z); } return attribute; }
+    constructor() {
+        this.elements = new Float64Array(9);
+        this.identity();
+    }
+    set(zaofa, zaofb, zaofc, zaofd, zaofe, zaoff, zaofg, zaofh, zaofi) {
+        var zaofj = this.elements;
+        zaofj[0] = zaofa;
+        zaofj[3] = zaofb;
+        zaofj[6] = zaofc;
+        zaofj[1] = zaofd;
+        zaofj[4] = zaofe;
+        zaofj[7] = zaoff;
+        zaofj[2] = zaofg;
+        zaofj[5] = zaofh;
+        zaofj[8] = zaofi;
+        return this;
+    }
+    identity() {
+        return this.set(1, 0, 0, 0, 1, 0, 0, 0, 1);
+    }
+    clone() {
+        return (new Matrix3).copy(this);
+    }
+    copy(zaofa) {
+        this.elements.set(zaofa.elements);
+        return this;
+    }
+    setFromMatrix4(zaofa) {
+        var zaofb = zaofa.elements;
+        return this.set(zaofb[0], zaofb[4], zaofb[8], zaofb[1], zaofb[5], zaofb[9], zaofb[2], zaofb[6], zaofb[10]);
+    }
+    multiply(zaofa) {
+        return this.multiplyMatrices(this, zaofa);
+    }
+    premultiply(zaofa) {
+        return this.multiplyMatrices(zaofa, this);
+    }
+    multiplyMatrices(zaofa, zaofb) {
+        var zaofc = zaofa.elements, zaofd = zaofb.elements, zaofe = this.elements;
+        var zaoff = zaofc[0], zaofg = zaofc[3], zaofh = zaofc[6], zaofi = zaofc[1], zaofj = zaofc[4], zaofk = zaofc[7], zaofl = zaofc[2], zaofm = zaofc[5], zaofn = zaofc[8];
+        var zaofo = zaofd[0], zaofp = zaofd[3], zaofq = zaofd[6], zaofr = zaofd[1], zaofs = zaofd[4], zaoft = zaofd[7], zaofu = zaofd[2], zaofv = zaofd[5], zaofw = zaofd[8];
+        zaofe[0] = zaoff * zaofo + zaofg * zaofr + zaofh * zaofu;
+        zaofe[3] = zaoff * zaofp + zaofg * zaofs + zaofh * zaofv;
+        zaofe[6] = zaoff * zaofq + zaofg * zaoft + zaofh * zaofw;
+        zaofe[1] = zaofi * zaofo + zaofj * zaofr + zaofk * zaofu;
+        zaofe[4] = zaofi * zaofp + zaofj * zaofs + zaofk * zaofv;
+        zaofe[7] = zaofi * zaofq + zaofj * zaoft + zaofk * zaofw;
+        zaofe[2] = zaofl * zaofo + zaofm * zaofr + zaofn * zaofu;
+        zaofe[5] = zaofl * zaofp + zaofm * zaofs + zaofn * zaofv;
+        zaofe[8] = zaofl * zaofq + zaofm * zaoft + zaofn * zaofw;
+        return this;
+    }
+    makeTranslation(zaofa, zaofb) {
+        return this.set(1, 0, zaofa, 0, 1, zaofb, 0, 0, 1);
+    }
+    makeRotation(zaofa) {
+        var zaofb = Math.cos(zaofa), zaofc = Math.sin(zaofa);
+        return this.set(zaofb, -zaofc, 0, zaofc, zaofb, 0, 0, 0, 1);
+    }
+    makeScale(zaofa, zaofb) {
+        return this.set(zaofa, 0, 0, 0, zaofb, 0, 0, 0, 1);
+    }
+    transpose() {
+        var zaofa = this.elements, zaofb;
+        zaofb = zaofa[1];
+        zaofa[1] = zaofa[3];
+        zaofa[3] = zaofb;
+        zaofb = zaofa[2];
+        zaofa[2] = zaofa[6];
+        zaofa[6] = zaofb;
+        zaofb = zaofa[5];
+        zaofa[5] = zaofa[7];
+        zaofa[7] = zaofb;
+        return this;
+    }
+    determinant() {
+        var zaofa = this.elements;
+        var zaofb = zaofa[0], zaofc = zaofa[1], zaofd = zaofa[2], zaofe = zaofa[3], zaoff = zaofa[4], zaofg = zaofa[5], zaofh = zaofa[6], zaofi = zaofa[7], zaofj = zaofa[8];
+        return zaofb * (zaoff * zaofj - zaofg * zaofi) - zaofe * (zaofc * zaofj - zaofd * zaofi) + zaofh * (zaofc * zaofg - zaofd * zaoff);
+    }
+    invert() {
+        var zaofa = this.elements;
+        var zaofb = zaofa[0], zaofc = zaofa[1], zaofd = zaofa[2], zaofe = zaofa[3], zaoff = zaofa[4], zaofg = zaofa[5], zaofh = zaofa[6], zaofi = zaofa[7], zaofj = zaofa[8];
+        var zaofk = zaofj * zaoff - zaofg * zaofi, zaofl = zaofg * zaofh - zaofj * zaofe, zaofm = zaofi * zaofe - zaoff * zaofh;
+        var zaofn = zaofb * zaofk + zaofc * zaofl + zaofd * zaofm;
+        if (zaofn === 0) return this.identity();
+        var zaofo = 1 / zaofn;
+        zaofa[0] = zaofk * zaofo;
+        zaofa[1] = (zaofd * zaofi - zaofj * zaofc) * zaofo;
+        zaofa[2] = (zaofg * zaofc - zaofd * zaoff) * zaofo;
+        zaofa[3] = zaofl * zaofo;
+        zaofa[4] = (zaofj * zaofb - zaofd * zaofh) * zaofo;
+        zaofa[5] = (zaofd * zaofe - zaofg * zaofb) * zaofo;
+        zaofa[6] = zaofm * zaofo;
+        zaofa[7] = (zaofc * zaofh - zaofi * zaofb) * zaofo;
+        zaofa[8] = (zaoff * zaofb - zaofc * zaofe) * zaofo;
+        return this;
+    }
+    getNormalMatrix(zaofa) {
+        return this.setFromMatrix4(zaofa).invert().transpose();
+    }
+    applyToBufferAttribute(zaofa) {
+        for (var zaofb = 0; zaofb < zaofa.count; zaofb++) {
+            var zaofc = new Vector3(zaofa.getX(zaofb), zaofa.getY(zaofb), zaofa.getZ(zaofb)).applyNormalMatrix(this);
+            zaofa.setXYZ(zaofb, zaofc.x, zaofc.y, zaofc.z);
+        }
+        return zaofa;
+    }
 }
+
 Matrix3.prototype.isMatrix3 = true;
 
 export { Matrix3 };

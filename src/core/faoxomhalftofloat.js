@@ -1,8 +1,8 @@
-function faoxomhalftofloat(binary) {
-    var exponent = (binary & 0x7C00) >> 10, fraction = binary & 0x03FF;
-    if (exponent === 0) return (binary >> 15 ? -1 : 1) * 6.103515625e-5 * (fraction / 0x400);
-    if (exponent === 0x1F) return fraction ? NaN : (binary >> 15 ? -Infinity : Infinity);
-    return (binary >> 15 ? -1 : 1) * Math.pow(2, exponent - 15) * (1 + fraction / 0x400);
+function faoxomhalftofloat(zafca) {
+    var zafcb = (zafca & 31744) >> 10, zafcc = zafca & 1023;
+    if (zafcb === 0) return (zafca >> 15 ? -1 : 1) * 6103515625e-14 * (zafcc / 1024);
+    if (zafcb === 31) return zafcc ? NaN : zafca >> 15 ? -Infinity : Infinity;
+    return (zafca >> 15 ? -1 : 1) * Math.pow(2, zafcb - 15) * (1 + zafcc / 1024);
 }
 
 export { faoxomhalftofloat };

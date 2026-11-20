@@ -1,15 +1,104 @@
 import { BoxGeometry, CylinderGeometry, SphereGeometry } from "../geometries/index.js";
+
 import { BasicMaterial } from "../materials/index.js";
+
 import { faoxomvalue } from "../math/index.js";
+
 import { Group, Mesh } from "../objects/index.js";
 
 class WebXRInputVisualizer extends Group {
-    constructor(manager, options) { super(); options = options || {}; this.manager = manager; this.type = "WebXRInputVisualizer"; this.rayLength = faoxomvalue(options.rayLength, 1); this.controllerSize = faoxomvalue(options.controllerSize, 0.08); this.jointSize = faoxomvalue(options.jointSize, 0.025); this.controllerMaterial = options.controllerMaterial || new BasicMaterial({ color: options.controllerColor === undefined ? 0x56a6ff : options.controllerColor }); this.rayMaterial = options.rayMaterial || new BasicMaterial({ color: options.rayColor === undefined ? 0xffcc66 : options.rayColor, transparent: true, opacity: 0.7 }); this.handMaterial = options.handMaterial || new BasicMaterial({ color: options.handColor === undefined ? 0x8ce0b0 : options.handColor }); this.entries = {}; this.jointNames = ["wrist", "thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip", "index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip", "middle-finger-metacarpal", "middle-finger-phalanx-proximal", "middle-finger-phalanx-intermediate", "middle-finger-phalanx-distal", "middle-finger-tip", "ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip", "pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip"]; }
-    createEntry(inputSource) { var key = inputSource.handedness || String(Object.keys(this.entries).length); var entry = this.entries[key]; if (entry) return entry; var group = new Group(); group.name = "XRController_" + key; var grip = new Mesh(new BoxGeometry(this.controllerSize, this.controllerSize * 1.5, this.controllerSize), this.controllerMaterial); grip.name = "grip"; var ray = new Mesh(new CylinderGeometry(this.controllerSize * 0.08, this.controllerSize * 0.08, this.rayLength, 8, 1, true), this.rayMaterial); ray.name = "targetRay"; ray.position.z = -this.rayLength * 0.5; ray.rotation.x = Math.PI * 0.5; group.add(grip); group.add(ray); var joints = {}; for (var i = 0; i < this.jointNames.length; i++) { var joint = new Mesh(new SphereGeometry(this.jointSize, 6, 4), this.handMaterial); joint.name = this.jointNames[i]; joint.visible = false; group.add(joint); joints[this.jointNames[i]] = joint; } this.add(group); entry = this.entries[key] = { source: inputSource, group: group, grip: grip, ray: ray, joints: joints }; return entry; }
-    applyPose(object, pose) { if (!object || !pose || !pose.transform) return; var position = pose.transform.position, orientation = pose.transform.orientation; object.position.set(position.x, position.y, position.z); object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w); object.updateMatrixWorld(true); }
-    update(frame, referenceSpace) { if (!frame || !referenceSpace) return this; var active = {}; var self = this; var sources = frame.session && frame.session.inputSources ? Array.prototype.slice.call(frame.session.inputSources) : []; for (var sourceIndex = 0; sourceIndex < sources.length; sourceIndex++) { var source = sources[sourceIndex], entry = this.createEntry(source), key = source.handedness || String(sourceIndex); active[key] = true; entry.source = source; var rayPose = source.targetRaySpace && frame.getPose ? frame.getPose(source.targetRaySpace, referenceSpace) : null; var gripPose = source.gripSpace && frame.getPose ? frame.getPose(source.gripSpace, referenceSpace) : rayPose; this.applyPose(entry.group, gripPose); if (rayPose) this.applyPose(entry.ray, rayPose); entry.ray.visible = !!rayPose; if (source.hand && frame.getJointPose) { for (var jointName in entry.joints) { var jointSpace = source.hand.get ? source.hand.get(jointName) : source.hand[jointName]; var jointPose = jointSpace ? frame.getJointPose(jointSpace, referenceSpace) : null; entry.joints[jointName].visible = !!jointPose; if (jointPose) this.applyPose(entry.joints[jointName], jointPose); } } else for (var jointKey in entry.joints) entry.joints[jointKey].visible = false; }
-        for (var entryKey in this.entries) this.entries[entryKey].group.visible = !!active[entryKey]; return this; }
-    dispose() { for (var key in this.entries) this.entries[key].group.destroy(); this.entries = {}; if (this.parent) this.parent.remove(this); }
+    constructor(zajoa, zajob) {
+        super();
+        zajob = zajob || {};
+        this.manager = zajoa;
+        this.type = "WebXRInputVisualizer";
+        this.rayLength = faoxomvalue(zajob.rayLength, 1);
+        this.controllerSize = faoxomvalue(zajob.controllerSize, .08);
+        this.jointSize = faoxomvalue(zajob.jointSize, .025);
+        this.controllerMaterial = zajob.controllerMaterial || new BasicMaterial({
+            color: zajob.controllerColor === undefined ? 5678847 : zajob.controllerColor
+        });
+        this.rayMaterial = zajob.rayMaterial || new BasicMaterial({
+            color: zajob.rayColor === undefined ? 16764006 : zajob.rayColor,
+            transparent: true,
+            opacity: .7
+        });
+        this.handMaterial = zajob.handMaterial || new BasicMaterial({
+            color: zajob.handColor === undefined ? 9232560 : zajob.handColor
+        });
+        this.entries = {};
+        this.jointNames = [ "wrist", "thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip", "index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip", "middle-finger-metacarpal", "middle-finger-phalanx-proximal", "middle-finger-phalanx-intermediate", "middle-finger-phalanx-distal", "middle-finger-tip", "ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip", "pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip" ];
+    }
+    createEntry(zajoa) {
+        var zajob = zajoa.handedness || String(Object.keys(this.entries).length);
+        var zajoc = this.entries[zajob];
+        if (zajoc) return zajoc;
+        var zajod = new Group;
+        zajod.name = "XRController_" + zajob;
+        var zajoe = new Mesh(new BoxGeometry(this.controllerSize, this.controllerSize * 1.5, this.controllerSize), this.controllerMaterial);
+        zajoe.name = "grip";
+        var zajof = new Mesh(new CylinderGeometry(this.controllerSize * .08, this.controllerSize * .08, this.rayLength, 8, 1, true), this.rayMaterial);
+        zajof.name = "targetRay";
+        zajof.position.z = -this.rayLength * .5;
+        zajof.rotation.x = Math.PI * .5;
+        zajod.add(zajoe);
+        zajod.add(zajof);
+        var zajog = {};
+        for (var zajoh = 0; zajoh < this.jointNames.length; zajoh++) {
+            var zajoi = new Mesh(new SphereGeometry(this.jointSize, 6, 4), this.handMaterial);
+            zajoi.name = this.jointNames[zajoh];
+            zajoi.visible = false;
+            zajod.add(zajoi);
+            zajog[this.jointNames[zajoh]] = zajoi;
+        }
+        this.add(zajod);
+        zajoc = this.entries[zajob] = {
+            source: zajoa,
+            group: zajod,
+            grip: zajoe,
+            ray: zajof,
+            joints: zajog
+        };
+        return zajoc;
+    }
+    applyPose(zajoa, zajob) {
+        if (!zajoa || !zajob || !zajob.transform) return;
+        var zajoc = zajob.transform.position, zajod = zajob.transform.orientation;
+        zajoa.position.set(zajoc.x, zajoc.y, zajoc.z);
+        zajoa.quaternion.set(zajod.x, zajod.y, zajod.z, zajod.w);
+        zajoa.updateMatrixWorld(true);
+    }
+    update(zajoa, zajob) {
+        if (!zajoa || !zajob) return this;
+        var zajoc = {};
+        var zajod = this;
+        var zajoe = zajoa.session && zajoa.session.inputSources ? Array.prototype.slice.call(zajoa.session.inputSources) : [];
+        for (var zajof = 0; zajof < zajoe.length; zajof++) {
+            var zajog = zajoe[zajof], zajoh = this.createEntry(zajog), zajoi = zajog.handedness || String(zajof);
+            zajoc[zajoi] = true;
+            zajoh.source = zajog;
+            var zajoj = zajog.targetRaySpace && zajoa.getPose ? zajoa.getPose(zajog.targetRaySpace, zajob) : null;
+            var zajok = zajog.gripSpace && zajoa.getPose ? zajoa.getPose(zajog.gripSpace, zajob) : zajoj;
+            this.applyPose(zajoh.group, zajok);
+            if (zajoj) this.applyPose(zajoh.ray, zajoj);
+            zajoh.ray.visible = !!zajoj;
+            if (zajog.hand && zajoa.getJointPose) {
+                for (var zajol in zajoh.joints) {
+                    var zajom = zajog.hand.get ? zajog.hand.get(zajol) : zajog.hand[zajol];
+                    var zajon = zajom ? zajoa.getJointPose(zajom, zajob) : null;
+                    zajoh.joints[zajol].visible = !!zajon;
+                    if (zajon) this.applyPose(zajoh.joints[zajol], zajon);
+                }
+            } else for (var zajoo in zajoh.joints) zajoh.joints[zajoo].visible = false;
+        }
+        for (var zajop in this.entries) this.entries[zajop].group.visible = !!zajoc[zajop];
+        return this;
+    }
+    dispose() {
+        for (var zajoa in this.entries) this.entries[zajoa].group.destroy();
+        this.entries = {};
+        if (this.parent) this.parent.remove(this);
+    }
 }
 
 export { WebXRInputVisualizer };

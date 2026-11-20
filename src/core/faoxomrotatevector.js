@@ -1,5 +1,7 @@
 import { Quaternion } from "../math/index.js";
 
-function faoxomrotatevector(vector, quaternion) { return vector.clone().applyQuaternion(quaternion || new Quaternion()); }
+function faoxomrotatevector(zafua, zafub) {
+    return zafua.clone().applyQuaternion(zafub || new Quaternion);
+}
 
 export { faoxomrotatevector };

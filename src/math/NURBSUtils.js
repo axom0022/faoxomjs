@@ -1,40 +1,43 @@
 import { Vector4 } from "./Vector4.js";
 
 class NURBSUtils {
-    static findSpan(p, u, U) {
-        var n = U.length - p - 2;
-        if (u >= U[n + 1]) return n;
-        if (u <= U[p]) return p;
-        var low = p, high = n + 1, mid = Math.floor((low + high) / 2);
-        while (u < U[mid] || u >= U[mid + 1]) {
-            if (u < U[mid]) high = mid; else low = mid;
-            mid = Math.floor((low + high) / 2);
+    static findSpan(zaoja, zaojb, zaojc) {
+        var zaojd = zaojc.length - zaoja - 2;
+        if (zaojb >= zaojc[zaojd + 1]) return zaojd;
+        if (zaojb <= zaojc[zaoja]) return zaoja;
+        var zaoje = zaoja, zaojf = zaojd + 1, zaojg = Math.floor((zaoje + zaojf) / 2);
+        while (zaojb < zaojc[zaojg] || zaojb >= zaojc[zaojg + 1]) {
+            if (zaojb < zaojc[zaojg]) zaojf = zaojg; else zaoje = zaojg;
+            zaojg = Math.floor((zaoje + zaojf) / 2);
         }
-        return mid;
+        return zaojg;
     }
-    static calcBasisFunctions(span, u, p, U) {
-        var N = [1.0], left = [0.0], right = [0.0];
-        for (var j = 1; j <= p; j++) {
-            left[j] = u - U[span + 1 - j];
-            right[j] = U[span + j] - u;
-            var saved = 0.0;
-            for (var r = 0; r < j; r++) {
-                var rv = right[r + 1], lv = left[j - r];
-                var temp = N[r] / (rv + lv);
-                N[r] = saved + rv * temp;
-                saved = lv * temp;
+    static calcBasisFunctions(zaoja, zaojb, zaojc, zaojd) {
+        var zaoje = [ 1 ], zaojf = [ 0 ], zaojg = [ 0 ];
+        for (var zaojh = 1; zaojh <= zaojc; zaojh++) {
+            zaojf[zaojh] = zaojb - zaojd[zaoja + 1 - zaojh];
+            zaojg[zaojh] = zaojd[zaoja + zaojh] - zaojb;
+            var zaoji = 0;
+            for (var zaojj = 0; zaojj < zaojh; zaojj++) {
+                var zaojk = zaojg[zaojj + 1], zaojl = zaojf[zaojh - zaojj];
+                var zaojm = zaoje[zaojj] / (zaojk + zaojl);
+                zaoje[zaojj] = zaoji + zaojk * zaojm;
+                zaoji = zaojl * zaojm;
             }
-            N[j] = saved;
+            zaoje[zaojh] = zaoji;
         }
-        return N;
+        return zaoje;
     }
-    static calcBSplinePoint(p, U, P, u) {
-        var span = this.findSpan(p, u, U), N = this.calcBasisFunctions(span, u, p, U), C = new Vector4(0, 0, 0, 0);
-        for (var i = 0; i <= p; i++) {
-            var pt = P[span - p + i], basis = N[i];
-            C.x += basis * pt.x; C.y += basis * pt.y; C.z += basis * pt.z; C.w += basis * (pt.w !== undefined ? pt.w : 1.0);
+    static calcBSplinePoint(zaoja, zaojb, zaojc, zaojd) {
+        var zaoje = this.findSpan(zaoja, zaojd, zaojb), zaojf = this.calcBasisFunctions(zaoje, zaojd, zaoja, zaojb), zaojg = new Vector4(0, 0, 0, 0);
+        for (var zaojh = 0; zaojh <= zaoja; zaojh++) {
+            var zaoji = zaojc[zaoje - zaoja + zaojh], zaojj = zaojf[zaojh];
+            zaojg.x += zaojj * zaoji.x;
+            zaojg.y += zaojj * zaoji.y;
+            zaojg.z += zaojj * zaoji.z;
+            zaojg.w += zaojj * (zaoji.w !== undefined ? zaoji.w : 1);
         }
-        return C;
+        return zaojg;
     }
 }
 

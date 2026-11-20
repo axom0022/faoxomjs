@@ -1,12 +1,64 @@
 import { faoxomvalue } from "../math/index.js";
 
 class DestructionBody {
-    constructor(world, pieces, options) { this.world = world; this.pieces = pieces || []; this.options = options || {}; this.broken = false; this.damage = 0; this.breakImpulse = faoxomvalue(this.options.breakImpulse, 5); this.breakDamage = faoxomvalue(this.options.breakDamage, 1); this.body = this.options.body || null; this.onBreak = this.options.onBreak || null; this.bonds = []; if (this.body) { var self = this; var previous = this.body.onCollision; this.body.onCollision = function(other, normal, penetration) { var impulse = Math.max(0, self.body.velocity.length() * self.body.mass); self.applyDamage(impulse / Math.max(self.breakImpulse, 0.001)); if (previous) previous(other, normal, penetration); }; } }
-    addPiece(piece) { if (this.pieces.indexOf(piece) === -1) this.pieces.push(piece); return this; }
-    addBond(first, second, strength) { this.bonds.push({ first: first, second: second, strength: faoxomvalue(strength, this.breakDamage), broken: false }); return this; }
-    applyDamage(amount) { this.damage += Math.max(0, amount || 0); if (this.damage >= this.breakDamage) this.break(); return this; }
-    fracture(factory) { if (factory) { var created = factory(this.body, this.options) || []; for (var i = 0; i < created.length; i++) this.addPiece(created[i]); } return this.break(); }
-    break() { if (this.broken) return this.pieces; this.broken = true; if (this.body && this.world) this.world.removeBody(this.body); for (var i = 0; i < this.pieces.length; i++) { var piece = this.pieces[i]; if (this.world) this.world.addBody(piece); } for (var j = 0; j < this.bonds.length; j++) this.bonds[j].broken = true; if (this.onBreak) this.onBreak(this.pieces, this); return this.pieces; }
+    constructor(zahaa, zahab, zahac) {
+        this.world = zahaa;
+        this.pieces = zahab || [];
+        this.options = zahac || {};
+        this.broken = false;
+        this.damage = 0;
+        this.breakImpulse = faoxomvalue(this.options.breakImpulse, 5);
+        this.breakDamage = faoxomvalue(this.options.breakDamage, 1);
+        this.body = this.options.body || null;
+        this.onBreak = this.options.onBreak || null;
+        this.bonds = [];
+        if (this.body) {
+            var zahad = this;
+            var zahae = this.body.onCollision;
+            this.body.onCollision = function(zahaa, zahab, zahac) {
+                var zahaf = Math.max(0, zahad.body.velocity.length() * zahad.body.mass);
+                zahad.applyDamage(zahaf / Math.max(zahad.breakImpulse, .001));
+                if (zahae) zahae(zahaa, zahab, zahac);
+            };
+        }
+    }
+    addPiece(zahaa) {
+        if (this.pieces.indexOf(zahaa) === -1) this.pieces.push(zahaa);
+        return this;
+    }
+    addBond(zahaa, zahab, zahac) {
+        this.bonds.push({
+            first: zahaa,
+            second: zahab,
+            strength: faoxomvalue(zahac, this.breakDamage),
+            broken: false
+        });
+        return this;
+    }
+    applyDamage(zahaa) {
+        this.damage += Math.max(0, zahaa || 0);
+        if (this.damage >= this.breakDamage) this.break();
+        return this;
+    }
+    fracture(zahaa) {
+        if (zahaa) {
+            var zahab = zahaa(this.body, this.options) || [];
+            for (var zahac = 0; zahac < zahab.length; zahac++) this.addPiece(zahab[zahac]);
+        }
+        return this.break();
+    }
+    break() {
+        if (this.broken) return this.pieces;
+        this.broken = true;
+        if (this.body && this.world) this.world.removeBody(this.body);
+        for (var zahaa = 0; zahaa < this.pieces.length; zahaa++) {
+            var zahab = this.pieces[zahaa];
+            if (this.world) this.world.addBody(zahab);
+        }
+        for (var zahac = 0; zahac < this.bonds.length; zahac++) this.bonds[zahac].broken = true;
+        if (this.onBreak) this.onBreak(this.pieces, this);
+        return this.pieces;
+    }
 }
 
 export { DestructionBody };

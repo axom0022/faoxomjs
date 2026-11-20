@@ -1,5 +1,38 @@
 import { Quaternion, Vector3 } from "../math/index.js";
 
-function faoxomobbcontact(a, b) { var ea = a.shape.size.clone().multiplyScalar(0.5); var eb = b.shape.size.clone().multiplyScalar(0.5); var qa = a.rotation || new Quaternion(); var qb = b.rotation || new Quaternion(); var axesA = [new Vector3(1, 0, 0).applyQuaternion(qa), new Vector3(0, 1, 0).applyQuaternion(qa), new Vector3(0, 0, 1).applyQuaternion(qa)]; var axesB = [new Vector3(1, 0, 0).applyQuaternion(qb), new Vector3(0, 1, 0).applyQuaternion(qb), new Vector3(0, 0, 1).applyQuaternion(qb)]; var axes = axesA.concat(axesB); for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) { var cross = new Vector3().crossVectors(axesA[i], axesB[j]); if (cross.lengthSq() > 1e-8) axes.push(cross.normalize()); } var delta = new Vector3().subVectors(b.position, a.position); var minPenetration = Infinity; var best = null; for (var axisIndex = 0; axisIndex < axes.length; axisIndex++) { var axis = axes[axisIndex].clone().normalize(); var ra = ea.x * Math.abs(axis.dot(axesA[0])) + ea.y * Math.abs(axis.dot(axesA[1])) + ea.z * Math.abs(axis.dot(axesA[2])); var rb = eb.x * Math.abs(axis.dot(axesB[0])) + eb.y * Math.abs(axis.dot(axesB[1])) + eb.z * Math.abs(axis.dot(axesB[2])); var overlap = ra + rb - Math.abs(delta.dot(axis)); if (overlap <= 0) return null; if (overlap < minPenetration) { minPenetration = overlap; best = axis; if (best.dot(delta) < 0) best.negate(); } } var point = new Vector3().addVectors(a.position, b.position).multiplyScalar(0.5); return { normal: best, penetration: minPenetration, point: point }; }
+function faoxomobbcontact(zafna, zafnb) {
+    var zafnc = zafna.shape.size.clone().multiplyScalar(.5);
+    var zafnd = zafnb.shape.size.clone().multiplyScalar(.5);
+    var zafne = zafna.rotation || new Quaternion;
+    var zafnf = zafnb.rotation || new Quaternion;
+    var zafng = [ new Vector3(1, 0, 0).applyQuaternion(zafne), new Vector3(0, 1, 0).applyQuaternion(zafne), new Vector3(0, 0, 1).applyQuaternion(zafne) ];
+    var zafnh = [ new Vector3(1, 0, 0).applyQuaternion(zafnf), new Vector3(0, 1, 0).applyQuaternion(zafnf), new Vector3(0, 0, 1).applyQuaternion(zafnf) ];
+    var zafni = zafng.concat(zafnh);
+    for (var zafnj = 0; zafnj < 3; zafnj++) for (var zafnk = 0; zafnk < 3; zafnk++) {
+        var zafnl = (new Vector3).crossVectors(zafng[zafnj], zafnh[zafnk]);
+        if (zafnl.lengthSq() > 1e-8) zafni.push(zafnl.normalize());
+    }
+    var zafnm = (new Vector3).subVectors(zafnb.position, zafna.position);
+    var zafnn = Infinity;
+    var zafno = null;
+    for (var zafnp = 0; zafnp < zafni.length; zafnp++) {
+        var zafnq = zafni[zafnp].clone().normalize();
+        var zafnr = zafnc.x * Math.abs(zafnq.dot(zafng[0])) + zafnc.y * Math.abs(zafnq.dot(zafng[1])) + zafnc.z * Math.abs(zafnq.dot(zafng[2]));
+        var zafns = zafnd.x * Math.abs(zafnq.dot(zafnh[0])) + zafnd.y * Math.abs(zafnq.dot(zafnh[1])) + zafnd.z * Math.abs(zafnq.dot(zafnh[2]));
+        var zafnt = zafnr + zafns - Math.abs(zafnm.dot(zafnq));
+        if (zafnt <= 0) return null;
+        if (zafnt < zafnn) {
+            zafnn = zafnt;
+            zafno = zafnq;
+            if (zafno.dot(zafnm) < 0) zafno.negate();
+        }
+    }
+    var zafnu = (new Vector3).addVectors(zafna.position, zafnb.position).multiplyScalar(.5);
+    return {
+        normal: zafno,
+        penetration: zafnn,
+        point: zafnu
+    };
+}
 
 export { faoxomobbcontact };

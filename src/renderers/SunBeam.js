@@ -1,29 +1,33 @@
 import { DirectionalLight } from "../lights/index.js";
+
 import { CascadedShadowMap } from "./CascadedShadowMap.js";
 
 class SunBeam extends DirectionalLight {
-    constructor(color, intensity, elevation, azimuth, distance) {
-        super(color, intensity);
+    constructor(zauaa, zauab, zauac, zauad, zauae) {
+        super(zauaa, zauab);
         this.type = "SunBeam";
-        this.elevation = elevation === undefined ? 50 : elevation;
-        this.azimuth = azimuth === undefined ? 135 : azimuth;
-        this.sunDistance = distance === undefined ? 100 : distance;
+        this.elevation = zauac === undefined ? 50 : zauac;
+        this.azimuth = zauad === undefined ? 135 : zauad;
+        this.sunDistance = zauae === undefined ? 100 : zauae;
         this.cascadeRig = null;
         this.aim(this.elevation, this.azimuth);
     }
-    aim(elevation, azimuth) {
-        this.elevation = elevation === undefined ? this.elevation : elevation;
-        this.azimuth = azimuth === undefined ? this.azimuth : azimuth;
-        var el = this.elevation * Math.PI / 180, az = this.azimuth * Math.PI / 180;
-        this.position.set(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).multiplyScalar(this.sunDistance);
-        if (this.target) { this.target.position.set(0, 0, 0); this.target.updateMatrixWorld && this.target.updateMatrixWorld(); }
+    aim(zauaa, zauab) {
+        this.elevation = zauaa === undefined ? this.elevation : zauaa;
+        this.azimuth = zauab === undefined ? this.azimuth : zauab;
+        var zauac = this.elevation * Math.PI / 180, zauad = this.azimuth * Math.PI / 180;
+        this.position.set(Math.cos(zauac) * Math.cos(zauad), Math.sin(zauac), Math.cos(zauac) * Math.sin(zauad)).multiplyScalar(this.sunDistance);
+        if (this.target) {
+            this.target.position.set(0, 0, 0);
+            this.target.updateMatrixWorld && this.target.updateMatrixWorld();
+        }
         this.updateMatrixWorld && this.updateMatrixWorld();
         return this;
     }
-    enableCascades(cascades, maxDistance) {
+    enableCascades(zauaa, zauab) {
         this.shadow.enabled = true;
-        this.shadow.cascades = cascades || 3;
-        this.cascadeRig = new CascadedShadowMap(this, cascades || 3, maxDistance === undefined ? 120 : maxDistance);
+        this.shadow.cascades = zauaa || 3;
+        this.cascadeRig = new CascadedShadowMap(this, zauaa || 3, zauab === undefined ? 120 : zauab);
         return this.cascadeRig;
     }
 }

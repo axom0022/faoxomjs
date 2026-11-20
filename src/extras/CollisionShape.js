@@ -1,11 +1,98 @@
 import { faoxomshapeextents, faoxomshapevertices, faoxomworldpoint } from "../core/index.js";
+
 import { Box3, Matrix4, Quaternion, Vector3, faoxomclamp, faoxomvalue } from "../math/index.js";
 
 class CollisionShape {
-    constructor(type, options) { if (type && typeof type === "object") { options = type; type = options.type; } options = options || {}; this.type = type || "box"; this.radius = faoxomvalue(options.radius, 0.5); this.height = faoxomvalue(options.height, 1); this.size = options.size ? options.size.clone() : this.type === "capsule" ? new Vector3(this.radius * 2, this.height + this.radius * 2, this.radius * 2) : new Vector3(faoxomvalue(options.width, 1), faoxomvalue(options.height, 1), faoxomvalue(options.depth, 1)); this.vertices = []; var sourceVertices = options.vertices || options.points || []; for (var i = 0; i < sourceVertices.length; i++) this.vertices.push(sourceVertices[i] instanceof Vector3 ? sourceVertices[i].clone() : new Vector3(sourceVertices[i][0], sourceVertices[i][1], sourceVertices[i][2])); this.indices = options.indices || null; this.children = []; var sourceChildren = options.children || []; for (var ci = 0; ci < sourceChildren.length; ci++) this.children.push(sourceChildren[ci] instanceof CollisionShape ? { shape: sourceChildren[ci], position: new Vector3(), quaternion: new Quaternion() } : sourceChildren[ci]); this.width = faoxomvalue(options.width, 10); this.depth = faoxomvalue(options.depth, 10); this.segmentsX = Math.max(1, Math.floor(faoxomvalue(options.segmentsX, 1))); this.segmentsZ = Math.max(1, Math.floor(faoxomvalue(options.segmentsZ, 1))); this.heights = options.heights ? new Float32Array(options.heights) : null; this.minimumHeight = this.heights && this.heights.length ? Math.min.apply(null, this.heights) : 0; this.maximumHeight = this.heights && this.heights.length ? Math.max.apply(null, this.heights) : 0; this.boundingBox = null; this.inertia = new Vector3(); this.computeInertia(faoxomvalue(options.mass, 1)); }
-    computeInertia(mass) { if (this.type === "sphere") { var i = 0.4 * mass * this.radius * this.radius; this.inertia.set(i, i, i); } else if (this.type === "cylinder") { this.inertia.set(mass * (3 * this.radius * this.radius + this.height * this.height) / 12, mass * this.radius * this.radius * 0.5, mass * (3 * this.radius * this.radius + this.height * this.height) / 12); } else { var e = faoxomshapeextents(this); this.inertia.set(mass * (e.y * e.y + e.z * e.z) / 3, mass * (e.x * e.x + e.z * e.z) / 3, mass * (e.x * e.x + e.y * e.y) / 3); } return this; }
-    getHeight(x, z) { if (this.type !== "heightfield" || !this.heights) return -Infinity; var fx = faoxomclamp(x / this.width + 0.5, 0, 1) * this.segmentsX; var fz = faoxomclamp(z / this.depth + 0.5, 0, 1) * this.segmentsZ; var x0 = Math.floor(fx), z0 = Math.floor(fz), x1 = Math.min(this.segmentsX, x0 + 1), z1 = Math.min(this.segmentsZ, z0 + 1); var tx = fx - x0, tz = fz - z0; var index = function(xx, zz) { return zz * (this.segmentsX + 1) + xx; }.bind(this); var h00 = this.heights[index(x0, z0)] || 0, h10 = this.heights[index(x1, z0)] || 0, h01 = this.heights[index(x0, z1)] || 0, h11 = this.heights[index(x1, z1)] || 0; return (h00 * (1 - tx) + h10 * tx) * (1 - tz) + (h01 * (1 - tx) + h11 * tx) * tz; }
-    getAABB(position, target, rotation) { var b = target || new Box3(); var q = rotation || new Quaternion(); if (this.type === "compound") { b.makeEmpty(); for (var i = 0; i < this.children.length; i++) { var child = this.children[i]; var childPosition = faoxomworldpoint(position, q, child.position || new Vector3()); var childRotation = q.clone().multiply(child.quaternion || new Quaternion()); b.union(child.shape.getAABB(childPosition, new Box3(), childRotation)); } return b; } if (this.type === "heightfield") { var localMin = new Vector3(-this.width * 0.5, this.minimumHeight, -this.depth * 0.5); var localMax = new Vector3(this.width * 0.5, this.maximumHeight, this.depth * 0.5); var corners = [new Vector3(localMin.x, localMin.y, localMin.z), new Vector3(localMax.x, localMin.y, localMin.z), new Vector3(localMin.x, localMax.y, localMin.z), new Vector3(localMax.x, localMax.y, localMin.z), new Vector3(localMin.x, localMin.y, localMax.z), new Vector3(localMax.x, localMin.y, localMax.z), new Vector3(localMin.x, localMax.y, localMax.z), new Vector3(localMax.x, localMax.y, localMax.z)]; b.makeEmpty(); for (var h = 0; h < corners.length; h++) b.expandByPoint(faoxomworldpoint(position, q, corners[h])); return b; } var vertices = this.vertices.length ? this.vertices : faoxomshapevertices(this); if (this.type === "mesh" || this.type === "convex") { b.makeEmpty(); for (var v = 0; v < vertices.length; v++) b.expandByPoint(faoxomworldpoint(position, q, vertices[v])); return b; } var extents = faoxomshapeextents(this); var matrix = new Matrix4().makeRotationFromQuaternion(q).elements; var wx = Math.abs(matrix[0]) * extents.x + Math.abs(matrix[4]) * extents.y + Math.abs(matrix[8]) * extents.z; var wy = Math.abs(matrix[1]) * extents.x + Math.abs(matrix[5]) * extents.y + Math.abs(matrix[9]) * extents.z; var wz = Math.abs(matrix[2]) * extents.x + Math.abs(matrix[6]) * extents.y + Math.abs(matrix[10]) * extents.z; return b.set(new Vector3(position.x - wx, position.y - wy, position.z - wz), new Vector3(position.x + wx, position.y + wy, position.z + wz)); }
+    constructor(zagqa, zagqb) {
+        if (zagqa && typeof zagqa === "object") {
+            zagqb = zagqa;
+            zagqa = zagqb.type;
+        }
+        zagqb = zagqb || {};
+        this.type = zagqa || "box";
+        this.radius = faoxomvalue(zagqb.radius, .5);
+        this.height = faoxomvalue(zagqb.height, 1);
+        this.size = zagqb.size ? zagqb.size.clone() : this.type === "capsule" ? new Vector3(this.radius * 2, this.height + this.radius * 2, this.radius * 2) : new Vector3(faoxomvalue(zagqb.width, 1), faoxomvalue(zagqb.height, 1), faoxomvalue(zagqb.depth, 1));
+        this.vertices = [];
+        var zagqc = zagqb.vertices || zagqb.points || [];
+        for (var zagqd = 0; zagqd < zagqc.length; zagqd++) this.vertices.push(zagqc[zagqd] instanceof Vector3 ? zagqc[zagqd].clone() : new Vector3(zagqc[zagqd][0], zagqc[zagqd][1], zagqc[zagqd][2]));
+        this.indices = zagqb.indices || null;
+        this.children = [];
+        var zagqe = zagqb.children || [];
+        for (var zagqf = 0; zagqf < zagqe.length; zagqf++) this.children.push(zagqe[zagqf] instanceof CollisionShape ? {
+            shape: zagqe[zagqf],
+            position: new Vector3,
+            quaternion: new Quaternion
+        } : zagqe[zagqf]);
+        this.width = faoxomvalue(zagqb.width, 10);
+        this.depth = faoxomvalue(zagqb.depth, 10);
+        this.segmentsX = Math.max(1, Math.floor(faoxomvalue(zagqb.segmentsX, 1)));
+        this.segmentsZ = Math.max(1, Math.floor(faoxomvalue(zagqb.segmentsZ, 1)));
+        this.heights = zagqb.heights ? new Float32Array(zagqb.heights) : null;
+        this.minimumHeight = this.heights && this.heights.length ? Math.min.apply(null, this.heights) : 0;
+        this.maximumHeight = this.heights && this.heights.length ? Math.max.apply(null, this.heights) : 0;
+        this.boundingBox = null;
+        this.inertia = new Vector3;
+        this.computeInertia(faoxomvalue(zagqb.mass, 1));
+    }
+    computeInertia(zagqa) {
+        if (this.type === "sphere") {
+            var zagqb = .4 * zagqa * this.radius * this.radius;
+            this.inertia.set(zagqb, zagqb, zagqb);
+        } else if (this.type === "cylinder") {
+            this.inertia.set(zagqa * (3 * this.radius * this.radius + this.height * this.height) / 12, zagqa * this.radius * this.radius * .5, zagqa * (3 * this.radius * this.radius + this.height * this.height) / 12);
+        } else {
+            var zagqc = faoxomshapeextents(this);
+            this.inertia.set(zagqa * (zagqc.y * zagqc.y + zagqc.z * zagqc.z) / 3, zagqa * (zagqc.x * zagqc.x + zagqc.z * zagqc.z) / 3, zagqa * (zagqc.x * zagqc.x + zagqc.y * zagqc.y) / 3);
+        }
+        return this;
+    }
+    getHeight(zagqa, zagqb) {
+        if (this.type !== "heightfield" || !this.heights) return -Infinity;
+        var zagqc = faoxomclamp(zagqa / this.width + .5, 0, 1) * this.segmentsX;
+        var zagqd = faoxomclamp(zagqb / this.depth + .5, 0, 1) * this.segmentsZ;
+        var zagqe = Math.floor(zagqc), zagqf = Math.floor(zagqd), zagqg = Math.min(this.segmentsX, zagqe + 1), zagqh = Math.min(this.segmentsZ, zagqf + 1);
+        var zagqi = zagqc - zagqe, zagqj = zagqd - zagqf;
+        var zagqk = function(zagqa, zagqb) {
+            return zagqb * (this.segmentsX + 1) + zagqa;
+        }.bind(this);
+        var zagql = this.heights[zagqk(zagqe, zagqf)] || 0, zagqm = this.heights[zagqk(zagqg, zagqf)] || 0, zagqn = this.heights[zagqk(zagqe, zagqh)] || 0, zagqo = this.heights[zagqk(zagqg, zagqh)] || 0;
+        return (zagql * (1 - zagqi) + zagqm * zagqi) * (1 - zagqj) + (zagqn * (1 - zagqi) + zagqo * zagqi) * zagqj;
+    }
+    getAABB(zagqa, zagqb, zagqc) {
+        var zagqd = zagqb || new Box3;
+        var zagqe = zagqc || new Quaternion;
+        if (this.type === "compound") {
+            zagqd.makeEmpty();
+            for (var zagqf = 0; zagqf < this.children.length; zagqf++) {
+                var zagqg = this.children[zagqf];
+                var zagqh = faoxomworldpoint(zagqa, zagqe, zagqg.position || new Vector3);
+                var zagqi = zagqe.clone().multiply(zagqg.quaternion || new Quaternion);
+                zagqd.union(zagqg.shape.getAABB(zagqh, new Box3, zagqi));
+            }
+            return zagqd;
+        }
+        if (this.type === "heightfield") {
+            var zagqj = new Vector3(-this.width * .5, this.minimumHeight, -this.depth * .5);
+            var zagqk = new Vector3(this.width * .5, this.maximumHeight, this.depth * .5);
+            var zagql = [ new Vector3(zagqj.x, zagqj.y, zagqj.z), new Vector3(zagqk.x, zagqj.y, zagqj.z), new Vector3(zagqj.x, zagqk.y, zagqj.z), new Vector3(zagqk.x, zagqk.y, zagqj.z), new Vector3(zagqj.x, zagqj.y, zagqk.z), new Vector3(zagqk.x, zagqj.y, zagqk.z), new Vector3(zagqj.x, zagqk.y, zagqk.z), new Vector3(zagqk.x, zagqk.y, zagqk.z) ];
+            zagqd.makeEmpty();
+            for (var zagqm = 0; zagqm < zagql.length; zagqm++) zagqd.expandByPoint(faoxomworldpoint(zagqa, zagqe, zagql[zagqm]));
+            return zagqd;
+        }
+        var zagqn = this.vertices.length ? this.vertices : faoxomshapevertices(this);
+        if (this.type === "mesh" || this.type === "convex") {
+            zagqd.makeEmpty();
+            for (var zagqo = 0; zagqo < zagqn.length; zagqo++) zagqd.expandByPoint(faoxomworldpoint(zagqa, zagqe, zagqn[zagqo]));
+            return zagqd;
+        }
+        var zagqp = faoxomshapeextents(this);
+        var zagqq = (new Matrix4).makeRotationFromQuaternion(zagqe).elements;
+        var zagqr = Math.abs(zagqq[0]) * zagqp.x + Math.abs(zagqq[4]) * zagqp.y + Math.abs(zagqq[8]) * zagqp.z;
+        var zagqs = Math.abs(zagqq[1]) * zagqp.x + Math.abs(zagqq[5]) * zagqp.y + Math.abs(zagqq[9]) * zagqp.z;
+        var zagqt = Math.abs(zagqq[2]) * zagqp.x + Math.abs(zagqq[6]) * zagqp.y + Math.abs(zagqq[10]) * zagqp.z;
+        return zagqd.set(new Vector3(zagqa.x - zagqr, zagqa.y - zagqs, zagqa.z - zagqt), new Vector3(zagqa.x + zagqr, zagqa.y + zagqs, zagqa.z + zagqt));
+    }
 }
 
 export { CollisionShape };

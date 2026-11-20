@@ -1,6 +1,75 @@
 import { faoxomfbxarray, faoxomfbxchild, faoxomfbxlayertuple, faoxomfbxlayervalue, faoxomfbxnumber } from "../core/index.js";
+
 import { Geometry } from "../geometries/index.js";
 
-function faoxomfbxgeometry(geometryNode) { var positions = faoxomfbxarray(geometryNode, "Vertices") || []; var polygonIndices = faoxomfbxarray(geometryNode, "PolygonVertexIndex") || []; var normalLayer = faoxomfbxchild(geometryNode, "LayerElementNormal"); var uvLayer = faoxomfbxchild(geometryNode, "LayerElementUV"); var colorLayer = faoxomfbxchild(geometryNode, "LayerElementColor"); var tangentLayer = faoxomfbxchild(geometryNode, "LayerElementTangent"); var materialLayer = faoxomfbxchild(geometryNode, "LayerElementMaterial"); var vertexPositions = [], vertexNormals = [], vertexUvs = [], vertexColors = [], vertexTangents = [], originalVertices = [], indices = [], materialIndices = [], polygon = [], polygonIndex = 0, cornerIndex = 0; var addPolygon = function(poly, polyNo) { if (poly.length < 3) return; for (var tri = 1; tri < poly.length - 1; tri++) { var corners = [poly[0], poly[tri], poly[tri + 1]]; for (var c = 0; c < 3; c++) { var info = corners[c], vertex = info.vertex, source = vertex * 3; vertexPositions.push(faoxomfbxnumber(positions[source]), faoxomfbxnumber(positions[source + 1]), faoxomfbxnumber(positions[source + 2])); originalVertices.push(vertex); var normal = faoxomfbxlayertuple(normalLayer, "Normals", "NormalsIndex", info.corner, vertex, polyNo, 3, [0, 0, 0]); vertexNormals.push(normal[0], normal[1], normal[2]); var uv = faoxomfbxlayertuple(uvLayer, "UV", "UVIndex", info.corner, vertex, polyNo, 2, [0, 0]); vertexUvs.push(uv[0], uv[1]); var color = faoxomfbxlayertuple(colorLayer, "Colors", "ColorIndex", info.corner, vertex, polyNo, 4, [1, 1, 1, 1]); vertexColors.push(color[0], color[1], color[2], color[3]); var tangent = faoxomfbxlayertuple(tangentLayer, "Tangents", "TangentsIndex", info.corner, vertex, polyNo, 4, [0, 0, 0, 1]); vertexTangents.push(tangent[0], tangent[1], tangent[2], tangent[3]); indices.push(indices.length); } materialIndices.push(faoxomfbxnumber(faoxomfbxlayervalue(materialLayer, "Materials", "MaterialsIndex", polyNo, 0, polyNo, 0))); } }; for (var i = 0; i < polygonIndices.length; i++) { var value = faoxomfbxnumber(polygonIndices[i]); var vertex = value < 0 ? -value - 1 : value; polygon.push({ vertex: vertex, corner: cornerIndex++ }); if (value < 0) { addPolygon(polygon, polygonIndex++); polygon = []; } } if (polygon.length) addPolygon(polygon, polygonIndex++); var geometry = new Geometry(); geometry.setAttribute("position", new Float32Array(vertexPositions), 3); var hasNormals = normalLayer && vertexNormals.length; if (hasNormals) geometry.setAttribute("normal", new Float32Array(vertexNormals), 3); else geometry.computeVertexNormals(); if (uvLayer) geometry.setAttribute("uv", new Float32Array(vertexUvs), 2); if (colorLayer) geometry.setAttribute("color", new Float32Array(vertexColors), 4); if (tangentLayer) geometry.setAttribute("tangent", new Float32Array(vertexTangents), 4); geometry.setIndex(indices.length > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)); var lastMaterial = materialIndices.length ? materialIndices[0] : 0, groupStart = 0, groupTriangles = 0; for (var triangleIndex = 0; triangleIndex < materialIndices.length; triangleIndex++) { if (materialIndices[triangleIndex] !== lastMaterial) { geometry.addGroup(groupStart, groupTriangles * 3, lastMaterial); groupStart += groupTriangles * 3; groupTriangles = 0; lastMaterial = materialIndices[triangleIndex]; } groupTriangles++; } if (groupTriangles) geometry.addGroup(groupStart, groupTriangles * 3, lastMaterial); geometry.computeBounds(); geometry.userData = { fbxSource: geometryNode, originalVertex: originalVertices }; return geometry; }
+function faoxomfbxgeometry(zania) {
+    var zanib = faoxomfbxarray(zania, "Vertices") || [];
+    var zanic = faoxomfbxarray(zania, "PolygonVertexIndex") || [];
+    var zanid = faoxomfbxchild(zania, "LayerElementNormal");
+    var zanie = faoxomfbxchild(zania, "LayerElementUV");
+    var zanif = faoxomfbxchild(zania, "LayerElementColor");
+    var zanig = faoxomfbxchild(zania, "LayerElementTangent");
+    var zanih = faoxomfbxchild(zania, "LayerElementMaterial");
+    var zanii = [], zanij = [], zanik = [], zanil = [], zanim = [], zanin = [], zanio = [], zanip = [], zaniq = [], zanir = 0, zanis = 0;
+    var zanit = function(zania, zanic) {
+        if (zania.length < 3) return;
+        for (var zaniq = 1; zaniq < zania.length - 1; zaniq++) {
+            var zanir = [ zania[0], zania[zaniq], zania[zaniq + 1] ];
+            for (var zanis = 0; zanis < 3; zanis++) {
+                var zanit = zanir[zanis], zaniu = zanit.vertex, zaniv = zaniu * 3;
+                zanii.push(faoxomfbxnumber(zanib[zaniv]), faoxomfbxnumber(zanib[zaniv + 1]), faoxomfbxnumber(zanib[zaniv + 2]));
+                zanin.push(zaniu);
+                var zaniw = faoxomfbxlayertuple(zanid, "Normals", "NormalsIndex", zanit.corner, zaniu, zanic, 3, [ 0, 0, 0 ]);
+                zanij.push(zaniw[0], zaniw[1], zaniw[2]);
+                var zanix = faoxomfbxlayertuple(zanie, "UV", "UVIndex", zanit.corner, zaniu, zanic, 2, [ 0, 0 ]);
+                zanik.push(zanix[0], zanix[1]);
+                var zaniy = faoxomfbxlayertuple(zanif, "Colors", "ColorIndex", zanit.corner, zaniu, zanic, 4, [ 1, 1, 1, 1 ]);
+                zanil.push(zaniy[0], zaniy[1], zaniy[2], zaniy[3]);
+                var zaniz = faoxomfbxlayertuple(zanig, "Tangents", "TangentsIndex", zanit.corner, zaniu, zanic, 4, [ 0, 0, 0, 1 ]);
+                zanim.push(zaniz[0], zaniz[1], zaniz[2], zaniz[3]);
+                zanio.push(zanio.length);
+            }
+            zanip.push(faoxomfbxnumber(faoxomfbxlayervalue(zanih, "Materials", "MaterialsIndex", zanic, 0, zanic, 0)));
+        }
+    };
+    for (var zaniu = 0; zaniu < zanic.length; zaniu++) {
+        var zaniv = faoxomfbxnumber(zanic[zaniu]);
+        var zaniw = zaniv < 0 ? -zaniv - 1 : zaniv;
+        zaniq.push({
+            vertex: zaniw,
+            corner: zanis++
+        });
+        if (zaniv < 0) {
+            zanit(zaniq, zanir++);
+            zaniq = [];
+        }
+    }
+    if (zaniq.length) zanit(zaniq, zanir++);
+    var zanix = new Geometry;
+    zanix.setAttribute("position", new Float32Array(zanii), 3);
+    var zaniy = zanid && zanij.length;
+    if (zaniy) zanix.setAttribute("normal", new Float32Array(zanij), 3); else zanix.computeVertexNormals();
+    if (zanie) zanix.setAttribute("uv", new Float32Array(zanik), 2);
+    if (zanif) zanix.setAttribute("color", new Float32Array(zanil), 4);
+    if (zanig) zanix.setAttribute("tangent", new Float32Array(zanim), 4);
+    zanix.setIndex(zanio.length > 65535 ? new Uint32Array(zanio) : new Uint16Array(zanio));
+    var zaniz = zanip.length ? zanip[0] : 0, zaniaa = 0, zaniab = 0;
+    for (var zaniac = 0; zaniac < zanip.length; zaniac++) {
+        if (zanip[zaniac] !== zaniz) {
+            zanix.addGroup(zaniaa, zaniab * 3, zaniz);
+            zaniaa += zaniab * 3;
+            zaniab = 0;
+            zaniz = zanip[zaniac];
+        }
+        zaniab++;
+    }
+    if (zaniab) zanix.addGroup(zaniaa, zaniab * 3, zaniz);
+    zanix.computeBounds();
+    zanix.userData = {
+        fbxSource: zania,
+        originalVertex: zanin
+    };
+    return zanix;
+}
 
 export { faoxomfbxgeometry };

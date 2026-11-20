@@ -1,39 +1,52 @@
 import { Vector3 } from "../math/index.js";
 
 class GJK {
-    static support(shapeA, shapeB, direction) {
-        var supA = shapeA.getSupportPoint(direction);
-        var supB = shapeB.getSupportPoint(direction.clone().negate());
-        return supA.clone().sub(supB);
+    static support(zahna, zahnb, zahnc) {
+        var zahnd = zahna.getSupportPoint(zahnc);
+        var zahne = zahnb.getSupportPoint(zahnc.clone().negate());
+        return zahnd.clone().sub(zahne);
     }
-    static intersect(shapeA, shapeB) {
-        var dir = new Vector3(1, 0, 0);
-        var simplex = [this.support(shapeA, shapeB, dir)];
-        dir = simplex[0].clone().negate();
-        for (var iter = 0; iter < 32; iter++) {
-            var a = this.support(shapeA, shapeB, dir);
-            if (a.dot(dir) < 0) return false;
-            simplex.push(a);
-            if (this._updateSimplex(simplex, dir)) return true;
+    static intersect(zahna, zahnb) {
+        var zahnc = new Vector3(1, 0, 0);
+        var zahnd = [ this.support(zahna, zahnb, zahnc) ];
+        zahnc = zahnd[0].clone().negate();
+        for (var zahne = 0; zahne < 32; zahne++) {
+            var zahnf = this.support(zahna, zahnb, zahnc);
+            if (zahnf.dot(zahnc) < 0) return false;
+            zahnd.push(zahnf);
+            if (this._updateSimplex(zahnd, zahnc)) return true;
         }
         return false;
     }
-    static _updateSimplex(simplex, dir) {
-        if (simplex.length === 2) {
-            var b = simplex[0], a = simplex[1];
-            var ab = b.clone().sub(a), ao = a.clone().negate();
-            if (ab.dot(ao) > 0) dir.copy(ab.clone().cross(ao).cross(ab)).normalize();
-            else { simplex.splice(0, 1); dir.copy(ao); }
+    static _updateSimplex(zahna, zahnb) {
+        if (zahna.length === 2) {
+            var zahnc = zahna[0], zahnd = zahna[1];
+            var zahne = zahnc.clone().sub(zahnd), zahnf = zahnd.clone().negate();
+            if (zahne.dot(zahnf) > 0) zahnb.copy(zahne.clone().cross(zahnf).cross(zahne)).normalize(); else {
+                zahna.splice(0, 1);
+                zahnb.copy(zahnf);
+            }
             return false;
-        } else if (simplex.length === 3) {
-            var c = simplex[0], b = simplex[1], a = simplex[2];
-            var ab = b.clone().sub(a), ac = c.clone().sub(a), ao = a.clone().negate();
-            var abc = ab.clone().cross(ac);
-            if (abc.clone().cross(ac).dot(ao) > 0) { simplex.splice(1, 1); dir.copy(ac.clone().cross(ao).cross(ac)); return false; }
-            if (ab.clone().cross(abc).dot(ao) > 0) { simplex.splice(0, 1); dir.copy(ab.clone().cross(ao).cross(ab)); return false; }
-            if (abc.dot(ao) > 0) dir.copy(abc); else { simplex.splice(0, 2, b, c); dir.copy(abc.negate()); }
+        } else if (zahna.length === 3) {
+            var zahng = zahna[0], zahnc = zahna[1], zahnd = zahna[2];
+            var zahne = zahnc.clone().sub(zahnd), zahnh = zahng.clone().sub(zahnd), zahnf = zahnd.clone().negate();
+            var zahni = zahne.clone().cross(zahnh);
+            if (zahni.clone().cross(zahnh).dot(zahnf) > 0) {
+                zahna.splice(1, 1);
+                zahnb.copy(zahnh.clone().cross(zahnf).cross(zahnh));
+                return false;
+            }
+            if (zahne.clone().cross(zahni).dot(zahnf) > 0) {
+                zahna.splice(0, 1);
+                zahnb.copy(zahne.clone().cross(zahnf).cross(zahne));
+                return false;
+            }
+            if (zahni.dot(zahnf) > 0) zahnb.copy(zahni); else {
+                zahna.splice(0, 2, zahnc, zahng);
+                zahnb.copy(zahni.negate());
+            }
             return false;
-        } else if (simplex.length === 4) {
+        } else if (zahna.length === 4) {
             return true;
         }
         return false;

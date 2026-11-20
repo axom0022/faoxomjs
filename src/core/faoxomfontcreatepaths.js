@@ -1,31 +1,34 @@
 import { faoxomfontcreatepath } from "./faoxomfontcreatepath.js";
 
-function faoxomfontcreatepaths(text, size, data, direction) {
-    var chars = Array.from(String(text));
-    var scale = size / (data.resolution || 1000);
-    var boundingBox = data.boundingBox || { yMin: 0, yMax: 0 };
-    var underlineThickness = data.underlineThickness !== undefined ? data.underlineThickness : 0;
-    var line_height = (boundingBox.yMax - boundingBox.yMin + underlineThickness) * scale;
-    var paths = [];
-    var offsetX = 0, offsetY = 0;
-    if (direction == "rtl" || direction == "tb") chars.reverse();
-    for (var i = 0; i < chars.length; i++) {
-        var char = chars[i];
-        if (char === "\n") {
-            offsetX = 0;
-            offsetY -= line_height;
+function faoxomfontcreatepaths(zaexa, zaexb, zaexc, zaexd) {
+    var zaexe = Array.from(String(zaexa));
+    var zaexf = zaexb / (zaexc.resolution || 1e3);
+    var zaexg = zaexc.boundingBox || {
+        yMin: 0,
+        yMax: 0
+    };
+    var zaexh = zaexc.underlineThickness !== undefined ? zaexc.underlineThickness : 0;
+    var zaexi = (zaexg.yMax - zaexg.yMin + zaexh) * zaexf;
+    var zaexj = [];
+    var zaexk = 0, zaexl = 0;
+    if (zaexd == "rtl" || zaexd == "tb") zaexe.reverse();
+    for (var zaexm = 0; zaexm < zaexe.length; zaexm++) {
+        var zaexn = zaexe[zaexm];
+        if (zaexn === "\n") {
+            zaexk = 0;
+            zaexl -= zaexi;
         } else {
-            var ret = faoxomfontcreatepath(char, scale, offsetX, offsetY, data);
-            if (direction == "tb") {
-                offsetX = 0;
-                offsetY += (data.ascender || 0) * scale;
+            var zaexo = faoxomfontcreatepath(zaexn, zaexf, zaexk, zaexl, zaexc);
+            if (zaexd == "tb") {
+                zaexk = 0;
+                zaexl += (zaexc.ascender || 0) * zaexf;
             } else {
-                offsetX += ret.offsetX;
+                zaexk += zaexo.offsetX;
             }
-            paths.push(ret.path);
+            zaexj.push(zaexo.path);
         }
     }
-    return paths;
+    return zaexj;
 }
 
 export { faoxomfontcreatepaths };

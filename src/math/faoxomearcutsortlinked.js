@@ -1,40 +1,39 @@
-function faoxomearcutsortlinked(list) {
-    var numMerges, inSize = 1;
+function faoxomearcutsortlinked(zaqea) {
+    var zaqeb, zaqec = 1;
     do {
-        var p = list, e;
-        list = null;
-        var tail = null;
-        numMerges = 0;
-        while (p) {
-            numMerges++;
-            var q = p, pSize = 0;
-            for (var i = 0; i < inSize; i++) {
-                pSize++;
-                q = q.nextZ;
-                if (!q) break;
+        var zaqed = zaqea, zaqee;
+        zaqea = null;
+        var zaqef = null;
+        zaqeb = 0;
+        while (zaqed) {
+            zaqeb++;
+            var zaqeg = zaqed, zaqeh = 0;
+            for (var zaqei = 0; zaqei < zaqec; zaqei++) {
+                zaqeh++;
+                zaqeg = zaqeg.nextZ;
+                if (!zaqeg) break;
             }
-            var qSize = inSize;
-            while (pSize > 0 || (qSize > 0 && q)) {
-                if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
-                    e = p;
-                    p = p.nextZ;
-                    pSize--;
+            var zaqej = zaqec;
+            while (zaqeh > 0 || zaqej > 0 && zaqeg) {
+                if (zaqeh !== 0 && (zaqej === 0 || !zaqeg || zaqed.z <= zaqeg.z)) {
+                    zaqee = zaqed;
+                    zaqed = zaqed.nextZ;
+                    zaqeh--;
                 } else {
-                    e = q;
-                    q = q.nextZ;
-                    qSize--;
+                    zaqee = zaqeg;
+                    zaqeg = zaqeg.nextZ;
+                    zaqej--;
                 }
-                if (tail) tail.nextZ = e;
-                else list = e;
-                e.prevZ = tail;
-                tail = e;
+                if (zaqef) zaqef.nextZ = zaqee; else zaqea = zaqee;
+                zaqee.prevZ = zaqef;
+                zaqef = zaqee;
             }
-            p = q;
+            zaqed = zaqeg;
         }
-        tail.nextZ = null;
-        inSize *= 2;
-    } while (numMerges > 1);
-    return list;
+        zaqef.nextZ = null;
+        zaqec *= 2;
+    } while (zaqeb > 1);
+    return zaqea;
 }
 
 export { faoxomearcutsortlinked };

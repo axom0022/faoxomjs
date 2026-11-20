@@ -1,3 +1,5 @@
-function faoxomscripttag(closing) { return String.fromCharCode(60) + (closing ? "/" : "") + "script>"; }
+function faoxomscripttag(zafva) {
+    return String.fromCharCode(60) + (zafva ? "/" : "") + "script>";
+}
 
 export { faoxomscripttag };

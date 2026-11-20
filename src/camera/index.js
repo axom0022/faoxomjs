@@ -1,10 +1,19 @@
 export * from "./Camera.js";
+
 export * from "./PerspectiveCamera.js";
+
 export * from "./OrthographicCamera.js";
+
 export * from "./InputManager.js";
+
 export * from "./TransformControls.js";
+
 export * from "./OrbitControls.js";
+
 export * from "./FirstPersonControls.js";
+
 export * from "./PointerLockControls.js";
+
 export * from "./ArcballControls.js";
+
 export * from "./MapControls.js";

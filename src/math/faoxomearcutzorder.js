@@ -1,15 +1,15 @@
-function faoxomearcutzorder(x, y, minX, minY, invSize) {
-    x = (x - minX) * invSize | 0;
-    y = (y - minY) * invSize | 0;
-    x = (x | (x << 8)) & 0x00FF00FF;
-    x = (x | (x << 4)) & 0x0F0F0F0F;
-    x = (x | (x << 2)) & 0x33333333;
-    x = (x | (x << 1)) & 0x55555555;
-    y = (y | (y << 8)) & 0x00FF00FF;
-    y = (y | (y << 4)) & 0x0F0F0F0F;
-    y = (y | (y << 2)) & 0x33333333;
-    y = (y | (y << 1)) & 0x55555555;
-    return x | (y << 1);
+function faoxomearcutzorder(zaqha, zaqhb, zaqhc, zaqhd, zaqhe) {
+    zaqha = (zaqha - zaqhc) * zaqhe | 0;
+    zaqhb = (zaqhb - zaqhd) * zaqhe | 0;
+    zaqha = (zaqha | zaqha << 8) & 16711935;
+    zaqha = (zaqha | zaqha << 4) & 252645135;
+    zaqha = (zaqha | zaqha << 2) & 858993459;
+    zaqha = (zaqha | zaqha << 1) & 1431655765;
+    zaqhb = (zaqhb | zaqhb << 8) & 16711935;
+    zaqhb = (zaqhb | zaqhb << 4) & 252645135;
+    zaqhb = (zaqhb | zaqhb << 2) & 858993459;
+    zaqhb = (zaqhb | zaqhb << 1) & 1431655765;
+    return zaqha | zaqhb << 1;
 }
 
 export { faoxomearcutzorder };

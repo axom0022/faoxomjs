@@ -1,199 +1,2012 @@
 import { AnimationClip, AnimationTrack } from "../animation/index.js";
+
 import { OrthographicCamera, PerspectiveCamera } from "../camera/index.js";
+
 import { DoubleSide, FrontSide, Node, faoxombase64bytes, faoxombytestotext, faoxomdecodehdr, faoxomembeddeddecodersource, faoxomembeddeddecoderwasm, faoxomfbxarray, faoxomfbxchild, faoxomfbxchildren, faoxomfbxcolor, faoxomfbxname, faoxomfbxnumber, faoxomfbxparsenode, faoxomfbxproperty, faoxomfbxresolvenode, faoxomfbxtext, faoxommodelstore, faoxomreadresponse, faoxomstate } from "../core/index.js";
+
 import { Geometry, faoxomgeometry } from "../geometries/index.js";
+
 import { DirectionalLight, PointLight, SpotLight } from "../lights/index.js";
+
 import { BasicMaterial, PhongMaterial, StandardMaterial } from "../materials/index.js";
+
 import { Color, Euler, Matrix4, Quaternion, Vector2, Vector3 } from "../math/index.js";
+
 import { Bone, Group, Mesh, Skeleton, SkinnedMesh } from "../objects/index.js";
+
 import { CompressedCubeTexture, CompressedTexture3D, CompressedTextureArray, CubeTexture, HDRTexture, PMREMGenerator, Texture } from "../textures/index.js";
+
 import { DDSLoader } from "./DDSLoader.js";
+
 import { EXRLoader } from "./EXRLoader.js";
+
 import { GCodeLoader } from "./GCodeLoader.js";
+
 import { MD2Loader } from "./MD2Loader.js";
+
 import { MDDLoader } from "./MDDLoader.js";
+
 import { SVGLoader } from "./SVGLoader.js";
+
 import { TGALoader } from "./TGALoader.js";
+
 import { VTKLoader } from "./VTKLoader.js";
+
 import { faoxomdecodepcd } from "./faoxomdecodepcd.js";
+
 import { faoxomdecodeply } from "./faoxomdecodeply.js";
+
 import { faoxomfbxgeometry } from "./faoxomfbxgeometry.js";
 
 class AssetLoader {
-    constructor(options) { this.options = options || {}; this.cache = {}; this.inflight = {}; this.decoderCache = {}; this.cacheEnabled = this.options.cache !== false; this.onProgress = this.options.onProgress || null; this.onError = this.options.onError || null; this.decoderPaths = this.options.decoderPaths || { meshopt: "/decoders/meshopt_decoder.js", draco: "/decoders/draco_wasm_wrapper.js", dracoWasm: "/decoders/draco_decoder.wasm", basis: "/decoders/basis_transcoder.js", basisWasm: "/decoders/basis_transcoder.wasm" }; }
-    async loadDecoderScript(url, globalName) { if (this.decoderCache[globalName]) return this.decoderCache[globalName]; var embeddedName = globalName === "MeshoptDecoder" ? "meshopt" : globalName === "DracoDecoderModule" ? "draco" : globalName === "BASIS" ? "basis" : null; var source = ""; if (embeddedName && faoxomembeddeddecodersource[embeddedName]) { var encoded = faoxomembeddeddecodersource[embeddedName]; source = typeof atob === "function" ? new TextDecoder().decode(new Uint8Array(faoxombase64bytes(encoded))) : typeof Buffer !== "undefined" ? Buffer.from(encoded.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8") : ""; } else { var response = await fetch(url); if (!response.ok) throw new Error("Decoder request failed: " + url); source = await response.text(); } var factory = new Function("process", source + "\nreturn typeof " + globalName + " !== 'undefined' ? " + globalName + " : null;"); var decoder = factory.call(typeof globalThis !== "undefined" ? globalThis : this, undefined); if (!decoder) throw new Error("Decoder did not expose " + globalName); this.decoderCache[globalName] = decoder; return decoder; }
-    async loadMeshoptDecoder() { var decoder = await this.loadDecoderScript(this.decoderPaths.meshopt, "MeshoptDecoder"); if (decoder.ready) await decoder.ready; return decoder; }
-    async loadDracoDecoder() { if (this.decoderCache.dracoModule) return this.decoderCache.dracoModule; var factory = await this.loadDecoderScript(this.decoderPaths.draco, "DracoDecoderModule"); var wasmBinary = faoxomembeddeddecoderwasm.draco ? faoxombase64bytes(faoxomembeddeddecoderwasm.draco) : await (await fetch(this.decoderPaths.dracoWasm)).arrayBuffer(); var module = await factory({ wasmBinary: wasmBinary }); this.decoderCache.dracoModule = module; return module; }
-    async loadBasisDecoder() { if (this.decoderCache.basisModule) return this.decoderCache.basisModule; var decoder = await this.loadDecoderScript(this.decoderPaths.basis, "BASIS"); this.decoderCache.basisModule = decoder; return decoder; }
-    async loadBasisWasm() { return faoxomembeddeddecoderwasm.basis ? faoxombase64bytes(faoxomembeddeddecoderwasm.basis) : (await (await fetch(this.decoderPaths.basisWasm)).arrayBuffer()); }
-    async loadBasisModule() { if (this.decoderCache.basisRuntime) return this.decoderCache.basisRuntime; var factory = await this.loadBasisDecoder(); var module = await factory({ wasmBinary: await this.loadBasisWasm() }); if (module.initializeBasis) module.initializeBasis(); this.decoderCache.basisRuntime = module; return module; }
-    async decodeHDR(buffer) { return faoxomdecodehdr(buffer); }
-    async loadHDR(url, renderer) { var data = await fetch(url).then(function(response) { if (!response.ok) throw new Error("HDR request failed"); return response.arrayBuffer(); }); var decoded = await this.decodeHDR(data); var texture = new HDRTexture(decoded, { flipY: false, minFilter: "linear", magFilter: "linear" }); texture.renderer = renderer || null; return texture; }
-    async decodeKTX2(buffer, renderer, options) {
-        options = options || {};
-        var module = await this.loadBasisModule();
-        var file = new module.KTX2File(new Uint8Array(buffer));
-        if (!file.isValid()) { file.close(); throw new Error("Invalid KTX2 texture"); }
-        var faces = file.getFaces();
-        var layers = Math.max(1, file.getLayers());
-        var depth = file.getDepth ? Math.max(1, file.getDepth()) : 1;
-        var levelsCount = file.getLevels();
-        var hasAlpha = !!file.getHasAlpha();
-        var gl = renderer && renderer.gl;
-        var caps = renderer && renderer.getCapabilities ? renderer.getCapabilities() : { extensions: {}, webgl2: false };
-        var extensions = caps.extensions || {};
-        var formats = module.transcoder_texture_format;
-        var selected = { name: "rgba8", format: formats.cTFRGBA32, compressed: false, internalFormat: null };
-        var astc = gl && gl.getExtension ? gl.getExtension("WEBGL_compressed_texture_astc") : null;
-        var bptc = gl && gl.getExtension ? gl.getExtension("EXT_texture_compression_bptc") : null;
-        var s3tc = gl && gl.getExtension ? gl.getExtension("WEBGL_compressed_texture_s3tc") : null;
-        var pvrtc = gl && gl.getExtension ? gl.getExtension("WEBGL_compressed_texture_pvrtc") : null;
-        var rgtc = gl && gl.getExtension ? gl.getExtension("EXT_texture_compression_rgtc") : null;
-        if (bptc && formats.cTFBC7_M5_RGBA !== undefined && gl.COMPRESSED_RGBA_BPTC_UNORM !== undefined) selected = { name: "bc7", format: hasAlpha ? formats.cTFBC7_M5_RGBA : formats.cTFBC7_M6_RGB, compressed: true, internalFormat: gl.COMPRESSED_RGBA_BPTC_UNORM };
-        else if (astc && formats.cTFASTC_4x4_RGBA !== undefined) selected = { name: "astc", format: formats.cTFASTC_4x4_RGBA, compressed: true, internalFormat: astc.COMPRESSED_RGBA_ASTC_4x4_KHR };
-        else if (rgtc && !hasAlpha && formats.cTFBC5_RG !== undefined && rgtc.COMPRESSED_RED_GREEN_RGTC2_EXT !== undefined) selected = { name: "bc5", format: formats.cTFBC5_RG, compressed: true, internalFormat: rgtc.COMPRESSED_RED_GREEN_RGTC2_EXT };
-        else if (rgtc && !hasAlpha && formats.cTFBC4_R !== undefined && rgtc.COMPRESSED_RED_RGTC1_EXT !== undefined) selected = { name: "bc4", format: formats.cTFBC4_R, compressed: true, internalFormat: rgtc.COMPRESSED_RED_RGTC1_EXT };
-        else if (s3tc) selected = { name: hasAlpha ? "bc3" : "bc1", format: hasAlpha ? formats.cTFBC3_RGBA : formats.cTFBC1_RGB, compressed: true, internalFormat: hasAlpha ? s3tc.COMPRESSED_RGBA_S3TC_DXT5_EXT : s3tc.COMPRESSED_RGB_S3TC_DXT1_EXT };
-        else if (pvrtc && formats.cTFPVRTC1_4_RGBA !== undefined) selected = { name: "pvrtc", format: hasAlpha ? formats.cTFPVRTC1_4_RGBA : formats.cTFPVRTC1_4_RGB, compressed: true, internalFormat: hasAlpha ? pvrtc.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG : pvrtc.COMPRESSED_RGB_PVRTC_4BPPV1_IMG };
-        else if (gl && renderer.isWebGL2 && gl.COMPRESSED_RGBA8_ETC2_EAC !== undefined && formats.cTFETC2_RGBA !== undefined) selected = { name: "etc2", format: formats.cTFETC2_RGBA, compressed: true, internalFormat: gl.COMPRESSED_RGBA8_ETC2_EAC };
-        if (!file.startTranscoding()) { file.close(); throw new Error("KTX2 transcoding initialization failed"); }
-        var width = file.getWidth(), height = file.getHeight(), levelData = [];
-        for (var level = 0; level < levelsCount; level++) {
-            var slices = [];
-            var sliceLayers = depth > 1 ? depth : layers;
-            for (var layer = 0; layer < sliceLayers; layer++) for (var face = 0; face < faces; face++) { var size = file.getImageTranscodedSizeInBytes(level, layer, face, selected.format); var data = new Uint8Array(size); if (!file.transcodeImage(data, level, layer, face, selected.format, 0, -1, -1)) { file.close(); throw new Error("KTX2 level transcoding failed"); } slices.push({ layer: layer, face: face, data: data }); }
-            levelData.push({ level: level, width: Math.max(1, width >> level), height: Math.max(1, height >> level), slices: slices, data: slices.length === 1 ? slices[0].data : null, compressed: selected.compressed, internalFormat: selected.internalFormat });
-        }
-        file.close();
-        return { width: width, height: height, depth: depth, levels: levelData, faces: faces, layers: layers, target: faces === 6 ? "cubemap" : depth > 1 ? "3d" : layers > 1 ? "array" : "2d", format: selected.name, compressed: selected.compressed, hasAlpha: hasAlpha };
-    }
-    async loadKTX2(url, renderer) { var data = await fetch(url).then(function(response) { if (!response.ok) throw new Error("KTX2 request failed"); return response.arrayBuffer(); }); var decoded = await this.decodeKTX2(data, renderer); var texture = decoded.target === "cubemap" ? new CompressedCubeTexture(decoded, { flipY: false, minFilter: decoded.levels.length > 1 ? "linearMipmapLinear" : "linear" }) : decoded.target === "array" ? new CompressedTextureArray(decoded, { flipY: false, minFilter: decoded.levels.length > 1 ? "linearMipmapLinear" : "linear" }) : decoded.target === "3d" ? new CompressedTexture3D(decoded, { flipY: false, minFilter: decoded.levels.length > 1 ? "linearMipmapLinear" : "linear" }) : new Texture(null, { flipY: false, minFilter: decoded.levels.length > 1 ? "linearMipmapLinear" : "linear" }); if (decoded.target !== "cubemap" && decoded.target !== "array" && decoded.target !== "3d") texture.compressed = decoded; texture.loaded = true; texture.needsUpdate = true; return texture; }
-    async prepareDraco(gltf, buffers) { var module = null; var decoder = null; var meshes = gltf.meshes || []; for (var mi = 0; mi < meshes.length; mi++) for (var pi = 0; pi < (meshes[mi].primitives || []).length; pi++) { var primitive = meshes[mi].primitives[pi]; var extension = primitive.extensions && primitive.extensions.KHR_draco_mesh_compression; if (!extension) continue; if (!module) { module = await this.loadDracoDecoder(); decoder = new module.Decoder(); } var view = gltf.bufferViews[extension.bufferView]; var source = new Int8Array(buffers[view.buffer], view.byteOffset || 0, view.byteLength); var buffer = new module.DecoderBuffer(); buffer.Init(source, source.length); var type = decoder.GetEncodedGeometryType(buffer); if (type !== module.TRIANGULAR_MESH) { buffer.__destroy__(); throw new Error("Draco point clouds are not supported as mesh primitives"); } var mesh = new module.Mesh(); var status = decoder.DecodeBufferToMesh(buffer, mesh); if (!status.ok() || mesh.num_points() === 0) { buffer.__destroy__(); mesh.__destroy__(); throw new Error("Draco mesh decoding failed"); } var decoded = { attributes: {}, index: new Uint32Array(mesh.num_faces() * 3) }; decoder.GetTrianglesUInt32Array(mesh, decoded.index.length, decoded.index); var attributeMap = { POSITION: "POSITION", NORMAL: "NORMAL", TEXCOORD_0: "TEX_COORD", COLOR_0: "COLOR", TANGENT: "GENERIC" }; for (var semantic in extension.attributes) { var uniqueId = extension.attributes[semantic]; var attr = decoder.GetAttributeByUniqueId(mesh, uniqueId); if (!attr) continue; var size = attr.size(); var values = new Float32Array(mesh.num_points() * size); decoder.GetAttributeFloatForAllPoints(mesh, attr, values); decoded.attributes[semantic] = { array: values, itemSize: size, normalized: false }; } primitive._decoded = decoded; buffer.__destroy__(); mesh.__destroy__(); } if (decoder && decoder.__destroy__) decoder.__destroy__(); return gltf; }
-    async prepareMeshopt(gltf, buffers) { var decoder = null; var views = gltf.bufferViews || []; for (var i = 0; i < views.length; i++) { var view = views[i]; var extension = view.extensions && view.extensions.EXT_meshopt_compression; if (!extension) continue; if (!decoder) decoder = await this.loadMeshoptDecoder(); var sourceBuffer = buffers[extension.buffer]; var source = new Uint8Array(sourceBuffer, extension.byteOffset || 0, extension.byteLength); var target = new Uint8Array(extension.count * extension.byteStride); decoder.decodeGltfBuffer(target, extension.count, extension.byteStride, source, extension.mode, extension.filter); var bufferIndex = gltf.buffers.length; gltf.buffers.push({ byteLength: target.byteLength }); buffers.push(target.buffer); view.buffer = bufferIndex; view.byteOffset = 0; view.byteLength = target.byteLength; view.byteStride = extension.byteStride; delete view.extensions; } return gltf; }
-    prepareCompressedTextures(root) { var self = this; var tasks = []; if (!root || !root.traverse) return Promise.resolve(root); root.traverse(function(object) { if (!object.material) return; var materials = Array.isArray(object.material) ? object.material : [object.material]; for (var mi = 0; mi < materials.length; mi++) { var material = materials[mi]; for (var key in material) { var value = material[key]; if (!value || !value.compressedTexture || !value.compressedSource) continue; tasks.push(self.loadKTX2(value.compressedSource, self.options.renderer).then((function(targetMaterial, targetKey) { return function(texture) { targetMaterial[targetKey] = texture; }; })(material, key))); } } }); return Promise.all(tasks).then(function() { return root; }); }
-    load(url, type, options) { if (type && typeof type === "object") { options = type; type = options.type; } options = options || {}; var embeddedName = typeof url === "string" && (!type || type === "model") && (!options.type || options.type === "model") ? (url.indexOf("embedded:") === 0 ? url.slice(9) : faoxommodelstore()[url] !== undefined ? url : null) : null; var key = options.cacheKey || (embeddedName !== null ? "embedded:" + embeddedName + "#" + faoxomstate.faoxommodelstoreversion : url) + "|" + (type || ""); if (this.cacheEnabled && options.cache !== false && this.cache[key]) return Promise.resolve(this.cache[key]); if (this.inflight[key]) return this.inflight[key]; var self = this, ext = (url.split(".").pop() || "").toLowerCase().split("?")[0], kind = type || options.type || (ext === "gltf" || ext === "glb" || ext === "fbx" || ext === "obj" || ext === "ply" || ext === "stl" || ext === "mtl" || ext === "bvh" || ext === "pcd" || ext === "vtk" || ext === "gcode" || ext === "md2" || ext === "mdd" || ext === "svg" ? "model" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "webp" || ext === "ktx2" || ext === "hdr" || ext === "tga" || ext === "dds" || ext === "exr" ? "texture" : ext === "mp3" || ext === "wav" || ext === "ogg" ? "audio" : ext === "json" ? "json" : "text"), progress = options.onProgress || this.onProgress, request = { headers: options.headers || {} }; if (options.signal) request.signal = options.signal; var save = function(value) { if (self.cacheEnabled && options.cache !== false) self.cache[key] = value; return value; }; var promise; if (embeddedName !== null) promise = Promise.resolve(self.loadEmbeddedEntry(embeddedName)).then(function(result) { return self.prepareCompressedTextures(result); }).then(save); else if (kind === "texture") promise = ext === "ktx2" ? self.loadKTX2(url, self.options.renderer).then(save) : ext === "hdr" ? self.loadHDR(url, self.options.renderer).then(save) : ext === "tga" ? self.loadTGA(url).then(save) : ext === "dds" ? self.loadDDS(url).then(save) : ext === "exr" ? self.loadEXR(url).then(save) : new Texture(url).promise.then(save); else if (kind === "audio") promise = Promise.resolve(typeof Audio !== "undefined" ? new Audio(url) : { src: url }).then(save); else promise = fetch(url, request).then(function(response) { return faoxomreadresponse(response, ext === "glb" || ext === "fbx" || ext === "ply" || ext === "pcd" || ext === "stl" || ext === "md2" || ext === "mdd" || ext === "vtk" ? "arraybuffer" : kind === "json" || ext === "gltf" ? "json" : "text", function(loaded, total) { if (progress) progress({ url: url, loaded: loaded, total: total, ratio: total ? loaded / total : 0 }); }); }).then(function(data) { return self.parseModel(data, ext, url); }).then(function(result) { return self.prepareCompressedTextures(result); }).then(save); this.inflight[key] = promise; return promise.then(function(value) { delete self.inflight[key]; return value; }, function(error) { delete self.inflight[key]; if (self.onError) self.onError(error, url); throw error; }); }
-    loadEmbeddedEntry(name) { var entry = faoxommodelstore()[name]; if (!entry) return Promise.reject(new Error("No embedded model named " + name)); if (entry.format === "gltf") return this.parseGLTF(typeof entry.json === "string" ? JSON.parse(entry.json) : entry.json, "embedded:" + name + ".gltf", []); var data = entry.data; var buffer = data instanceof ArrayBuffer ? data : typeof data === "string" ? faoxombase64bytes(data) : data && data.buffer instanceof ArrayBuffer ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : null; if (!buffer) return Promise.reject(new Error("Embedded model " + name + " has no usable data")); return Promise.resolve(this.parseGLB(buffer, "embedded:" + name + ".glb")); }
-    loadModel(url, options) { return this.load(url, "model", options); }
-    loadTexture(url, options) { return this.load(url, "texture", options); }
-    hasCached(url, type) { return !!(this.cacheEnabled && this.cache[url + "|" + (type || "")]); }
-    getCached(url, type) { return this.cache[url + "|" + (type || "")] || null; }
-    clearCache(url, type) { if (url === undefined) this.cache = {}; else delete this.cache[url + "|" + (type || "")]; return this; }
-    loadWithProgress(url, type, onProgress, options) { options = Object.assign({}, options || {}, { onProgress: onProgress }); return this.load(url, type, options); }
-    loadManifest(manifest, onProgress) { var entries = []; if (Array.isArray(manifest)) for (var i = 0; i < manifest.length; i++) entries.push({ name: String(i), value: manifest[i] }); else if (manifest) { for (var group in manifest) { var values = manifest[group]; if (Array.isArray(values)) for (var arrayIndex = 0; arrayIndex < values.length; arrayIndex++) entries.push({ name: group + "." + arrayIndex, value: values[arrayIndex] }); else if (values && typeof values === "object") for (var name in values) entries.push({ name: group + "." + name, value: values[name] }); } } var result = {}; var completed = 0; var self = this; return Promise.all(entries.map(function(entry) { var value = entry.value; var url = typeof value === "string" ? value : value.url; var type = typeof value === "string" ? undefined : value.type; return self.load(url, type).then(function(asset) { result[entry.name] = asset; completed++; if (onProgress) onProgress(completed, entries.length, entry.name, asset); return asset; }); })).then(function() { return result; }); }
-    loadAudio(url) { return this.load(url, "audio"); }
-    parseModel(data, ext, url) { if (ext === "obj" && typeof data === "string") return this.parseOBJ(data); if (ext === "ply") return this.parsePLY(data); if (ext === "stl" && (typeof data === "string" || data instanceof ArrayBuffer)) return this.parseSTL(data); if (ext === "pcd") return this.parsePCD(data); if (ext === "vtk") return this.parseVTK(data); if (ext === "gcode" && typeof data === "string") return this.parseGCode(data); if (ext === "md2" && data instanceof ArrayBuffer) return this.parseMD2(data); if (ext === "mdd" && data instanceof ArrayBuffer) return this.parseMDD(data); if (ext === "svg" && typeof data === "string") return this.parseSVG(data);
-        if (ext === "bvh" && typeof data === "string") return this.parseBVH(data); if (ext === "mtl" && typeof data === "string") return this.parseMTL(data, url); if (ext === "glb" && data instanceof ArrayBuffer) return this.parseGLB(data, url); if (ext === "fbx" && data instanceof ArrayBuffer) return this.parseFBX(data, url); if (ext === "gltf" && data && data.asset) return this.parseGLTF(data, url, []); if (ext === "dae" && typeof data === "string") return this.parseCollada(data, url); return data; }
-    parseCollada(text, url) {
-        if (typeof DOMParser === "undefined") throw new Error("Collada parsing requires DOMParser");
-        var xml = new DOMParser().parseFromString(text, "application/xml");
-        var base = url ? url.slice(0, url.lastIndexOf("/") + 1) : "";
-        var direct = function(node, tag) { var result = []; if (!node) return result; for (var i = 0; i < node.childNodes.length; i++) if (node.childNodes[i].nodeType === 1 && node.childNodes[i].tagName === tag) result.push(node.childNodes[i]); return result; };
-        var first = function(node, tag) { var list = direct(node, tag); return list.length ? list[0] : null; };
-        var textOf = function(node, tag) { var child = first(node, tag); return child ? child.textContent.trim() : ""; };
-        var numbers = function(value) { return value ? value.trim().split(/\s+/).map(Number) : []; };
-        var imagePaths = {};
-        var imageLibrary = xml.getElementsByTagName("library_images")[0];
-        if (imageLibrary) for (var imageIndex = 0; imageIndex < imageLibrary.getElementsByTagName("image").length; imageIndex++) { var image = imageLibrary.getElementsByTagName("image")[imageIndex]; imagePaths[image.getAttribute("id")] = textOf(image, "init_from"); }
-        var sourceCache = {};
-        var readSource = function(node, id) {
-            id = (id || "").replace(/^#/, "");
-            if (sourceCache[id]) return sourceCache[id];
-            var source = node && node.ownerDocument ? node.ownerDocument.getElementById(id) : xml.getElementById(id);
-            var floatText = source ? textOf(source, "float_array") : ""; var nameText = source ? textOf(source, "Name_array") : ""; var nameValues = nameText ? nameText.split(/\s+/) : []; var array = floatText ? numbers(floatText) : nameValues;
-            var accessor = source ? first(first(source, "technique_common"), "accessor") : null;
-            var stride = accessor ? parseInt(accessor.getAttribute("stride") || "1", 10) : 1;
-            var names = [];
-            if (accessor) { var params = direct(accessor, "param"); for (var pi = 0; pi < params.length; pi++) names.push(params[pi].getAttribute("name") || ""); }
-            sourceCache[id] = { array: array, stride: stride, names: nameValues.length ? nameValues : names };
-            return sourceCache[id];
+    constructor(zalva) {
+        this.options = zalva || {};
+        this.cache = {};
+        this.inflight = {};
+        this.decoderCache = {};
+        this.cacheEnabled = this.options.cache !== false;
+        this.onProgress = this.options.onProgress || null;
+        this.onError = this.options.onError || null;
+        this.decoderPaths = this.options.decoderPaths || {
+            meshopt: "/decoders/meshopt_decoder.js",
+            draco: "/decoders/draco_wasm_wrapper.js",
+            dracoWasm: "/decoders/draco_decoder.wasm",
+            basis: "/decoders/basis_transcoder.js",
+            basisWasm: "/decoders/basis_transcoder.wasm"
         };
-        var materialEffects = {};
-        var effectLibrary = xml.getElementsByTagName("library_effects")[0];
-        if (effectLibrary) for (var effectIndex = 0; effectIndex < effectLibrary.getElementsByTagName("effect").length; effectIndex++) {
-            var effect = effectLibrary.getElementsByTagName("effect")[effectIndex]; var profile = first(effect, "profile_COMMON"); var surfaceImages = {}; var newparams = profile ? direct(profile, "newparam") : [];
-            for (var np = 0; np < newparams.length; np++) { var surface = first(newparams[np], "surface"); var sampler = first(newparams[np], "sampler2D"); if (surface) surfaceImages[newparams[np].getAttribute("sid")] = textOf(surface, "init_from"); if (sampler) surfaceImages[newparams[np].getAttribute("sid")] = surfaceImages[textOf(sampler, "source")] || ""; }
-            var technique = profile ? first(profile, "technique") : null; var shader = technique ? (first(technique, "phong") || first(technique, "blinn") || first(technique, "lambert") || first(technique, "constant")) : null; var options = { color: 0xffffff, ambient: 0x222222, diffuse: 0xffffff, specular: 0x111111, shininess: 30, opacity: 1 };
-            var colorValue = function(parent, tag, fallback) { var colorNode = first(parent, tag); var values = colorNode ? numbers(colorNode.textContent) : []; return values.length >= 3 ? new Color(values[0], values[1], values[2]) : fallback; };
-            if (shader) { options.ambient = colorValue(shader, "ambient", options.ambient); options.diffuse = colorValue(shader, "diffuse", options.diffuse); options.color = options.diffuse; options.specular = colorValue(shader, "specular", options.specular); var shininess = first(shader, "shininess"); if (shininess) options.shininess = parseFloat(textOf(shininess, "float") || shininess.textContent); var transparency = first(shader, "transparency"); if (transparency) { options.opacity = parseFloat(textOf(transparency, "float") || transparency.textContent); options.transparent = options.opacity < 1; } var diffuse = first(shader, "diffuse"); var texture = diffuse ? first(diffuse, "texture") : null; if (texture) { var path = surfaceImages[texture.getAttribute("texture")] || imagePaths[texture.getAttribute("texture")]; if (path) options.diffuseMap = new Texture(base + path, { flipY: false }); } var emission = first(shader, "emission"); if (emission) options.emissive = colorValue(shader, "emission", new Color(0, 0, 0)); }
-            materialEffects[effect.getAttribute("id")] = options;
+    }
+    async loadDecoderScript(zalva, zalvb) {
+        if (this.decoderCache[zalvb]) return this.decoderCache[zalvb];
+        var zalvc = zalvb === "MeshoptDecoder" ? "meshopt" : zalvb === "DracoDecoderModule" ? "draco" : zalvb === "BASIS" ? "basis" : null;
+        var zalvd = "";
+        if (zalvc && faoxomembeddeddecodersource[zalvc]) {
+            var zalve = faoxomembeddeddecodersource[zalvc];
+            zalvd = typeof atob === "function" ? (new TextDecoder).decode(new Uint8Array(faoxombase64bytes(zalve))) : typeof Buffer !== "undefined" ? Buffer.from(zalve.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8") : "";
+        } else {
+            var zalvf = await fetch(zalva);
+            if (!zalvf.ok) throw new Error("Decoder request failed: " + zalva);
+            zalvd = await zalvf.text();
         }
-        var materialLibrary = {};
-        var materialNodes = xml.getElementsByTagName("library_materials")[0];
-        if (materialNodes) for (var materialIndex = 0; materialIndex < materialNodes.getElementsByTagName("material").length; materialIndex++) { var materialNode = materialNodes.getElementsByTagName("material")[materialIndex]; var effectId = (materialNode.getAttribute("url") || "").replace(/^#/, ""); materialLibrary[materialNode.getAttribute("id")] = new PhongMaterial(materialEffects[effectId] || {}); }
-        var geometryLibrary = {};
-        var geometryNodes = xml.getElementsByTagName("library_geometries")[0];
-        var makeGeometry = function(geometryNode) {
-            var meshNode = first(geometryNode, "mesh"); if (!meshNode) return null; var localSources = {}; var sourceList = direct(meshNode, "source"); for (var si = 0; si < sourceList.length; si++) localSources[sourceList[si].getAttribute("id")] = readSource(sourceList[si], sourceList[si].getAttribute("id"));
-            var verticesNode = first(meshNode, "vertices"); var vertexInputs = verticesNode ? direct(verticesNode, "input") : []; var positionSource = vertexInputs.length ? (vertexInputs[0].getAttribute("source") || "").replace(/^#/, "") : null; var positions = positionSource && localSources[positionSource] ? localSources[positionSource] : readSource(meshNode, positionSource); var allP = [], allN = [], allU = [], allI = [], vertexMap = {}, materialSymbols = [], hasNormals = false, hasUvs = false;
-            var primitiveNodes = direct(meshNode, "triangles").concat(direct(meshNode, "polylist"));
-            for (var primitiveIndex = 0; primitiveIndex < primitiveNodes.length; primitiveIndex++) {
-                var primitive = primitiveNodes[primitiveIndex]; var inputs = direct(primitive, "input"); var stride = 0, positionOffset = 0, normalOffset = -1, uvOffset = -1, normalSource = null, uvSource = null;
-                for (var inputIndex = 0; inputIndex < inputs.length; inputIndex++) { var input = inputs[inputIndex]; var offset = parseInt(input.getAttribute("offset") || "0", 10); stride = Math.max(stride, offset + 1); var semantic = input.getAttribute("semantic"); var sourceId = (input.getAttribute("source") || "").replace(/^#/, ""); if (semantic === "VERTEX") positionOffset = offset; if (semantic === "NORMAL") { normalOffset = offset; normalSource = sourceId; } if (semantic === "TEXCOORD" && uvOffset < 0) { uvOffset = offset; uvSource = sourceId; } }
-                var raw = numbers(textOf(primitive, "p")); var vcounts = primitive.tagName === "polylist" ? numbers(textOf(primitive, "vcount")) : null; var cursor = 0; var emit = function(refs) { var key = refs.join("/"); var existing = vertexMap[key]; if (existing === undefined) { var vertexIndex = refs[positionOffset] || 0; var pAt = vertexIndex * positions.stride; var normal = normalSource && localSources[normalSource] ? localSources[normalSource] : readSource(meshNode, normalSource); var uv = uvSource && localSources[uvSource] ? localSources[uvSource] : readSource(meshNode, uvSource); allP.push(positions.array[pAt] || 0, positions.array[pAt + 1] || 0, positions.array[pAt + 2] || 0); if (normalOffset >= 0 && normal) { var nAt = (refs[normalOffset] || 0) * normal.stride; allN.push(normal.array[nAt] || 0, normal.array[nAt + 1] || 0, normal.array[nAt + 2] || 0); hasNormals = true; } if (uvOffset >= 0 && uv) { var uAt = (refs[uvOffset] || 0) * uv.stride; allU.push(uv.array[uAt] || 0, uv.array[uAt + 1] || 0); hasUvs = true; } existing = allP.length / 3 - 1; vertexMap[key] = existing; } return existing; };
-                var emitFace = function(base, count) { var face = []; for (var vertex = 0; vertex < count; vertex++) { var refs = []; for (var component = 0; component < stride; component++) refs.push(raw[base + vertex * stride + component] || 0); face.push(emit(refs)); } for (var fan = 1; fan < face.length - 1; fan++) materialSymbols.push(primitive.getAttribute("material") || ""), allI.push(face[0], face[fan], face[fan + 1]); };
-                if (vcounts) { for (var polygon = 0; polygon < vcounts.length; polygon++) { emitFace(cursor, vcounts[polygon]); cursor += vcounts[polygon] * stride; } } else { for (var triangle = 0; triangle < raw.length / stride; triangle += 3) emitFace(triangle * stride, 3); }
+        var zalvg = new Function("process", zalvd + "\nreturn typeof " + zalvb + " !== 'undefined' ? " + zalvb + " : null;");
+        var zalvh = zalvg.call(typeof globalThis !== "undefined" ? globalThis : this, undefined);
+        if (!zalvh) throw new Error("Decoder did not expose " + zalvb);
+        this.decoderCache[zalvb] = zalvh;
+        return zalvh;
+    }
+    async loadMeshoptDecoder() {
+        var zalva = await this.loadDecoderScript(this.decoderPaths.meshopt, "MeshoptDecoder");
+        if (zalva.ready) await zalva.ready;
+        return zalva;
+    }
+    async loadDracoDecoder() {
+        if (this.decoderCache.dracoModule) return this.decoderCache.dracoModule;
+        var zalva = await this.loadDecoderScript(this.decoderPaths.draco, "DracoDecoderModule");
+        var zalvb = faoxomembeddeddecoderwasm.draco ? faoxombase64bytes(faoxomembeddeddecoderwasm.draco) : await (await fetch(this.decoderPaths.dracoWasm)).arrayBuffer();
+        var zalvc = await zalva({
+            wasmBinary: zalvb
+        });
+        this.decoderCache.dracoModule = zalvc;
+        return zalvc;
+    }
+    async loadBasisDecoder() {
+        if (this.decoderCache.basisModule) return this.decoderCache.basisModule;
+        var zalva = await this.loadDecoderScript(this.decoderPaths.basis, "BASIS");
+        this.decoderCache.basisModule = zalva;
+        return zalva;
+    }
+    async loadBasisWasm() {
+        return faoxomembeddeddecoderwasm.basis ? faoxombase64bytes(faoxomembeddeddecoderwasm.basis) : await (await fetch(this.decoderPaths.basisWasm)).arrayBuffer();
+    }
+    async loadBasisModule() {
+        if (this.decoderCache.basisRuntime) return this.decoderCache.basisRuntime;
+        var zalva = await this.loadBasisDecoder();
+        var zalvb = await zalva({
+            wasmBinary: await this.loadBasisWasm()
+        });
+        if (zalvb.initializeBasis) zalvb.initializeBasis();
+        this.decoderCache.basisRuntime = zalvb;
+        return zalvb;
+    }
+    async decodeHDR(zalva) {
+        return faoxomdecodehdr(zalva);
+    }
+    async loadHDR(zalva, zalvb) {
+        var zalvc = await fetch(zalva).then(function(zalva) {
+            if (!zalva.ok) throw new Error("HDR request failed");
+            return zalva.arrayBuffer();
+        });
+        var zalvd = await this.decodeHDR(zalvc);
+        var zalve = new HDRTexture(zalvd, {
+            flipY: false,
+            minFilter: "linear",
+            magFilter: "linear"
+        });
+        zalve.renderer = zalvb || null;
+        return zalve;
+    }
+    async decodeKTX2(zalva, zalvb, zalvc) {
+        zalvc = zalvc || {};
+        var zalvd = await this.loadBasisModule();
+        var zalve = new zalvd.KTX2File(new Uint8Array(zalva));
+        if (!zalve.isValid()) {
+            zalve.close();
+            throw new Error("Invalid KTX2 texture");
+        }
+        var zalvf = zalve.getFaces();
+        var zalvg = Math.max(1, zalve.getLayers());
+        var zalvh = zalve.getDepth ? Math.max(1, zalve.getDepth()) : 1;
+        var zalvi = zalve.getLevels();
+        var zalvj = !!zalve.getHasAlpha();
+        var zalvk = zalvb && zalvb.gl;
+        var zalvl = zalvb && zalvb.getCapabilities ? zalvb.getCapabilities() : {
+            extensions: {},
+            webgl2: false
+        };
+        var zalvm = zalvl.extensions || {};
+        var zalvn = zalvd.transcoder_texture_format;
+        var zalvo = {
+            name: "rgba8",
+            format: zalvn.cTFRGBA32,
+            compressed: false,
+            internalFormat: null
+        };
+        var zalvp = zalvk && zalvk.getExtension ? zalvk.getExtension("WEBGL_compressed_texture_astc") : null;
+        var zalvq = zalvk && zalvk.getExtension ? zalvk.getExtension("EXT_texture_compression_bptc") : null;
+        var zalvr = zalvk && zalvk.getExtension ? zalvk.getExtension("WEBGL_compressed_texture_s3tc") : null;
+        var zalvs = zalvk && zalvk.getExtension ? zalvk.getExtension("WEBGL_compressed_texture_pvrtc") : null;
+        var zalvt = zalvk && zalvk.getExtension ? zalvk.getExtension("EXT_texture_compression_rgtc") : null;
+        if (zalvq && zalvn.cTFBC7_M5_RGBA !== undefined && zalvk.COMPRESSED_RGBA_BPTC_UNORM !== undefined) zalvo = {
+            name: "bc7",
+            format: zalvj ? zalvn.cTFBC7_M5_RGBA : zalvn.cTFBC7_M6_RGB,
+            compressed: true,
+            internalFormat: zalvk.COMPRESSED_RGBA_BPTC_UNORM
+        }; else if (zalvp && zalvn.cTFASTC_4x4_RGBA !== undefined) zalvo = {
+            name: "astc",
+            format: zalvn.cTFASTC_4x4_RGBA,
+            compressed: true,
+            internalFormat: zalvp.COMPRESSED_RGBA_ASTC_4x4_KHR
+        }; else if (zalvt && !zalvj && zalvn.cTFBC5_RG !== undefined && zalvt.COMPRESSED_RED_GREEN_RGTC2_EXT !== undefined) zalvo = {
+            name: "bc5",
+            format: zalvn.cTFBC5_RG,
+            compressed: true,
+            internalFormat: zalvt.COMPRESSED_RED_GREEN_RGTC2_EXT
+        }; else if (zalvt && !zalvj && zalvn.cTFBC4_R !== undefined && zalvt.COMPRESSED_RED_RGTC1_EXT !== undefined) zalvo = {
+            name: "bc4",
+            format: zalvn.cTFBC4_R,
+            compressed: true,
+            internalFormat: zalvt.COMPRESSED_RED_RGTC1_EXT
+        }; else if (zalvr) zalvo = {
+            name: zalvj ? "bc3" : "bc1",
+            format: zalvj ? zalvn.cTFBC3_RGBA : zalvn.cTFBC1_RGB,
+            compressed: true,
+            internalFormat: zalvj ? zalvr.COMPRESSED_RGBA_S3TC_DXT5_EXT : zalvr.COMPRESSED_RGB_S3TC_DXT1_EXT
+        }; else if (zalvs && zalvn.cTFPVRTC1_4_RGBA !== undefined) zalvo = {
+            name: "pvrtc",
+            format: zalvj ? zalvn.cTFPVRTC1_4_RGBA : zalvn.cTFPVRTC1_4_RGB,
+            compressed: true,
+            internalFormat: zalvj ? zalvs.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG : zalvs.COMPRESSED_RGB_PVRTC_4BPPV1_IMG
+        }; else if (zalvk && zalvb.isWebGL2 && zalvk.COMPRESSED_RGBA8_ETC2_EAC !== undefined && zalvn.cTFETC2_RGBA !== undefined) zalvo = {
+            name: "etc2",
+            format: zalvn.cTFETC2_RGBA,
+            compressed: true,
+            internalFormat: zalvk.COMPRESSED_RGBA8_ETC2_EAC
+        };
+        if (!zalve.startTranscoding()) {
+            zalve.close();
+            throw new Error("KTX2 transcoding initialization failed");
+        }
+        var zalvu = zalve.getWidth(), zalvv = zalve.getHeight(), zalvw = [];
+        for (var zalvx = 0; zalvx < zalvi; zalvx++) {
+            var zalvy = [];
+            var zalvz = zalvh > 1 ? zalvh : zalvg;
+            for (var zalvaa = 0; zalvaa < zalvz; zalvaa++) for (var zalvab = 0; zalvab < zalvf; zalvab++) {
+                var zalvac = zalve.getImageTranscodedSizeInBytes(zalvx, zalvaa, zalvab, zalvo.format);
+                var zalvad = new Uint8Array(zalvac);
+                if (!zalve.transcodeImage(zalvad, zalvx, zalvaa, zalvab, zalvo.format, 0, -1, -1)) {
+                    zalve.close();
+                    throw new Error("KTX2 level transcoding failed");
+                }
+                zalvy.push({
+                    layer: zalvaa,
+                    face: zalvab,
+                    data: zalvad
+                });
             }
-            var indexValues = []; for (var ii = 0; ii < allI.length; ii++) if (typeof allI[ii] === "number") indexValues.push(allI[ii]); var geometry = faoxomgeometry(allP, hasNormals ? allN : null, hasUvs ? allU : null, indexValues); return { geometry: geometry, materialSymbols: materialSymbols };
+            zalvw.push({
+                level: zalvx,
+                width: Math.max(1, zalvu >> zalvx),
+                height: Math.max(1, zalvv >> zalvx),
+                slices: zalvy,
+                data: zalvy.length === 1 ? zalvy[0].data : null,
+                compressed: zalvo.compressed,
+                internalFormat: zalvo.internalFormat
+            });
+        }
+        zalve.close();
+        return {
+            width: zalvu,
+            height: zalvv,
+            depth: zalvh,
+            levels: zalvw,
+            faces: zalvf,
+            layers: zalvg,
+            target: zalvf === 6 ? "cubemap" : zalvh > 1 ? "3d" : zalvg > 1 ? "array" : "2d",
+            format: zalvo.name,
+            compressed: zalvo.compressed,
+            hasAlpha: zalvj
         };
-        if (geometryNodes) { var geometries = geometryNodes.getElementsByTagName("geometry"); for (var geometryIndex = 0; geometryIndex < geometries.length; geometryIndex++) geometryLibrary[geometries[geometryIndex].getAttribute("id")] = makeGeometry(geometries[geometryIndex]); }
-        var controllerLibrary = {}; var controllers = xml.getElementsByTagName("library_controllers")[0]; if (controllers) { var controllerNodes = controllers.getElementsByTagName("controller"); for (var controllerIndex = 0; controllerIndex < controllerNodes.length; controllerIndex++) { var controller = controllerNodes[controllerIndex]; var skin = first(controller, "skin"); if (!skin) continue; var sourceId = (skin.getAttribute("source") || "").replace(/^#/, ""); var skinSources = {}; var skinSourceNodes = direct(skin, "source"); for (var ss = 0; ss < skinSourceNodes.length; ss++) skinSources[skinSourceNodes[ss].getAttribute("id")] = readSource(skinSourceNodes[ss], skinSourceNodes[ss].getAttribute("id")); var joints = first(skin, "joints"); var jointInputs = joints ? direct(joints, "input") : []; var jointNames = [], inverseSource = null; for (var ji = 0; ji < jointInputs.length; ji++) { var js = (jointInputs[ji].getAttribute("source") || "").replace(/^#/, ""); if (jointInputs[ji].getAttribute("semantic") === "JOINT") { var jointSource = skinSources[js] || readSource(skin, js); jointNames = jointSource.names && jointSource.names.length ? jointSource.names : jointSource.array; } if (jointInputs[ji].getAttribute("semantic") === "INV_BIND_MATRIX") inverseSource = skinSources[js] || readSource(skin, js); } var weightsNode = first(skin, "vertex_weights"), weightSource = null, jointOffset = -1, weightOffset = -1, weightStride = 0; if (weightsNode) { var wi = direct(weightsNode, "input"); for (var wii = 0; wii < wi.length; wii++) { var ws = (wi[wii].getAttribute("source") || "").replace(/^#/, ""); weightStride = Math.max(weightStride, parseInt(wi[wii].getAttribute("offset") || "0", 10) + 1); if (wi[wii].getAttribute("semantic") === "JOINT") jointOffset = parseInt(wi[wii].getAttribute("offset") || "0", 10); if (wi[wii].getAttribute("semantic") === "WEIGHT") weightOffset = parseInt(wi[wii].getAttribute("offset") || "0", 10), weightSource = skinSources[ws] || readSource(skin, ws); } } controllerLibrary[controller.getAttribute("id")] = { geometry: sourceId, jointNames: jointNames, inverseSource: inverseSource, weights: weightSource, jointOffset: jointOffset, weightOffset: weightOffset, weightStride: weightStride, vcounts: weightsNode ? numbers(textOf(weightsNode, "vcount")) : [], values: weightsNode ? numbers(textOf(weightsNode, "v")) : [] }; } }
-        var nodeObjects = {}, nodeIds = {}, root = new Group(); root.name = "collada"; var buildTransforms = function(node, object) { var children = node.childNodes; for (var ti = 0; ti < children.length; ti++) { var transform = children[ti]; if (transform.nodeType !== 1) continue; var values = numbers(transform.textContent); if (transform.tagName === "translate" && values.length >= 3) object.position.set(values[0], values[1], values[2]); else if (transform.tagName === "scale" && values.length >= 3) object.scale.set(values[0], values[1], values[2]); else if (transform.tagName === "rotate" && values.length >= 4) object.quaternion.multiply(new Quaternion().setFromAxisAngle(new Vector3(values[0], values[1], values[2]).normalize(), values[3] * Math.PI / 180)); else if (transform.tagName === "matrix" && values.length >= 16) object.matrix.fromArray(values); } };
-        var visualLibrary = xml.getElementsByTagName("library_visual_scenes")[0]; var visual = visualLibrary ? first(visualLibrary, "visual_scene") : null;
-        var makeBoundMaterial = function(instance) { var bindMaterial = instance ? first(instance, "bind_material") : null; var technique = bindMaterial ? first(bindMaterial, "technique_common") : null; var materialList = technique ? direct(technique, "instance_material") : []; if (materialList.length) { var id = (materialList[0].getAttribute("target") || "").replace(/^#/, ""); return materialLibrary[id] || new PhongMaterial(); } return new PhongMaterial(); };
-        var addGeometryInstance = function(object, instance, controllerId) { var sourceId = controllerId ? controllerLibrary[controllerId].geometry : (instance.getAttribute("url") || "").replace(/^#/, ""); var record = geometryLibrary[sourceId]; if (!record) return; var material = makeBoundMaterial(instance); var mesh = new Mesh(record.geometry, material); if (controllerId) { var controller = controllerLibrary[controllerId]; var jointBones = []; var inverse = []; for (var ji = 0; ji < controller.jointNames.length; ji++) { var bone = nodeObjects[controller.jointNames[ji]] || root.getObjectByName(controller.jointNames[ji]); if (bone) jointBones.push(bone); if (controller.inverseSource) { var invAt = ji * controller.inverseSource.stride; inverse.push(new Matrix4().fromArray(controller.inverseSource.array, invAt)); } } if (jointBones.length) { var skeleton = new Skeleton(jointBones, inverse); var posCount = record.geometry.attributes.position.array.length / 3; var skinIndices = new Float32Array(posCount * 4), skinWeights = new Float32Array(posCount * 4), cursor = 0; for (var vertex = 0; vertex < posCount; vertex++) { var count = controller.vcounts[vertex] || 0; var influences = []; for (var inf = 0; inf < count; inf++) { var at = cursor + inf * controller.weightStride; influences.push({ joint: controller.values[at + controller.jointOffset] || 0, weight: controller.weights ? controller.weights.array[controller.values[at + controller.weightOffset] || 0] || 0 : 0 }); } cursor += count * controller.weightStride; influences.sort(function(a, b) { return b.weight - a.weight; }); var total = 0; for (var pick = 0; pick < 4; pick++) { skinIndices[vertex * 4 + pick] = influences[pick] ? influences[pick].joint : 0; skinWeights[vertex * 4 + pick] = influences[pick] ? influences[pick].weight : 0; total += skinWeights[vertex * 4 + pick]; } if (total) for (var normalize = 0; normalize < 4; normalize++) skinWeights[vertex * 4 + normalize] /= total; } record.geometry.setAttribute("skinIndex", skinIndices, 4); record.geometry.setAttribute("skinWeight", skinWeights, 4); var skinned = new SkinnedMesh(record.geometry, material); skinned.bind(skeleton, object.matrixWorld); mesh = skinned; } } object.add(mesh); };
-        var buildNode = function(node, parent) { var object = new Node(); object.name = node.getAttribute("name") || node.getAttribute("id") || "node"; nodeObjects[node.getAttribute("id")] = object; nodeIds[object.name] = object; buildTransforms(node, object); parent.add(object); var geometryInstances = direct(node, "instance_geometry"); for (var gi = 0; gi < geometryInstances.length; gi++) addGeometryInstance(object, geometryInstances[gi], null); var controllerInstances = direct(node, "instance_controller"); for (var ci = 0; ci < controllerInstances.length; ci++) addGeometryInstance(object, controllerInstances[ci], (controllerInstances[ci].getAttribute("url") || "").replace(/^#/, "")); var childNodes = direct(node, "node"); for (var ni = 0; ni < childNodes.length; ni++) buildNode(childNodes[ni], object); return object; };
-        if (visual) { var visualNodes = direct(visual, "node"); for (var vn = 0; vn < visualNodes.length; vn++) buildNode(visualNodes[vn], root); }
-        var animationClips = []; var animationLibrary = xml.getElementsByTagName("library_animations")[0]; if (animationLibrary) { var animationNodes = direct(animationLibrary, "animation"); for (var animationIndex = 0; animationIndex < animationNodes.length; animationIndex++) { var animation = animationNodes[animationIndex]; var samplers = {}; var samplerNodes = animation.getElementsByTagName("sampler"); for (var samplerIndex = 0; samplerIndex < samplerNodes.length; samplerIndex++) { var samplerNode = samplerNodes[samplerIndex], samplerData = {}; var samplerInputs = direct(samplerNode, "input"); for (var samplerInputIndex = 0; samplerInputIndex < samplerInputs.length; samplerInputIndex++) samplerData[samplerInputs[samplerInputIndex].getAttribute("semantic")] = readSource(samplerNode, samplerInputs[samplerInputIndex].getAttribute("source")); samplers[samplerNode.getAttribute("id")] = samplerData; } var tracks = []; var channels = animation.getElementsByTagName("channel"); for (var channelIndex = 0; channelIndex < channels.length; channelIndex++) { var channel = channels[channelIndex], sampler = samplers[(channel.getAttribute("source") || "").replace(/^#/, "")], target = (channel.getAttribute("target") || "").split("/"), targetNode = nodeObjects[target[0]] || nodeIds[target[0]]; if (!sampler || !targetNode) continue; var output = sampler.OUTPUT || { array: [], stride: 1 }, input = sampler.INPUT || { array: [], stride: 1 }, path = target[1] || "", values = [], type = "vector3", property = path; if (path.indexOf("rotate") === 0 || path.indexOf("rotation") === 0) { type = "quaternion"; var rotateValues = output.array; var axis = path.indexOf("X") >= 0 ? new Vector3(1, 0, 0) : path.indexOf("Y") >= 0 ? new Vector3(0, 1, 0) : new Vector3(0, 0, 1); for (var rv = 0; rv < input.array.length; rv++) { var angle = rotateValues[rv * output.stride] || 0; if (path.indexOf("ANGLE") >= 0) angle *= Math.PI / 180; values.push.apply(values, [0, 0, 0, 1]); var q = new Quaternion().setFromAxisAngle(axis, angle); values.splice(values.length - 4, 4, q.x, q.y, q.z, q.w); } property = "quaternion"; } else { var component = path.slice(-2); var isComponent = component === ".X" || component === ".Y" || component === ".Z"; for (var ov = 0; ov < input.array.length; ov++) { var baseValue = path.indexOf("scale") === 0 ? targetNode.scale.clone() : targetNode.position.clone(); var strideValue = output.stride; if (strideValue >= 3) { baseValue.x = output.array[ov * strideValue] || 0; baseValue.y = output.array[ov * strideValue + 1] || 0; baseValue.z = output.array[ov * strideValue + 2] || 0; } else if (isComponent) { var scalar = output.array[ov * strideValue] || 0; if (component === ".X") baseValue.x = scalar; else if (component === ".Y") baseValue.y = scalar; else baseValue.z = scalar; } values.push(baseValue.x, baseValue.y, baseValue.z); } property = path.indexOf("scale") === 0 ? "scale" : "position"; } tracks.push(new AnimationTrack(targetNode.name + "." + property, input.array, values, type)); } if (tracks.length) animationClips.push(new AnimationClip(animation.getAttribute("id") || "animation" + animationIndex, undefined, tracks)); } }
-        root.userData.animations = animationClips; root.userData.materials = materialLibrary; root.userData.controllers = controllerLibrary; return root;
     }
-
-    parsePLY(data) { var geometry = faoxomdecodeply(data); return new Mesh(geometry, new StandardMaterial(geometry.attributes.color ? { vertexColors: true } : {})); }
-    parseSVG(data) { return new SVGLoader().parse(data); }
-    parseSTL(data) { if (data instanceof ArrayBuffer && data.byteLength >= 84 && 84 + new DataView(data).getUint32(80, true) * 50 !== data.byteLength) return this.parseSTL(faoxombytestotext(new Uint8Array(data))); if (typeof data === "string") { var positions = [], normals = [], indices = [], currentNormal = new Vector3(0, 1, 0), lines = data.split(/\r?\n/); for (var i = 0; i < lines.length; i++) { var line = lines[i].trim(); if (line.indexOf("facet normal") === 0) { var n = line.split(/\s+/); currentNormal.set(parseFloat(n[2]), parseFloat(n[3]), parseFloat(n[4])); } if (line.indexOf("vertex") === 0) { var v = line.split(/\s+/); positions.push(parseFloat(v[1]), parseFloat(v[2]), parseFloat(v[3])); normals.push(currentNormal.x, currentNormal.y, currentNormal.z); indices.push(indices.length); } } return new Mesh(faoxomgeometry(positions, normals, null, indices), new StandardMaterial()); } if (!(data instanceof ArrayBuffer) || data.byteLength < 84) throw new Error("Invalid STL"); var view = new DataView(data); var count = view.getUint32(80, true); var positions2 = [], normals2 = [], indices2 = []; for (var t = 0; t < count; t++) { var offset = 84 + t * 50; var nx2 = view.getFloat32(offset, true), ny2 = view.getFloat32(offset + 4, true), nz2 = view.getFloat32(offset + 8, true); for (var v2 = 0; v2 < 3; v2++) { var at = offset + 12 + v2 * 12; positions2.push(view.getFloat32(at, true), view.getFloat32(at + 4, true), view.getFloat32(at + 8, true)); normals2.push(nx2, ny2, nz2); indices2.push(indices2.length); } } return new Mesh(faoxomgeometry(positions2, normals2, null, indices2), new StandardMaterial()); }
-    parseMTL(text, url) { var materials = {}; var current = null; var base = url && url.slice(0, url.lastIndexOf("/") + 1) || ""; var lines = text.split(/\r?\n/); for (var i = 0; i < lines.length; i++) { var parts = lines[i].trim().split(/\s+/); var command = parts.shift(); if (command === "newmtl") { current = { name: parts.join(" "), options: {} }; materials[current.name] = current; } else if (current && command === "Kd") current.options.color = new Color(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])); else if (current && command === "Ks") current.options.specular = new Color(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])); else if (current && command === "Ns") current.options.shininess = parseFloat(parts[0]); else if (current && (command === "d" || command === "Tr")) { current.options.opacity = command === "Tr" ? 1 - parseFloat(parts[0]) : parseFloat(parts[0]); current.options.transparent = current.options.opacity < 1; } else if (current && (command === "map_Kd" || command === "map_Bump" || command === "bump" || command === "map_Pr" || command === "map_Pm")) { var path = base + parts.join(" "); if (command === "map_Kd") current.options.diffuseMap = new Texture(path, { flipY: false }); else if (command === "map_Bump" || command === "bump") current.options.normalMap = new Texture(path, { flipY: false }); else if (command === "map_Pr") current.options.roughnessMap = new Texture(path, { flipY: false }); else current.options.metalnessMap = new Texture(path, { flipY: false }); } } return materials; }
-    decodeDataUri(uri) { var comma = uri.indexOf(","); var header = uri.slice(0, comma); var body = uri.slice(comma + 1); if (header.indexOf(";base64") !== -1) { var binary = typeof atob === "function" ? atob(body) : Buffer.from(body, "base64").toString("binary"); var bytes = new Uint8Array(binary.length); for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i); return bytes.buffer; } return new TextEncoder().encode(decodeURIComponent(body)).buffer; }
-    parseGLB(buffer, url) { var view = new DataView(buffer); if (view.getUint32(0, true) !== 0x46546c67) throw new Error("Invalid GLB"); var offset = 12; var json = null; var bins = []; while (offset < view.byteLength) { var length = view.getUint32(offset, true); var type = view.getUint32(offset + 4, true); var chunk = buffer.slice(offset + 8, offset + 8 + length); if (type === 0x4e4f534a) json = JSON.parse(new TextDecoder().decode(new Uint8Array(chunk)).replace(/[\u0000 ]+$/, "")); else if (type === 0x004e4942) bins.push(chunk); offset += 8 + length; } return this.parseGLTF(json, url, bins); }
-    async parseGLTF(gltf, url, binaryBuffers) { var base = url.slice(0, url.lastIndexOf("/") + 1); var buffers = []; for (var i = 0; i < (gltf.buffers || []).length; i++) { var source = gltf.buffers[i].uri; if (!source && binaryBuffers && binaryBuffers[i]) buffers.push(binaryBuffers[i]); else if (source && source.indexOf("data:") === 0) buffers.push(this.decodeDataUri(source)); else if (source) buffers.push(await fetch(base + source).then(function(response) { return response.arrayBuffer(); })); else buffers.push(new ArrayBuffer(0)); } await this.prepareMeshopt(gltf, buffers); await this.prepareDraco(gltf, buffers); var componentTypes = { 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array }; var componentCounts = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 }; var readAccessor = function(index) { var accessor = gltf.accessors[index]; var view = gltf.bufferViews[accessor.bufferView]; var source = buffers[view.buffer]; var count = accessor.count; var itemSize = componentCounts[accessor.type]; var Type = componentTypes[accessor.componentType]; var offset = (view.byteOffset || 0) + (accessor.byteOffset || 0); var stride = view.byteStride || Type.BYTES_PER_ELEMENT * itemSize; var array; if (stride === Type.BYTES_PER_ELEMENT * itemSize) array = new Type(source, offset, count * itemSize); else { array = new Type(count * itemSize); var data = new DataView(source); for (var i = 0; i < count; i++) for (var j = 0; j < itemSize; j++) { var at = offset + i * stride + j * Type.BYTES_PER_ELEMENT; array[i * itemSize + j] = Type === Float32Array ? data.getFloat32(at, true) : Type === Uint32Array ? data.getUint32(at, true) : Type === Uint16Array ? data.getUint16(at, true) : Type === Int16Array ? data.getInt16(at, true) : Type === Uint8Array ? data.getUint8(at) : Type === Int8Array ? data.getInt8(at) : 0; } } return { array: array, itemSize: itemSize, normalized: !!accessor.normalized, count: count }; }; var readImage = function(image) { if (!image) return null; if (image.uri) return image.uri.indexOf("data:") === 0 ? image.uri : base + image.uri; if (image.bufferView !== undefined) { var view = gltf.bufferViews[image.bufferView]; var bytes = buffers[view.buffer].slice(view.byteOffset || 0, (view.byteOffset || 0) + view.byteLength); if (typeof URL !== "undefined" && URL.createObjectURL) return URL.createObjectURL(new Blob([bytes], { type: image.mimeType || "application/octet-stream" })); } return null; }; var attributeName = function(name) { if (name === "POSITION") return "position"; if (name === "NORMAL") return "normal"; if (name === "TANGENT") return "tangent"; if (name === "TEXCOORD_0") return "uv"; if (name.indexOf("TEXCOORD_") === 0) return "uv" + name.slice(9); if (name === "COLOR_0") return "color"; if (name.indexOf("COLOR_") === 0) return "color" + name.slice(6); if (name === "JOINTS_0") return "skinIndex"; if (name === "WEIGHTS_0") return "skinWeight"; return name.toLowerCase().replace(/[^a-z0-9_$]/g, "_"); }; var textureSettings = function(info, settings) { var output = Object.assign({ flipY: false }, settings || {}), transform = info && info.extensions && info.extensions.KHR_texture_transform; output.channel = info && info.texCoord !== undefined ? info.texCoord : 0; if (transform) { if (transform.texCoord !== undefined) output.channel = transform.texCoord; if (transform.offset) output.offset = new Vector2(transform.offset[0] || 0, transform.offset[1] || 0); if (transform.scale) output.repeat = new Vector2(transform.scale[0] === undefined ? 1 : transform.scale[0], transform.scale[1] === undefined ? 1 : transform.scale[1]); if (transform.rotation !== undefined) output.rotation = transform.rotation; } return output; }; var makeMaterial = function(index) { var source = gltf.materials && gltf.materials[index]; if (!source) return new StandardMaterial({ color: 0xffffff, vertexColors: true }); var extensions = source.extensions || {}; var pbr = source.pbrMetallicRoughness || {}; var specGloss = extensions.KHR_materials_pbrSpecularGlossiness || {}; var factor = pbr.baseColorFactor || specGloss.diffuseFactor || [1, 1, 1, 1]; var alphaMode = source.alphaMode || "OPAQUE"; var alphaCutoff = source.alphaCutoff === undefined ? 0.5 : source.alphaCutoff; var options = { color: new Color(factor[0], factor[1], factor[2]), opacity: factor[3], transparent: alphaMode === "BLEND" || factor[3] < 1, alphaTest: alphaMode === "MASK" ? alphaCutoff : 0, side: source.doubleSided ? DoubleSide : FrontSide, vertexColors: true, metalness: pbr.metallicFactor === undefined ? 0 : pbr.metallicFactor, roughness: pbr.roughnessFactor === undefined ? (specGloss.glossinessFactor === undefined ? 0.5 : 1 - specGloss.glossinessFactor) : pbr.roughnessFactor }; var textureFor = function(info, settings) { if (!info || !gltf.images || !gltf.textures || !gltf.textures[info.index]) return null; var textureInfo = gltf.textures[info.index]; var basisExtension = textureInfo.extensions && textureInfo.extensions.KHR_texture_basisu; var sourceIndex = basisExtension && basisExtension.source !== undefined ? basisExtension.source : textureInfo.source; var image = gltf.images[sourceIndex]; var texture = image ? new Texture(readImage(image), textureSettings(info, settings)) : null; if (texture && basisExtension) { texture.compressedSource = readImage(image); texture.compressedTexture = true; texture.colorSpace = settings && settings.colorSpace ? settings.colorSpace : "srgb"; } return texture; }; if (pbr.baseColorTexture) options.diffuseMap = textureFor(pbr.baseColorTexture, { flipY: false, colorSpace: "srgb" }); if (pbr.metallicRoughnessTexture) { var metalRough = textureFor(pbr.metallicRoughnessTexture, { flipY: false, colorSpace: "linear" }); options.roughnessMap = metalRough; options.metalnessMap = metalRough; } if (source.normalTexture) { options.normalMap = textureFor(source.normalTexture, { flipY: false, colorSpace: "linear" }); options.normalScale = new Vector2(source.normalTexture.scale === undefined ? 1 : source.normalTexture.scale, source.normalTexture.scale === undefined ? 1 : source.normalTexture.scale); } if (source.occlusionTexture) options.aoMap = textureFor(source.occlusionTexture, { flipY: false, colorSpace: "linear" }); if (source.emissiveTexture) options.emissiveMap = textureFor(source.emissiveTexture, { flipY: false, colorSpace: "srgb" }); if (source.emissiveFactor) options.emissive = new Color(source.emissiveFactor[0] || 0, source.emissiveFactor[1] || 0, source.emissiveFactor[2] || 0); if (specGloss.specularFactor) options.specular = new Color(specGloss.specularFactor[0] || 0, specGloss.specularFactor[1] || 0, specGloss.specularFactor[2] || 0); var material = source.unlit || extensions.KHR_materials_unlit ? new BasicMaterial(options) : new StandardMaterial(options); var clearcoat = extensions.KHR_materials_clearcoat || {}; var sheen = extensions.KHR_materials_sheen || {}; var transmission = extensions.KHR_materials_transmission || {}; var iridescence = extensions.KHR_materials_iridescence || {}; var anisotropy = extensions.KHR_materials_anisotropy || {}; material.name = source.name || "material" + (index === undefined ? "" : index); material.alphaMode = alphaMode; material.alphaCutoff = alphaCutoff; material.doubleSided = !!source.doubleSided; material.clearcoat = clearcoat.clearcoatFactor || 0; material.clearcoatRoughness = clearcoat.clearcoatRoughnessFactor === undefined ? 0.03 : clearcoat.clearcoatRoughnessFactor; material.sheen = sheen.sheenRoughnessFactor || 0; material.sheenColor = sheen.sheenColorFactor || [0, 0, 0]; material.transmission = transmission.transmissionFactor || 0; material.ior = extensions.KHR_materials_ior && extensions.KHR_materials_ior.ior ? extensions.KHR_materials_ior.ior : 1.5; material.iridescence = iridescence.iridescenceFactor || 0; material.iridescenceIor = iridescence.iridescenceIor || 1.3; material.iridescenceThicknessMinimum = iridescence.iridescenceThicknessMinimum || 100; material.iridescenceThicknessMaximum = iridescence.iridescenceThicknessMaximum || 400; material.anisotropy = anisotropy.anisotropyStrength || 0; material.anisotropyRotation = anisotropy.anisotropyRotation || 0; var specular = extensions.KHR_materials_specular || {}; material.specularIntensity = specular.specularFactor === undefined ? 1 : specular.specularFactor; material.specularColor = specular.specularColorFactor ? new Color(specular.specularColorFactor[0], specular.specularColorFactor[1], specular.specularColorFactor[2]) : new Color(0xffffff); material.emissiveStrength = extensions.KHR_materials_emissive_strength && extensions.KHR_materials_emissive_strength.emissiveStrength !== undefined ? extensions.KHR_materials_emissive_strength.emissiveStrength : 1; material.occlusionStrength = source.occlusionTexture && source.occlusionTexture.strength !== undefined ? source.occlusionTexture.strength : 1; if (material.emissiveStrength !== 1) material.emissive.multiplyScalar(material.emissiveStrength); if (clearcoat.clearcoatTexture) material.clearcoatMap = textureFor(clearcoat.clearcoatTexture, { flipY: false, colorSpace: "linear" }); if (clearcoat.clearcoatRoughnessTexture) material.clearcoatRoughnessMap = textureFor(clearcoat.clearcoatRoughnessTexture, { flipY: false, colorSpace: "linear" }); if (clearcoat.clearcoatNormalTexture) material.clearcoatNormalMap = textureFor(clearcoat.clearcoatNormalTexture, { flipY: false, colorSpace: "linear" }); if (sheen.sheenColorTexture) material.sheenColorMap = textureFor(sheen.sheenColorTexture, { flipY: false, colorSpace: "srgb" }); if (sheen.sheenRoughnessTexture) material.sheenRoughnessMap = textureFor(sheen.sheenRoughnessTexture, { flipY: false, colorSpace: "linear" }); if (transmission.transmissionTexture) material.transmissionMap = textureFor(transmission.transmissionTexture, { flipY: false, colorSpace: "linear" }); if (iridescence.iridescenceTexture) material.iridescenceMap = textureFor(iridescence.iridescenceTexture, { flipY: false, colorSpace: "linear" }); if (anisotropy.anisotropyTexture) material.anisotropyMap = textureFor(anisotropy.anisotropyTexture, { flipY: false, colorSpace: "linear" }); material.volume = extensions.KHR_materials_volume || null; material.thickness = material.volume && material.volume.thicknessFactor !== undefined ? material.volume.thicknessFactor : 0; material.attenuationDistance = material.volume && material.volume.attenuationDistance !== undefined ? material.volume.attenuationDistance : Infinity; material.attenuationColor = material.volume && material.volume.attenuationColor ? new Color(material.volume.attenuationColor[0], material.volume.attenuationColor[1], material.volume.attenuationColor[2]) : new Color(0xffffff); material.dispersion = extensions.KHR_materials_dispersion && extensions.KHR_materials_dispersion.dispersion !== undefined ? extensions.KHR_materials_dispersion.dispersion : 0; material.variants = extensions.KHR_materials_variants || null; material.extras = source.extras || null; return material; }; var makeGeometry = function(primitive) { var geometry = new Geometry(); var attributes = primitive.attributes || {}; if (primitive._decoded) { for (var decodedName in primitive._decoded.attributes) geometry.setAttribute(attributeName(decodedName), primitive._decoded.attributes[decodedName]); geometry.setIndex(primitive._decoded.index); geometry.computeBounds(); geometry.userData.gltfPrimitive = primitive; return geometry; } for (var attributeKey in attributes) geometry.setAttribute(attributeName(attributeKey), readAccessor(attributes[attributeKey])); var positionAttribute = geometry.attributes.position; var positionCount = positionAttribute ? positionAttribute.array.length / positionAttribute.itemSize : 0; if (primitive.targets) { var morphNames = ["position", "normal", "tangent"]; for (var morphNameIndex = 0; morphNameIndex < morphNames.length; morphNameIndex++) { var morphName = morphNames[morphNameIndex], targetList = [], itemSize = morphName === "position" || morphName === "normal" ? 3 : 4; for (var targetIndex = 0; targetIndex < primitive.targets.length; targetIndex++) { var target = primitive.targets[targetIndex] || {}, sourceIndex = target[morphName === "position" ? "POSITION" : morphName === "normal" ? "NORMAL" : "TANGENT"]; targetList.push(sourceIndex === undefined ? { array: new Float32Array(positionCount * itemSize), itemSize: itemSize, normalized: false } : readAccessor(sourceIndex)); } if (targetList.length) geometry.setMorphAttribute(morphName, targetList); } geometry.morphTargetsRelative = true; } if (primitive.indices !== undefined) geometry.setIndex(readAccessor(primitive.indices)); if (!geometry.attributes.normal) geometry.computeVertexNormals(); if (!geometry.attributes.tangent && geometry.attributes.normal && geometry.attributes.uv) geometry.computeTangents(); geometry.computeBounds(); geometry.userData.gltfPrimitive = primitive; geometry.userData.morphTargetsRelative = !!primitive.targets; return geometry; }; var meshes = (gltf.meshes || []).map(function(source, meshSourceIndex) { return (source.primitives || []).map(function(primitive, primitiveIndex) { return { geometry: makeGeometry(primitive), material: makeMaterial(primitive.material), materialIndex: primitive.material === undefined ? 0 : primitive.material, mode: primitive.mode || 4, meshIndex: meshSourceIndex, primitiveIndex: primitiveIndex, primitive: primitive }; }); }); var pointerTargets = {}; var pointerMaterials = {}; var jointSet = {}; for (var skinIndex = 0; skinIndex < (gltf.skins || []).length; skinIndex++) for (var jointIndex = 0; jointIndex < gltf.skins[skinIndex].joints.length; jointIndex++) jointSet[gltf.skins[skinIndex].joints[jointIndex]] = true; var nodes = gltf.nodes || []; var objects = new Array(nodes.length); for (var nodeIndex = 0; nodeIndex < nodes.length; nodeIndex++) { var node = nodes[nodeIndex], object = jointSet[nodeIndex] ? new Bone() : new Node(); object.name = node.name || "node" + nodeIndex; object.userData.gltfNode = node; if (node.matrix) object.matrix.fromArray(node.matrix); else { if (node.translation) object.position.fromArray(node.translation); if (node.rotation) object.quaternion.fromArray(node.rotation); if (node.scale) object.scale.fromArray(node.scale); } if (node.mesh !== undefined) { var entries = meshes[node.mesh] || [], children = [], materials = [], meshWeights = node.weights || (gltf.meshes[node.mesh] && gltf.meshes[node.mesh].weights) || []; for (var meshIndex = 0; meshIndex < entries.length; meshIndex++) { var entry = entries[meshIndex], mesh = node.skin !== undefined ? new SkinnedMesh(entry.geometry, entry.material) : new Mesh(entry.geometry, entry.material); mesh.name = object.name + (entries.length > 1 ? ":primitive" + meshIndex : ""); mesh.userData.gltfMesh = entry.meshIndex; mesh.userData.gltfPrimitive = entry.primitiveIndex; mesh.materialIndex = entry.materialIndex; if (entry.geometry.morphAttributes && entry.geometry.morphAttributes.position) { mesh.morphTargetInfluences = new Array(entry.geometry.morphAttributes.position.length).fill(0); for (var weightIndex = 0; weightIndex < mesh.morphTargetInfluences.length; weightIndex++) mesh.morphTargetInfluences[weightIndex] = meshWeights[weightIndex] || 0; mesh.morphTargetDictionary = {}; var targetNames = gltf.meshes[node.mesh] && gltf.meshes[node.mesh].extras && gltf.meshes[node.mesh].extras.targetNames; if (targetNames) for (var targetNameIndex = 0; targetNameIndex < targetNames.length; targetNameIndex++) mesh.morphTargetDictionary[targetNames[targetNameIndex]] = targetNameIndex; } var variantDefs = gltf.extensions && gltf.extensions.KHR_materials_variants && gltf.extensions.KHR_materials_variants.variants || []; var primitiveVariantExt = entry.primitive && entry.primitive.extensions && entry.primitive.extensions.KHR_materials_variants; if (primitiveVariantExt && primitiveVariantExt.mappings) { mesh.userData.materialVariants = { default: entry.material }; for (var mapIdx = 0; mapIdx < primitiveVariantExt.mappings.length; mapIdx++) { var mapping = primitiveVariantExt.mappings[mapIdx]; var varMat = makeMaterial(mapping.material); for (var vIdx = 0; vIdx < (mapping.variants || []).length; vIdx++) { var vName = variantDefs[mapping.variants[vIdx]] && variantDefs[mapping.variants[vIdx]].name; if (vName) mesh.userData.materialVariants[vName] = varMat; } } } children.push(mesh); materials.push(entry.material); if (entry.materialIndex !== undefined && pointerMaterials[entry.materialIndex] === undefined) pointerMaterials[entry.materialIndex] = entry.material; } object.userData.meshes = children; object.userData.materials = materials; object.userData.weights = meshWeights.slice ? meshWeights.slice() : meshWeights; } if (node.camera !== undefined && gltf.cameras && gltf.cameras[node.camera]) { var cameraDef = gltf.cameras[node.camera]; var cam = null; if (cameraDef.type === "perspective" && cameraDef.perspective) { var cp = cameraDef.perspective; var fov = (cp.yfov || 0.6) * 180 / Math.PI; cam = new PerspectiveCamera(fov, cp.aspectRatio || 1, cp.znear || 0.1, cp.zfar || 1000); } else if (cameraDef.type === "orthographic" && cameraDef.orthographic) { var co = cameraDef.orthographic; cam = new OrthographicCamera(-co.xmag || -1, co.xmag || 1, co.ymag || 1, -co.ymag || -1, co.znear || 0.1, co.zfar || 1000); } if (cam) { cam.name = cameraDef.name || object.name + "_Camera"; object.add(cam); object.userData.camera = cam; } } var punctualLights = gltf.extensions && gltf.extensions.KHR_lights_punctual && gltf.extensions.KHR_lights_punctual.lights; var lightNodeExt = node.extensions && node.extensions.KHR_lights_punctual; if (punctualLights && lightNodeExt && lightNodeExt.light !== undefined) { var lightDef = punctualLights[lightNodeExt.light]; if (lightDef) { var lCol = lightDef.color ? new Color(lightDef.color[0], lightDef.color[1], lightDef.color[2]) : new Color(0xffffff); var lInten = lightDef.intensity !== undefined ? lightDef.intensity : 1; var lightScale = lInten > 100 ? lInten / 1000 : lInten; var lightObj = null; if (lightDef.type === "directional") lightObj = new DirectionalLight(lCol, lightScale); else if (lightDef.type === "point") lightObj = new PointLight(lCol, lightScale, lightDef.range || 0); else if (lightDef.type === "spot") { var spot = lightDef.spot || {}; lightObj = new SpotLight(lCol, lightScale, lightDef.range || 0, spot.outerConeAngle || Math.PI / 4, spot.innerConeAngle ? 1 - spot.innerConeAngle / (spot.outerConeAngle || 1) : 0); } if (lightObj) { lightObj.name = lightDef.name || object.name + "_Light"; object.add(lightObj); object.userData.light = lightObj; pointerTargets["light" + lightNodeExt.light] = lightObj; } } } objects[nodeIndex] = object; } for (var parentIndex = 0; parentIndex < nodes.length; parentIndex++) { var parent = objects[parentIndex], nodeChildren = nodes[parentIndex].children || []; for (var childIndex = 0; childIndex < nodeChildren.length; childIndex++) if (objects[nodeChildren[childIndex]]) parent.add(objects[nodeChildren[childIndex]]); var meshChildren = parent.userData.meshes || []; for (var meshIndex = 0; meshIndex < meshChildren.length; meshIndex++) parent.add(meshChildren[meshIndex]); } var root = new Group(); root.name = gltf.asset && gltf.asset.generator ? gltf.asset.generator : "gltf"; root.userData.gltfAsset = gltf.asset || {}; root.userData.gltf = gltf; var sceneData = gltf.scenes && gltf.scenes[gltf.scene || 0]; var sceneNodes = sceneData ? sceneData.nodes : []; for (var rootIndex = 0; rootIndex < sceneNodes.length; rootIndex++) if (objects[sceneNodes[rootIndex]]) root.add(objects[sceneNodes[rootIndex]]); root.updateMatrixWorld(true); for (var skinNo = 0; skinNo < (gltf.skins || []).length; skinNo++) { var skin = gltf.skins[skinNo], bones = skin.joints.map(function(index) { return objects[index]; }), inverses = []; if (skin.inverseBindMatrices !== undefined) { var inverseData = readAccessor(skin.inverseBindMatrices); for (var invIndex = 0; invIndex < skin.joints.length; invIndex++) inverses.push(new Matrix4().fromArray(inverseData.array, invIndex * 16)); } var skeleton = new Skeleton(bones, inverses); skeleton.name = skin.name || "skeleton" + skinNo; for (var objectIndex = 0; objectIndex < objects.length; objectIndex++) { var meshesForNode = objects[objectIndex] && objects[objectIndex].userData.meshes || []; for (var meshIndex = 0; meshIndex < meshesForNode.length; meshIndex++) if (meshesForNode[meshIndex] instanceof SkinnedMesh && nodes[objectIndex].skin === skinNo) { meshesForNode[meshIndex].bind(skeleton, objects[objectIndex].matrixWorld); meshesForNode[meshIndex].userData.gltfSkin = skinNo; } } } var animations = []; for (var animationIndex = 0; animationIndex < (gltf.animations || []).length; animationIndex++) { var animation = gltf.animations[animationIndex], tracks = []; for (var channelIndex = 0; channelIndex < animation.channels.length; channelIndex++) { var channel = animation.channels[channelIndex], sampler = animation.samplers[channel.sampler], times = readAccessor(sampler.input).array, values = readAccessor(sampler.output).array, path = channel.target.path, nodeObject = objects[channel.target.node], type = path === "rotation" ? "quaternion" : path === "weights" ? "array" : "vector3"; var pointerExt = channel.target.extensions && channel.target.extensions.KHR_animation_pointer; if (pointerExt && pointerExt.pointer) { var segments = pointerExt.pointer.split("/"), clean = []; for (var sg = 0; sg < segments.length; sg++) if (segments[sg]) clean.push(segments[sg]); if (clean[0] === "nodes" && clean.length >= 3 && (clean[2] === "translation" || clean[2] === "rotation" || clean[2] === "scale" || clean[2] === "weights")) { var pointerNode = null; if (/^[0-9]+$/.test(clean[1])) pointerNode = objects[Number(clean[1])]; else { for (var pn = 0; pn < nodes.length; pn++) if (nodes[pn] && nodes[pn].name === clean[1]) { pointerNode = objects[pn]; break; } } if (pointerNode) { var pointerPath = clean[2]; tracks.push(new AnimationTrack((pointerNode.name || "node") + "." + (pointerPath === "translation" ? "position" : pointerPath), times, values, pointerPath === "rotation" ? "quaternion" : pointerPath === "weights" ? "array" : "vector3", sampler.interpolation || "LINEAR")); } continue; } if (clean[0] === "materials" && clean.length >= 3) { var pointerMaterialIndex = null; if (/^[0-9]+$/.test(clean[1])) pointerMaterialIndex = Number(clean[1]); else { for (var pm = 0; pm < (gltf.materials || []).length; pm++) if (gltf.materials[pm] && gltf.materials[pm].name === clean[1]) { pointerMaterialIndex = pm; break; } } if (pointerMaterialIndex !== null) { if (pointerMaterials[pointerMaterialIndex] === undefined) pointerMaterials[pointerMaterialIndex] = makeMaterial(pointerMaterialIndex); if (pointerTargets["material" + pointerMaterialIndex] === undefined) pointerTargets["material" + pointerMaterialIndex] = pointerMaterials[pointerMaterialIndex]; var pointerPrefix = "userData.pointerTargets.material" + pointerMaterialIndex + ".", pointerLeaf = clean[clean.length - 1]; if (pointerLeaf === "baseColorFactor" && values.length >= times.length * 4) { var colorValues = new Array(times.length * 3), opacityValues = new Array(times.length); for (var kf = 0; kf < times.length; kf++) { colorValues[kf * 3] = values[kf * 4]; colorValues[kf * 3 + 1] = values[kf * 4 + 1]; colorValues[kf * 3 + 2] = values[kf * 4 + 2]; opacityValues[kf] = values[kf * 4 + 3]; } tracks.push(new AnimationTrack(pointerPrefix + "color", times, colorValues, "color", sampler.interpolation || "LINEAR")); tracks.push(new AnimationTrack(pointerPrefix + "opacity", times, opacityValues, "number", sampler.interpolation || "LINEAR")); } else if (pointerLeaf === "metallicFactor" || pointerLeaf === "roughnessFactor" || pointerLeaf === "alphaCutoff") tracks.push(new AnimationTrack(pointerPrefix + (pointerLeaf === "metallicFactor" ? "metalness" : pointerLeaf === "roughnessFactor" ? "roughness" : "alphaCutoff"), times, values, "number", sampler.interpolation || "LINEAR")); else if (pointerLeaf === "emissiveFactor") tracks.push(new AnimationTrack(pointerPrefix + "emissive", times, values, "color", sampler.interpolation || "LINEAR")); } continue; } if (clean[0] === "extensions" && clean[1] === "KHR_lights_punctual" && clean[2] === "lights" && clean.length >= 5) { var pointerLight = pointerTargets["light" + clean[3]], pointerLightLeaf = clean[clean.length - 1]; if (pointerLight && (pointerLightLeaf === "intensity" || pointerLightLeaf === "color")) tracks.push(new AnimationTrack("userData.pointerTargets.light" + clean[3] + "." + (pointerLightLeaf === "color" ? "color" : "intensity"), times, values, pointerLightLeaf === "color" ? "color" : "number", sampler.interpolation || "LINEAR")); continue; } continue; } if (!nodeObject) continue; tracks.push(new AnimationTrack((nodeObject.name || "node" + channel.target.node) + "." + (path === "translation" ? "position" : path), times, values, type, sampler.interpolation || "LINEAR")); } animations.push(new AnimationClip(animation.name || "animation" + animationIndex, undefined, tracks)); } root.userData.animations = animations; root.userData.pointerTargets = pointerTargets; var imageBased = gltf.extensions && gltf.extensions.EXT_lights_image_based; if (imageBased && imageBased.lights && imageBased.lights.length) { var envLight = imageBased.lights[0]; var radianceIndices = envLight.radianceCube && envLight.radianceCube.indices; if (radianceIndices && radianceIndices.length === 6) { var faceUrls = []; for (var faceIndex = 0; faceIndex < 6; faceIndex++) { var faceTexture = gltf.textures[radianceIndices[faceIndex]]; var faceImage = faceTexture && gltf.images[faceTexture.source]; faceUrls.push(readImage(faceImage)); } var envCube = new CubeTexture(faceUrls); root.userData.environmentCube = envCube; var envReady = envCube.promise.catch(function() { return envCube; }); var envValue = await envReady; if (this.options && this.options.renderer && this.options.renderer.resourceManager && this.options.renderer.device) { try { root.userData.environment = await new PMREMGenerator(this.options.renderer).generate(envValue); } catch (envError) { root.userData.environment = envValue; } } else root.userData.environment = envValue; root.environment = root.userData.environment; } } return root; }
-    parseOBJ(text) { var positions = [], normals = [], uvs = [], outP = [], outN = [], outU = [], indices = [], map = {}; var lines = text.split(/\r?\n/); for (var i = 0; i < lines.length; i++) { var line = lines[i].trim(); var parts = line.split(/\s+/); if (parts[0] === "v") positions.push(new Vector3(parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3]))); else if (parts[0] === "vn") normals.push(new Vector3(parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3]))); else if (parts[0] === "vt") uvs.push(new Vector2(parseFloat(parts[1]), parseFloat(parts[2]))); else if (parts[0] === "f") { var face = []; for (var j = 1; j < parts.length; j++) { var key = parts[j]; if (map[key] === undefined) { var refs = key.split("/"); var pi = parseInt(refs[0], 10); var ti = parseInt(refs[1] || 0, 10); var ni = parseInt(refs[2] || 0, 10); var pv = positions[pi < 0 ? positions.length + pi : pi - 1] || new Vector3(); var tv = uvs[ti < 0 ? uvs.length + ti : ti - 1] || new Vector2(); var nv = normals[ni < 0 ? normals.length + ni : ni - 1] || new Vector3(0, 1, 0); outP.push(pv.x, pv.y, pv.z); outU.push(tv.x, tv.y); outN.push(nv.x, nv.y, nv.z); map[key] = outP.length / 3 - 1; } face.push(map[key]); } for (var k = 1; k < face.length - 1; k++) indices.push(face[0], face[k], face[k + 1]); } } return new Mesh(faoxomgeometry(outP, outN, outU, indices), new StandardMaterial()); }
-    loadModelInWorker(url, options) { options = options || {}; if (typeof Worker === "undefined" || typeof Blob === "undefined" || typeof URL === "undefined" || !URL.createObjectURL) return this.loadModel(url, options); var source = "self.onmessage=async function(event){try{var response=await fetch(event.data.url,event.data.request||{});if(!response.ok)throw new Error('Asset request failed: '+response.status);var buffer=await response.arrayBuffer();var view=new DataView(buffer);if(buffer.byteLength<20||view.getUint32(0,true)!==0x46546c67)throw new Error('Background worker currently requires GLB input');var jsonLength=view.getUint32(12,true),jsonStart=20,jsonBytes=new Uint8Array(buffer,jsonStart,jsonLength),json=JSON.parse(new TextDecoder().decode(jsonBytes));self.postMessage({buffer:buffer,json:json,bytes:buffer.byteLength},[buffer]);}catch(error){self.postMessage({error:String(error&&error.message?error.message:error)});}};"; var worker = new Worker(URL.createObjectURL(new Blob([source], { type: "application/javascript" }))), self = this; return new Promise(function(resolve, reject) { worker.onmessage = function(event) { var data = event.data || {}; worker.terminate(); if (data.error) { reject(new Error(data.error)); return; } try { var object = self.parseGLB(data.buffer, url); Promise.resolve(self.prepareCompressedTextures(object)).then(resolve, reject); } catch (error) { reject(error); } }; worker.onerror = function(error) { worker.terminate(); reject(error); }; var workerUrl = url; if (typeof document !== "undefined" && typeof URL !== "undefined") workerUrl = new URL(url, document.baseURI).href; worker.postMessage({ url: workerUrl, request: { headers: options.headers || {} } }); }); }
+    async loadKTX2(zalva, zalvb) {
+        var zalvc = await fetch(zalva).then(function(zalva) {
+            if (!zalva.ok) throw new Error("KTX2 request failed");
+            return zalva.arrayBuffer();
+        });
+        var zalvd = await this.decodeKTX2(zalvc, zalvb);
+        var zalve = zalvd.target === "cubemap" ? new CompressedCubeTexture(zalvd, {
+            flipY: false,
+            minFilter: zalvd.levels.length > 1 ? "linearMipmapLinear" : "linear"
+        }) : zalvd.target === "array" ? new CompressedTextureArray(zalvd, {
+            flipY: false,
+            minFilter: zalvd.levels.length > 1 ? "linearMipmapLinear" : "linear"
+        }) : zalvd.target === "3d" ? new CompressedTexture3D(zalvd, {
+            flipY: false,
+            minFilter: zalvd.levels.length > 1 ? "linearMipmapLinear" : "linear"
+        }) : new Texture(null, {
+            flipY: false,
+            minFilter: zalvd.levels.length > 1 ? "linearMipmapLinear" : "linear"
+        });
+        if (zalvd.target !== "cubemap" && zalvd.target !== "array" && zalvd.target !== "3d") zalve.compressed = zalvd;
+        zalve.loaded = true;
+        zalve.needsUpdate = true;
+        return zalve;
+    }
+    async prepareDraco(zalva, zalvb) {
+        var zalvc = null;
+        var zalvd = null;
+        var zalve = zalva.meshes || [];
+        for (var zalvf = 0; zalvf < zalve.length; zalvf++) for (var zalvg = 0; zalvg < (zalve[zalvf].primitives || []).length; zalvg++) {
+            var zalvh = zalve[zalvf].primitives[zalvg];
+            var zalvi = zalvh.extensions && zalvh.extensions.KHR_draco_mesh_compression;
+            if (!zalvi) continue;
+            if (!zalvc) {
+                zalvc = await this.loadDracoDecoder();
+                zalvd = new zalvc.Decoder;
+            }
+            var zalvj = zalva.bufferViews[zalvi.bufferView];
+            var zalvk = new Int8Array(zalvb[zalvj.buffer], zalvj.byteOffset || 0, zalvj.byteLength);
+            var zalvl = new zalvc.DecoderBuffer;
+            zalvl.Init(zalvk, zalvk.length);
+            var zalvm = zalvd.GetEncodedGeometryType(zalvl);
+            if (zalvm !== zalvc.TRIANGULAR_MESH) {
+                zalvl.__destroy__();
+                throw new Error("Draco point clouds are not supported as mesh primitives");
+            }
+            var zalvn = new zalvc.Mesh;
+            var zalvo = zalvd.DecodeBufferToMesh(zalvl, zalvn);
+            if (!zalvo.ok() || zalvn.num_points() === 0) {
+                zalvl.__destroy__();
+                zalvn.__destroy__();
+                throw new Error("Draco mesh decoding failed");
+            }
+            var zalvp = {
+                attributes: {},
+                index: new Uint32Array(zalvn.num_faces() * 3)
+            };
+            zalvd.GetTrianglesUInt32Array(zalvn, zalvp.index.length, zalvp.index);
+            var zalvq = {
+                POSITION: "POSITION",
+                NORMAL: "NORMAL",
+                TEXCOORD_0: "TEX_COORD",
+                COLOR_0: "COLOR",
+                TANGENT: "GENERIC"
+            };
+            for (var zalvr in zalvi.attributes) {
+                var zalvs = zalvi.attributes[zalvr];
+                var zalvt = zalvd.GetAttributeByUniqueId(zalvn, zalvs);
+                if (!zalvt) continue;
+                var zalvu = zalvt.size();
+                var zalvv = new Float32Array(zalvn.num_points() * zalvu);
+                zalvd.GetAttributeFloatForAllPoints(zalvn, zalvt, zalvv);
+                zalvp.attributes[zalvr] = {
+                    array: zalvv,
+                    itemSize: zalvu,
+                    normalized: false
+                };
+            }
+            zalvh._decoded = zalvp;
+            zalvl.__destroy__();
+            zalvn.__destroy__();
+        }
+        if (zalvd && zalvd.__destroy__) zalvd.__destroy__();
+        return zalva;
+    }
+    async prepareMeshopt(zalva, zalvb) {
+        var zalvc = null;
+        var zalvd = zalva.bufferViews || [];
+        for (var zalve = 0; zalve < zalvd.length; zalve++) {
+            var zalvf = zalvd[zalve];
+            var zalvg = zalvf.extensions && zalvf.extensions.EXT_meshopt_compression;
+            if (!zalvg) continue;
+            if (!zalvc) zalvc = await this.loadMeshoptDecoder();
+            var zalvh = zalvb[zalvg.buffer];
+            var zalvi = new Uint8Array(zalvh, zalvg.byteOffset || 0, zalvg.byteLength);
+            var zalvj = new Uint8Array(zalvg.count * zalvg.byteStride);
+            zalvc.decodeGltfBuffer(zalvj, zalvg.count, zalvg.byteStride, zalvi, zalvg.mode, zalvg.filter);
+            var zalvk = zalva.buffers.length;
+            zalva.buffers.push({
+                byteLength: zalvj.byteLength
+            });
+            zalvb.push(zalvj.buffer);
+            zalvf.buffer = zalvk;
+            zalvf.byteOffset = 0;
+            zalvf.byteLength = zalvj.byteLength;
+            zalvf.byteStride = zalvg.byteStride;
+            delete zalvf.extensions;
+        }
+        return zalva;
+    }
+    prepareCompressedTextures(zalva) {
+        var zalvb = this;
+        var zalvc = [];
+        if (!zalva || !zalva.traverse) return Promise.resolve(zalva);
+        zalva.traverse(function(zalva) {
+            if (!zalva.material) return;
+            var zalvd = Array.isArray(zalva.material) ? zalva.material : [ zalva.material ];
+            for (var zalve = 0; zalve < zalvd.length; zalve++) {
+                var zalvf = zalvd[zalve];
+                for (var zalvg in zalvf) {
+                    var zalvh = zalvf[zalvg];
+                    if (!zalvh || !zalvh.compressedTexture || !zalvh.compressedSource) continue;
+                    zalvc.push(zalvb.loadKTX2(zalvh.compressedSource, zalvb.options.renderer).then(function(zalva, zalvb) {
+                        return function(zalvc) {
+                            zalva[zalvb] = zalvc;
+                        };
+                    }(zalvf, zalvg)));
+                }
+            }
+        });
+        return Promise.all(zalvc).then(function() {
+            return zalva;
+        });
+    }
+    load(zalva, zalvb, zalvc) {
+        if (zalvb && typeof zalvb === "object") {
+            zalvc = zalvb;
+            zalvb = zalvc.type;
+        }
+        zalvc = zalvc || {};
+        var zalvd = typeof zalva === "string" && (!zalvb || zalvb === "model") && (!zalvc.type || zalvc.type === "model") ? zalva.indexOf("embedded:") === 0 ? zalva.slice(9) : faoxommodelstore()[zalva] !== undefined ? zalva : null : null;
+        var zalve = zalvc.cacheKey || (zalvd !== null ? "embedded:" + zalvd + "#" + faoxomstate.faoxommodelstoreversion : zalva) + "|" + (zalvb || "");
+        if (this.cacheEnabled && zalvc.cache !== false && this.cache[zalve]) return Promise.resolve(this.cache[zalve]);
+        if (this.inflight[zalve]) return this.inflight[zalve];
+        var zalvf = this, zalvg = (zalva.split(".").pop() || "").toLowerCase().split("?")[0], zalvh = zalvb || zalvc.type || (zalvg === "gltf" || zalvg === "glb" || zalvg === "fbx" || zalvg === "obj" || zalvg === "ply" || zalvg === "stl" || zalvg === "mtl" || zalvg === "bvh" || zalvg === "pcd" || zalvg === "vtk" || zalvg === "gcode" || zalvg === "md2" || zalvg === "mdd" || zalvg === "svg" ? "model" : zalvg === "png" || zalvg === "jpg" || zalvg === "jpeg" || zalvg === "webp" || zalvg === "ktx2" || zalvg === "hdr" || zalvg === "tga" || zalvg === "dds" || zalvg === "exr" ? "texture" : zalvg === "mp3" || zalvg === "wav" || zalvg === "ogg" ? "audio" : zalvg === "json" ? "json" : "text"), zalvi = zalvc.onProgress || this.onProgress, zalvj = {
+            headers: zalvc.headers || {}
+        };
+        if (zalvc.signal) zalvj.signal = zalvc.signal;
+        var zalvk = function(zalva) {
+            if (zalvf.cacheEnabled && zalvc.cache !== false) zalvf.cache[zalve] = zalva;
+            return zalva;
+        };
+        var zalvl;
+        if (zalvd !== null) zalvl = Promise.resolve(zalvf.loadEmbeddedEntry(zalvd)).then(function(zalva) {
+            return zalvf.prepareCompressedTextures(zalva);
+        }).then(zalvk); else if (zalvh === "texture") zalvl = zalvg === "ktx2" ? zalvf.loadKTX2(zalva, zalvf.options.renderer).then(zalvk) : zalvg === "hdr" ? zalvf.loadHDR(zalva, zalvf.options.renderer).then(zalvk) : zalvg === "tga" ? zalvf.loadTGA(zalva).then(zalvk) : zalvg === "dds" ? zalvf.loadDDS(zalva).then(zalvk) : zalvg === "exr" ? zalvf.loadEXR(zalva).then(zalvk) : new Texture(zalva).promise.then(zalvk); else if (zalvh === "audio") zalvl = Promise.resolve(typeof Audio !== "undefined" ? new Audio(zalva) : {
+            src: zalva
+        }).then(zalvk); else zalvl = fetch(zalva, zalvj).then(function(zalvb) {
+            return faoxomreadresponse(zalvb, zalvg === "glb" || zalvg === "fbx" || zalvg === "ply" || zalvg === "pcd" || zalvg === "stl" || zalvg === "md2" || zalvg === "mdd" || zalvg === "vtk" ? "arraybuffer" : zalvh === "json" || zalvg === "gltf" ? "json" : "text", function(zalvb, zalvc) {
+                if (zalvi) zalvi({
+                    url: zalva,
+                    loaded: zalvb,
+                    total: zalvc,
+                    ratio: zalvc ? zalvb / zalvc : 0
+                });
+            });
+        }).then(function(zalvb) {
+            return zalvf.parseModel(zalvb, zalvg, zalva);
+        }).then(function(zalva) {
+            return zalvf.prepareCompressedTextures(zalva);
+        }).then(zalvk);
+        this.inflight[zalve] = zalvl;
+        return zalvl.then(function(zalva) {
+            delete zalvf.inflight[zalve];
+            return zalva;
+        }, function(zalvb) {
+            delete zalvf.inflight[zalve];
+            if (zalvf.onError) zalvf.onError(zalvb, zalva);
+            throw zalvb;
+        });
+    }
+    loadEmbeddedEntry(zalva) {
+        var zalvb = faoxommodelstore()[zalva];
+        if (!zalvb) return Promise.reject(new Error("No embedded model named " + zalva));
+        if (zalvb.format === "gltf") return this.parseGLTF(typeof zalvb.json === "string" ? JSON.parse(zalvb.json) : zalvb.json, "embedded:" + zalva + ".gltf", []);
+        var zalvc = zalvb.data;
+        var zalvd = zalvc instanceof ArrayBuffer ? zalvc : typeof zalvc === "string" ? faoxombase64bytes(zalvc) : zalvc && zalvc.buffer instanceof ArrayBuffer ? zalvc.buffer.slice(zalvc.byteOffset, zalvc.byteOffset + zalvc.byteLength) : null;
+        if (!zalvd) return Promise.reject(new Error("Embedded model " + zalva + " has no usable data"));
+        return Promise.resolve(this.parseGLB(zalvd, "embedded:" + zalva + ".glb"));
+    }
+    loadModel(zalva, zalvb) {
+        return this.load(zalva, "model", zalvb);
+    }
+    loadTexture(zalva, zalvb) {
+        return this.load(zalva, "texture", zalvb);
+    }
+    hasCached(zalva, zalvb) {
+        return !!(this.cacheEnabled && this.cache[zalva + "|" + (zalvb || "")]);
+    }
+    getCached(zalva, zalvb) {
+        return this.cache[zalva + "|" + (zalvb || "")] || null;
+    }
+    clearCache(zalva, zalvb) {
+        if (zalva === undefined) this.cache = {}; else delete this.cache[zalva + "|" + (zalvb || "")];
+        return this;
+    }
+    loadWithProgress(zalva, zalvb, zalvc, zalvd) {
+        zalvd = Object.assign({}, zalvd || {}, {
+            onProgress: zalvc
+        });
+        return this.load(zalva, zalvb, zalvd);
+    }
+    loadManifest(zalva, zalvb) {
+        var zalvc = [];
+        if (Array.isArray(zalva)) for (var zalvd = 0; zalvd < zalva.length; zalvd++) zalvc.push({
+            name: String(zalvd),
+            value: zalva[zalvd]
+        }); else if (zalva) {
+            for (var zalve in zalva) {
+                var zalvf = zalva[zalve];
+                if (Array.isArray(zalvf)) for (var zalvg = 0; zalvg < zalvf.length; zalvg++) zalvc.push({
+                    name: zalve + "." + zalvg,
+                    value: zalvf[zalvg]
+                }); else if (zalvf && typeof zalvf === "object") for (var zalvh in zalvf) zalvc.push({
+                    name: zalve + "." + zalvh,
+                    value: zalvf[zalvh]
+                });
+            }
+        }
+        var zalvi = {};
+        var zalvj = 0;
+        var zalvk = this;
+        return Promise.all(zalvc.map(function(zalva) {
+            var zalvd = zalva.value;
+            var zalve = typeof zalvd === "string" ? zalvd : zalvd.url;
+            var zalvf = typeof zalvd === "string" ? undefined : zalvd.type;
+            return zalvk.load(zalve, zalvf).then(function(zalvd) {
+                zalvi[zalva.name] = zalvd;
+                zalvj++;
+                if (zalvb) zalvb(zalvj, zalvc.length, zalva.name, zalvd);
+                return zalvd;
+            });
+        })).then(function() {
+            return zalvi;
+        });
+    }
+    loadAudio(zalva) {
+        return this.load(zalva, "audio");
+    }
+    parseModel(zalva, zalvb, zalvc) {
+        if (zalvb === "obj" && typeof zalva === "string") return this.parseOBJ(zalva);
+        if (zalvb === "ply") return this.parsePLY(zalva);
+        if (zalvb === "stl" && (typeof zalva === "string" || zalva instanceof ArrayBuffer)) return this.parseSTL(zalva);
+        if (zalvb === "pcd") return this.parsePCD(zalva);
+        if (zalvb === "vtk") return this.parseVTK(zalva);
+        if (zalvb === "gcode" && typeof zalva === "string") return this.parseGCode(zalva);
+        if (zalvb === "md2" && zalva instanceof ArrayBuffer) return this.parseMD2(zalva);
+        if (zalvb === "mdd" && zalva instanceof ArrayBuffer) return this.parseMDD(zalva);
+        if (zalvb === "svg" && typeof zalva === "string") return this.parseSVG(zalva);
+        if (zalvb === "bvh" && typeof zalva === "string") return this.parseBVH(zalva);
+        if (zalvb === "mtl" && typeof zalva === "string") return this.parseMTL(zalva, zalvc);
+        if (zalvb === "glb" && zalva instanceof ArrayBuffer) return this.parseGLB(zalva, zalvc);
+        if (zalvb === "fbx" && zalva instanceof ArrayBuffer) return this.parseFBX(zalva, zalvc);
+        if (zalvb === "gltf" && zalva && zalva.asset) return this.parseGLTF(zalva, zalvc, []);
+        if (zalvb === "dae" && typeof zalva === "string") return this.parseCollada(zalva, zalvc);
+        return zalva;
+    }
+    parseCollada(zalva, zalvb) {
+        if (typeof DOMParser === "undefined") throw new Error("Collada parsing requires DOMParser");
+        var zalvc = (new DOMParser).parseFromString(zalva, "application/xml");
+        var zalvd = zalvb ? zalvb.slice(0, zalvb.lastIndexOf("/") + 1) : "";
+        var zalve = function(zalva, zalvb) {
+            var zalvc = [];
+            if (!zalva) return zalvc;
+            for (var zalvd = 0; zalvd < zalva.childNodes.length; zalvd++) if (zalva.childNodes[zalvd].nodeType === 1 && zalva.childNodes[zalvd].tagName === zalvb) zalvc.push(zalva.childNodes[zalvd]);
+            return zalvc;
+        };
+        var zalvf = function(zalva, zalvb) {
+            var zalvc = zalve(zalva, zalvb);
+            return zalvc.length ? zalvc[0] : null;
+        };
+        var zalvg = function(zalva, zalvb) {
+            var zalvc = zalvf(zalva, zalvb);
+            return zalvc ? zalvc.textContent.trim() : "";
+        };
+        var zalvh = function(zalva) {
+            return zalva ? zalva.trim().split(/\s+/).map(Number) : [];
+        };
+        var zalvi = {};
+        var zalvj = zalvc.getElementsByTagName("library_images")[0];
+        if (zalvj) for (var zalvk = 0; zalvk < zalvj.getElementsByTagName("image").length; zalvk++) {
+            var zalvl = zalvj.getElementsByTagName("image")[zalvk];
+            zalvi[zalvl.getAttribute("id")] = zalvg(zalvl, "init_from");
+        }
+        var zalvm = {};
+        var zalvn = function(zalva, zalvb) {
+            zalvb = (zalvb || "").replace(/^#/, "");
+            if (zalvm[zalvb]) return zalvm[zalvb];
+            var zalvd = zalva && zalva.ownerDocument ? zalva.ownerDocument.getElementById(zalvb) : zalvc.getElementById(zalvb);
+            var zalvi = zalvd ? zalvg(zalvd, "float_array") : "";
+            var zalvj = zalvd ? zalvg(zalvd, "Name_array") : "";
+            var zalvk = zalvj ? zalvj.split(/\s+/) : [];
+            var zalvl = zalvi ? zalvh(zalvi) : zalvk;
+            var zalvn = zalvd ? zalvf(zalvf(zalvd, "technique_common"), "accessor") : null;
+            var zalvo = zalvn ? parseInt(zalvn.getAttribute("stride") || "1", 10) : 1;
+            var zalvp = [];
+            if (zalvn) {
+                var zalvq = zalve(zalvn, "param");
+                for (var zalvr = 0; zalvr < zalvq.length; zalvr++) zalvp.push(zalvq[zalvr].getAttribute("name") || "");
+            }
+            zalvm[zalvb] = {
+                array: zalvl,
+                stride: zalvo,
+                names: zalvk.length ? zalvk : zalvp
+            };
+            return zalvm[zalvb];
+        };
+        var zalvo = {};
+        var zalvp = zalvc.getElementsByTagName("library_effects")[0];
+        if (zalvp) for (var zalvq = 0; zalvq < zalvp.getElementsByTagName("effect").length; zalvq++) {
+            var zalvr = zalvp.getElementsByTagName("effect")[zalvq];
+            var zalvs = zalvf(zalvr, "profile_COMMON");
+            var zalvt = {};
+            var zalvu = zalvs ? zalve(zalvs, "newparam") : [];
+            for (var zalvv = 0; zalvv < zalvu.length; zalvv++) {
+                var zalvw = zalvf(zalvu[zalvv], "surface");
+                var zalvx = zalvf(zalvu[zalvv], "sampler2D");
+                if (zalvw) zalvt[zalvu[zalvv].getAttribute("sid")] = zalvg(zalvw, "init_from");
+                if (zalvx) zalvt[zalvu[zalvv].getAttribute("sid")] = zalvt[zalvg(zalvx, "source")] || "";
+            }
+            var zalvy = zalvs ? zalvf(zalvs, "technique") : null;
+            var zalvz = zalvy ? zalvf(zalvy, "phong") || zalvf(zalvy, "blinn") || zalvf(zalvy, "lambert") || zalvf(zalvy, "constant") : null;
+            var zalvaa = {
+                color: 16777215,
+                ambient: 2236962,
+                diffuse: 16777215,
+                specular: 1118481,
+                shininess: 30,
+                opacity: 1
+            };
+            var zalvab = function(zalva, zalvb, zalvc) {
+                var zalvd = zalvf(zalva, zalvb);
+                var zalve = zalvd ? zalvh(zalvd.textContent) : [];
+                return zalve.length >= 3 ? new Color(zalve[0], zalve[1], zalve[2]) : zalvc;
+            };
+            if (zalvz) {
+                zalvaa.ambient = zalvab(zalvz, "ambient", zalvaa.ambient);
+                zalvaa.diffuse = zalvab(zalvz, "diffuse", zalvaa.diffuse);
+                zalvaa.color = zalvaa.diffuse;
+                zalvaa.specular = zalvab(zalvz, "specular", zalvaa.specular);
+                var zalvac = zalvf(zalvz, "shininess");
+                if (zalvac) zalvaa.shininess = parseFloat(zalvg(zalvac, "float") || zalvac.textContent);
+                var zalvad = zalvf(zalvz, "transparency");
+                if (zalvad) {
+                    zalvaa.opacity = parseFloat(zalvg(zalvad, "float") || zalvad.textContent);
+                    zalvaa.transparent = zalvaa.opacity < 1;
+                }
+                var zalvae = zalvf(zalvz, "diffuse");
+                var zalvaf = zalvae ? zalvf(zalvae, "texture") : null;
+                if (zalvaf) {
+                    var zalvag = zalvt[zalvaf.getAttribute("texture")] || zalvi[zalvaf.getAttribute("texture")];
+                    if (zalvag) zalvaa.diffuseMap = new Texture(zalvd + zalvag, {
+                        flipY: false
+                    });
+                }
+                var zalvah = zalvf(zalvz, "emission");
+                if (zalvah) zalvaa.emissive = zalvab(zalvz, "emission", new Color(0, 0, 0));
+            }
+            zalvo[zalvr.getAttribute("id")] = zalvaa;
+        }
+        var zalvai = {};
+        var zalvaj = zalvc.getElementsByTagName("library_materials")[0];
+        if (zalvaj) for (var zalvak = 0; zalvak < zalvaj.getElementsByTagName("material").length; zalvak++) {
+            var zalval = zalvaj.getElementsByTagName("material")[zalvak];
+            var zalvam = (zalval.getAttribute("url") || "").replace(/^#/, "");
+            zalvai[zalval.getAttribute("id")] = new PhongMaterial(zalvo[zalvam] || {});
+        }
+        var zalvan = {};
+        var zalvao = zalvc.getElementsByTagName("library_geometries")[0];
+        var zalvap = function(zalva) {
+            var zalvb = zalvf(zalva, "mesh");
+            if (!zalvb) return null;
+            var zalvc = {};
+            var zalvd = zalve(zalvb, "source");
+            for (var zalvi = 0; zalvi < zalvd.length; zalvi++) zalvc[zalvd[zalvi].getAttribute("id")] = zalvn(zalvd[zalvi], zalvd[zalvi].getAttribute("id"));
+            var zalvj = zalvf(zalvb, "vertices");
+            var zalvk = zalvj ? zalve(zalvj, "input") : [];
+            var zalvl = zalvk.length ? (zalvk[0].getAttribute("source") || "").replace(/^#/, "") : null;
+            var zalvm = zalvl && zalvc[zalvl] ? zalvc[zalvl] : zalvn(zalvb, zalvl);
+            var zalvo = [], zalvp = [], zalvq = [], zalvr = [], zalvs = {}, zalvt = [], zalvu = false, zalvv = false;
+            var zalvw = zalve(zalvb, "triangles").concat(zalve(zalvb, "polylist"));
+            for (var zalvx = 0; zalvx < zalvw.length; zalvx++) {
+                var zalvy = zalvw[zalvx];
+                var zalvz = zalve(zalvy, "input");
+                var zalvaa = 0, zalvab = 0, zalvac = -1, zalvad = -1, zalvae = null, zalvaf = null;
+                for (var zalvag = 0; zalvag < zalvz.length; zalvag++) {
+                    var zalvah = zalvz[zalvag];
+                    var zalvai = parseInt(zalvah.getAttribute("offset") || "0", 10);
+                    zalvaa = Math.max(zalvaa, zalvai + 1);
+                    var zalvaj = zalvah.getAttribute("semantic");
+                    var zalvak = (zalvah.getAttribute("source") || "").replace(/^#/, "");
+                    if (zalvaj === "VERTEX") zalvab = zalvai;
+                    if (zalvaj === "NORMAL") {
+                        zalvac = zalvai;
+                        zalvae = zalvak;
+                    }
+                    if (zalvaj === "TEXCOORD" && zalvad < 0) {
+                        zalvad = zalvai;
+                        zalvaf = zalvak;
+                    }
+                }
+                var zalval = zalvh(zalvg(zalvy, "p"));
+                var zalvam = zalvy.tagName === "polylist" ? zalvh(zalvg(zalvy, "vcount")) : null;
+                var zalvan = 0;
+                var zalvao = function(zalva) {
+                    var zalvd = zalva.join("/");
+                    var zalve = zalvs[zalvd];
+                    if (zalve === undefined) {
+                        var zalvf = zalva[zalvab] || 0;
+                        var zalvg = zalvf * zalvm.stride;
+                        var zalvh = zalvae && zalvc[zalvae] ? zalvc[zalvae] : zalvn(zalvb, zalvae);
+                        var zalvi = zalvaf && zalvc[zalvaf] ? zalvc[zalvaf] : zalvn(zalvb, zalvaf);
+                        zalvo.push(zalvm.array[zalvg] || 0, zalvm.array[zalvg + 1] || 0, zalvm.array[zalvg + 2] || 0);
+                        if (zalvac >= 0 && zalvh) {
+                            var zalvj = (zalva[zalvac] || 0) * zalvh.stride;
+                            zalvp.push(zalvh.array[zalvj] || 0, zalvh.array[zalvj + 1] || 0, zalvh.array[zalvj + 2] || 0);
+                            zalvu = true;
+                        }
+                        if (zalvad >= 0 && zalvi) {
+                            var zalvk = (zalva[zalvad] || 0) * zalvi.stride;
+                            zalvq.push(zalvi.array[zalvk] || 0, zalvi.array[zalvk + 1] || 0);
+                            zalvv = true;
+                        }
+                        zalve = zalvo.length / 3 - 1;
+                        zalvs[zalvd] = zalve;
+                    }
+                    return zalve;
+                };
+                var zalvap = function(zalva, zalvb) {
+                    var zalvc = [];
+                    for (var zalvd = 0; zalvd < zalvb; zalvd++) {
+                        var zalve = [];
+                        for (var zalvf = 0; zalvf < zalvaa; zalvf++) zalve.push(zalval[zalva + zalvd * zalvaa + zalvf] || 0);
+                        zalvc.push(zalvao(zalve));
+                    }
+                    for (var zalvg = 1; zalvg < zalvc.length - 1; zalvg++) zalvt.push(zalvy.getAttribute("material") || ""),
+                    zalvr.push(zalvc[0], zalvc[zalvg], zalvc[zalvg + 1]);
+                };
+                if (zalvam) {
+                    for (var zalvaq = 0; zalvaq < zalvam.length; zalvaq++) {
+                        zalvap(zalvan, zalvam[zalvaq]);
+                        zalvan += zalvam[zalvaq] * zalvaa;
+                    }
+                } else {
+                    for (var zalvar = 0; zalvar < zalval.length / zalvaa; zalvar += 3) zalvap(zalvar * zalvaa, 3);
+                }
+            }
+            var zalvas = [];
+            for (var zalvat = 0; zalvat < zalvr.length; zalvat++) if (typeof zalvr[zalvat] === "number") zalvas.push(zalvr[zalvat]);
+            var zalvau = faoxomgeometry(zalvo, zalvu ? zalvp : null, zalvv ? zalvq : null, zalvas);
+            return {
+                geometry: zalvau,
+                materialSymbols: zalvt
+            };
+        };
+        if (zalvao) {
+            var zalvaq = zalvao.getElementsByTagName("geometry");
+            for (var zalvar = 0; zalvar < zalvaq.length; zalvar++) zalvan[zalvaq[zalvar].getAttribute("id")] = zalvap(zalvaq[zalvar]);
+        }
+        var zalvas = {};
+        var zalvat = zalvc.getElementsByTagName("library_controllers")[0];
+        if (zalvat) {
+            var zalvau = zalvat.getElementsByTagName("controller");
+            for (var zalvav = 0; zalvav < zalvau.length; zalvav++) {
+                var zalvaw = zalvau[zalvav];
+                var zalvax = zalvf(zalvaw, "skin");
+                if (!zalvax) continue;
+                var zalvay = (zalvax.getAttribute("source") || "").replace(/^#/, "");
+                var zalvaz = {};
+                var zalvba = zalve(zalvax, "source");
+                for (var zalvbb = 0; zalvbb < zalvba.length; zalvbb++) zalvaz[zalvba[zalvbb].getAttribute("id")] = zalvn(zalvba[zalvbb], zalvba[zalvbb].getAttribute("id"));
+                var zalvbc = zalvf(zalvax, "joints");
+                var zalvbd = zalvbc ? zalve(zalvbc, "input") : [];
+                var zalvbe = [], zalvbf = null;
+                for (var zalvbg = 0; zalvbg < zalvbd.length; zalvbg++) {
+                    var zalvbh = (zalvbd[zalvbg].getAttribute("source") || "").replace(/^#/, "");
+                    if (zalvbd[zalvbg].getAttribute("semantic") === "JOINT") {
+                        var zalvbi = zalvaz[zalvbh] || zalvn(zalvax, zalvbh);
+                        zalvbe = zalvbi.names && zalvbi.names.length ? zalvbi.names : zalvbi.array;
+                    }
+                    if (zalvbd[zalvbg].getAttribute("semantic") === "INV_BIND_MATRIX") zalvbf = zalvaz[zalvbh] || zalvn(zalvax, zalvbh);
+                }
+                var zalvbj = zalvf(zalvax, "vertex_weights"), zalvbk = null, zalvbl = -1, zalvbm = -1, zalvbn = 0;
+                if (zalvbj) {
+                    var zalvbo = zalve(zalvbj, "input");
+                    for (var zalvbp = 0; zalvbp < zalvbo.length; zalvbp++) {
+                        var zalvbq = (zalvbo[zalvbp].getAttribute("source") || "").replace(/^#/, "");
+                        zalvbn = Math.max(zalvbn, parseInt(zalvbo[zalvbp].getAttribute("offset") || "0", 10) + 1);
+                        if (zalvbo[zalvbp].getAttribute("semantic") === "JOINT") zalvbl = parseInt(zalvbo[zalvbp].getAttribute("offset") || "0", 10);
+                        if (zalvbo[zalvbp].getAttribute("semantic") === "WEIGHT") zalvbm = parseInt(zalvbo[zalvbp].getAttribute("offset") || "0", 10),
+                        zalvbk = zalvaz[zalvbq] || zalvn(zalvax, zalvbq);
+                    }
+                }
+                zalvas[zalvaw.getAttribute("id")] = {
+                    geometry: zalvay,
+                    jointNames: zalvbe,
+                    inverseSource: zalvbf,
+                    weights: zalvbk,
+                    jointOffset: zalvbl,
+                    weightOffset: zalvbm,
+                    weightStride: zalvbn,
+                    vcounts: zalvbj ? zalvh(zalvg(zalvbj, "vcount")) : [],
+                    values: zalvbj ? zalvh(zalvg(zalvbj, "v")) : []
+                };
+            }
+        }
+        var zalvbr = {}, zalvbs = {}, zalvbt = new Group;
+        zalvbt.name = "collada";
+        var zalvbu = function(zalva, zalvb) {
+            var zalvc = zalva.childNodes;
+            for (var zalvd = 0; zalvd < zalvc.length; zalvd++) {
+                var zalve = zalvc[zalvd];
+                if (zalve.nodeType !== 1) continue;
+                var zalvf = zalvh(zalve.textContent);
+                if (zalve.tagName === "translate" && zalvf.length >= 3) zalvb.position.set(zalvf[0], zalvf[1], zalvf[2]); else if (zalve.tagName === "scale" && zalvf.length >= 3) zalvb.scale.set(zalvf[0], zalvf[1], zalvf[2]); else if (zalve.tagName === "rotate" && zalvf.length >= 4) zalvb.quaternion.multiply((new Quaternion).setFromAxisAngle(new Vector3(zalvf[0], zalvf[1], zalvf[2]).normalize(), zalvf[3] * Math.PI / 180)); else if (zalve.tagName === "matrix" && zalvf.length >= 16) zalvb.matrix.fromArray(zalvf);
+            }
+        };
+        var zalvbv = zalvc.getElementsByTagName("library_visual_scenes")[0];
+        var zalvbw = zalvbv ? zalvf(zalvbv, "visual_scene") : null;
+        var zalvbx = function(zalva) {
+            var zalvb = zalva ? zalvf(zalva, "bind_material") : null;
+            var zalvc = zalvb ? zalvf(zalvb, "technique_common") : null;
+            var zalvd = zalvc ? zalve(zalvc, "instance_material") : [];
+            if (zalvd.length) {
+                var zalvg = (zalvd[0].getAttribute("target") || "").replace(/^#/, "");
+                return zalvai[zalvg] || new PhongMaterial;
+            }
+            return new PhongMaterial;
+        };
+        var zalvby = function(zalva, zalvb, zalvc) {
+            var zalvd = zalvc ? zalvas[zalvc].geometry : (zalvb.getAttribute("url") || "").replace(/^#/, "");
+            var zalve = zalvan[zalvd];
+            if (!zalve) return;
+            var zalvf = zalvbx(zalvb);
+            var zalvg = new Mesh(zalve.geometry, zalvf);
+            if (zalvc) {
+                var zalvh = zalvas[zalvc];
+                var zalvi = [];
+                var zalvj = [];
+                for (var zalvk = 0; zalvk < zalvh.jointNames.length; zalvk++) {
+                    var zalvl = zalvbr[zalvh.jointNames[zalvk]] || zalvbt.getObjectByName(zalvh.jointNames[zalvk]);
+                    if (zalvl) zalvi.push(zalvl);
+                    if (zalvh.inverseSource) {
+                        var zalvm = zalvk * zalvh.inverseSource.stride;
+                        zalvj.push((new Matrix4).fromArray(zalvh.inverseSource.array, zalvm));
+                    }
+                }
+                if (zalvi.length) {
+                    var zalvn = new Skeleton(zalvi, zalvj);
+                    var zalvo = zalve.geometry.attributes.position.array.length / 3;
+                    var zalvp = new Float32Array(zalvo * 4), zalvq = new Float32Array(zalvo * 4), zalvr = 0;
+                    for (var zalvs = 0; zalvs < zalvo; zalvs++) {
+                        var zalvt = zalvh.vcounts[zalvs] || 0;
+                        var zalvu = [];
+                        for (var zalvv = 0; zalvv < zalvt; zalvv++) {
+                            var zalvw = zalvr + zalvv * zalvh.weightStride;
+                            zalvu.push({
+                                joint: zalvh.values[zalvw + zalvh.jointOffset] || 0,
+                                weight: zalvh.weights ? zalvh.weights.array[zalvh.values[zalvw + zalvh.weightOffset] || 0] || 0 : 0
+                            });
+                        }
+                        zalvr += zalvt * zalvh.weightStride;
+                        zalvu.sort(function(zalva, zalvb) {
+                            return zalvb.weight - zalva.weight;
+                        });
+                        var zalvx = 0;
+                        for (var zalvy = 0; zalvy < 4; zalvy++) {
+                            zalvp[zalvs * 4 + zalvy] = zalvu[zalvy] ? zalvu[zalvy].joint : 0;
+                            zalvq[zalvs * 4 + zalvy] = zalvu[zalvy] ? zalvu[zalvy].weight : 0;
+                            zalvx += zalvq[zalvs * 4 + zalvy];
+                        }
+                        if (zalvx) for (var zalvz = 0; zalvz < 4; zalvz++) zalvq[zalvs * 4 + zalvz] /= zalvx;
+                    }
+                    zalve.geometry.setAttribute("skinIndex", zalvp, 4);
+                    zalve.geometry.setAttribute("skinWeight", zalvq, 4);
+                    var zalvaa = new SkinnedMesh(zalve.geometry, zalvf);
+                    zalvaa.bind(zalvn, zalva.matrixWorld);
+                    zalvg = zalvaa;
+                }
+            }
+            zalva.add(zalvg);
+        };
+        var zalvbz = function(zalva, zalvb) {
+            var zalvc = new Node;
+            zalvc.name = zalva.getAttribute("name") || zalva.getAttribute("id") || "node";
+            zalvbr[zalva.getAttribute("id")] = zalvc;
+            zalvbs[zalvc.name] = zalvc;
+            zalvbu(zalva, zalvc);
+            zalvb.add(zalvc);
+            var zalvd = zalve(zalva, "instance_geometry");
+            for (var zalvf = 0; zalvf < zalvd.length; zalvf++) zalvby(zalvc, zalvd[zalvf], null);
+            var zalvg = zalve(zalva, "instance_controller");
+            for (var zalvh = 0; zalvh < zalvg.length; zalvh++) zalvby(zalvc, zalvg[zalvh], (zalvg[zalvh].getAttribute("url") || "").replace(/^#/, ""));
+            var zalvi = zalve(zalva, "node");
+            for (var zalvj = 0; zalvj < zalvi.length; zalvj++) zalvbz(zalvi[zalvj], zalvc);
+            return zalvc;
+        };
+        if (zalvbw) {
+            var zalvca = zalve(zalvbw, "node");
+            for (var zalvcb = 0; zalvcb < zalvca.length; zalvcb++) zalvbz(zalvca[zalvcb], zalvbt);
+        }
+        var zalvcc = [];
+        var zalvcd = zalvc.getElementsByTagName("library_animations")[0];
+        if (zalvcd) {
+            var zalvce = zalve(zalvcd, "animation");
+            for (var zalvcf = 0; zalvcf < zalvce.length; zalvcf++) {
+                var zalvcg = zalvce[zalvcf];
+                var zalvch = {};
+                var zalvci = zalvcg.getElementsByTagName("sampler");
+                for (var zalvcj = 0; zalvcj < zalvci.length; zalvcj++) {
+                    var zalvck = zalvci[zalvcj], zalvcl = {};
+                    var zalvcm = zalve(zalvck, "input");
+                    for (var zalvcn = 0; zalvcn < zalvcm.length; zalvcn++) zalvcl[zalvcm[zalvcn].getAttribute("semantic")] = zalvn(zalvck, zalvcm[zalvcn].getAttribute("source"));
+                    zalvch[zalvck.getAttribute("id")] = zalvcl;
+                }
+                var zalvco = [];
+                var zalvcp = zalvcg.getElementsByTagName("channel");
+                for (var zalvcq = 0; zalvcq < zalvcp.length; zalvcq++) {
+                    var zalvcr = zalvcp[zalvcq], zalvx = zalvch[(zalvcr.getAttribute("source") || "").replace(/^#/, "")], zalvcs = (zalvcr.getAttribute("target") || "").split("/"), zalvct = zalvbr[zalvcs[0]] || zalvbs[zalvcs[0]];
+                    if (!zalvx || !zalvct) continue;
+                    var zalvcu = zalvx.OUTPUT || {
+                        array: [],
+                        stride: 1
+                    }, zalvcv = zalvx.INPUT || {
+                        array: [],
+                        stride: 1
+                    }, zalvag = zalvcs[1] || "", zalvcw = [], zalvcx = "vector3", zalvcy = zalvag;
+                    if (zalvag.indexOf("rotate") === 0 || zalvag.indexOf("rotation") === 0) {
+                        zalvcx = "quaternion";
+                        var zalvcz = zalvcu.array;
+                        var zalvda = zalvag.indexOf("X") >= 0 ? new Vector3(1, 0, 0) : zalvag.indexOf("Y") >= 0 ? new Vector3(0, 1, 0) : new Vector3(0, 0, 1);
+                        for (var zalvdb = 0; zalvdb < zalvcv.array.length; zalvdb++) {
+                            var zalvdc = zalvcz[zalvdb * zalvcu.stride] || 0;
+                            if (zalvag.indexOf("ANGLE") >= 0) zalvdc *= Math.PI / 180;
+                            zalvcw.push.apply(zalvcw, [ 0, 0, 0, 1 ]);
+                            var zalvdd = (new Quaternion).setFromAxisAngle(zalvda, zalvdc);
+                            zalvcw.splice(zalvcw.length - 4, 4, zalvdd.x, zalvdd.y, zalvdd.z, zalvdd.w);
+                        }
+                        zalvcy = "quaternion";
+                    } else {
+                        var zalvde = zalvag.slice(-2);
+                        var zalvdf = zalvde === ".X" || zalvde === ".Y" || zalvde === ".Z";
+                        for (var zalvdg = 0; zalvdg < zalvcv.array.length; zalvdg++) {
+                            var zalvdh = zalvag.indexOf("scale") === 0 ? zalvct.scale.clone() : zalvct.position.clone();
+                            var zalvdi = zalvcu.stride;
+                            if (zalvdi >= 3) {
+                                zalvdh.x = zalvcu.array[zalvdg * zalvdi] || 0;
+                                zalvdh.y = zalvcu.array[zalvdg * zalvdi + 1] || 0;
+                                zalvdh.z = zalvcu.array[zalvdg * zalvdi + 2] || 0;
+                            } else if (zalvdf) {
+                                var zalvdj = zalvcu.array[zalvdg * zalvdi] || 0;
+                                if (zalvde === ".X") zalvdh.x = zalvdj; else if (zalvde === ".Y") zalvdh.y = zalvdj; else zalvdh.z = zalvdj;
+                            }
+                            zalvcw.push(zalvdh.x, zalvdh.y, zalvdh.z);
+                        }
+                        zalvcy = zalvag.indexOf("scale") === 0 ? "scale" : "position";
+                    }
+                    zalvco.push(new AnimationTrack(zalvct.name + "." + zalvcy, zalvcv.array, zalvcw, zalvcx));
+                }
+                if (zalvco.length) zalvcc.push(new AnimationClip(zalvcg.getAttribute("id") || "animation" + zalvcf, undefined, zalvco));
+            }
+        }
+        zalvbt.userData.animations = zalvcc;
+        zalvbt.userData.materials = zalvai;
+        zalvbt.userData.controllers = zalvas;
+        return zalvbt;
+    }
+    parsePLY(zalva) {
+        var zalvb = faoxomdecodeply(zalva);
+        return new Mesh(zalvb, new StandardMaterial(zalvb.attributes.color ? {
+            vertexColors: true
+        } : {}));
+    }
+    parseSVG(zalva) {
+        return (new SVGLoader).parse(zalva);
+    }
+    parseSTL(zalva) {
+        if (zalva instanceof ArrayBuffer && zalva.byteLength >= 84 && 84 + new DataView(zalva).getUint32(80, true) * 50 !== zalva.byteLength) return this.parseSTL(faoxombytestotext(new Uint8Array(zalva)));
+        if (typeof zalva === "string") {
+            var zalvb = [], zalvc = [], zalvd = [], zalve = new Vector3(0, 1, 0), zalvf = zalva.split(/\r?\n/);
+            for (var zalvg = 0; zalvg < zalvf.length; zalvg++) {
+                var zalvh = zalvf[zalvg].trim();
+                if (zalvh.indexOf("facet normal") === 0) {
+                    var zalvi = zalvh.split(/\s+/);
+                    zalve.set(parseFloat(zalvi[2]), parseFloat(zalvi[3]), parseFloat(zalvi[4]));
+                }
+                if (zalvh.indexOf("vertex") === 0) {
+                    var zalvj = zalvh.split(/\s+/);
+                    zalvb.push(parseFloat(zalvj[1]), parseFloat(zalvj[2]), parseFloat(zalvj[3]));
+                    zalvc.push(zalve.x, zalve.y, zalve.z);
+                    zalvd.push(zalvd.length);
+                }
+            }
+            return new Mesh(faoxomgeometry(zalvb, zalvc, null, zalvd), new StandardMaterial);
+        }
+        if (!(zalva instanceof ArrayBuffer) || zalva.byteLength < 84) throw new Error("Invalid STL");
+        var zalvk = new DataView(zalva);
+        var zalvl = zalvk.getUint32(80, true);
+        var zalvm = [], zalvn = [], zalvo = [];
+        for (var zalvp = 0; zalvp < zalvl; zalvp++) {
+            var zalvq = 84 + zalvp * 50;
+            var zalvr = zalvk.getFloat32(zalvq, true), zalvs = zalvk.getFloat32(zalvq + 4, true), zalvt = zalvk.getFloat32(zalvq + 8, true);
+            for (var zalvu = 0; zalvu < 3; zalvu++) {
+                var zalvv = zalvq + 12 + zalvu * 12;
+                zalvm.push(zalvk.getFloat32(zalvv, true), zalvk.getFloat32(zalvv + 4, true), zalvk.getFloat32(zalvv + 8, true));
+                zalvn.push(zalvr, zalvs, zalvt);
+                zalvo.push(zalvo.length);
+            }
+        }
+        return new Mesh(faoxomgeometry(zalvm, zalvn, null, zalvo), new StandardMaterial);
+    }
+    parseMTL(zalva, zalvb) {
+        var zalvc = {};
+        var zalvd = null;
+        var zalve = zalvb && zalvb.slice(0, zalvb.lastIndexOf("/") + 1) || "";
+        var zalvf = zalva.split(/\r?\n/);
+        for (var zalvg = 0; zalvg < zalvf.length; zalvg++) {
+            var zalvh = zalvf[zalvg].trim().split(/\s+/);
+            var zalvi = zalvh.shift();
+            if (zalvi === "newmtl") {
+                zalvd = {
+                    name: zalvh.join(" "),
+                    options: {}
+                };
+                zalvc[zalvd.name] = zalvd;
+            } else if (zalvd && zalvi === "Kd") zalvd.options.color = new Color(parseFloat(zalvh[0]), parseFloat(zalvh[1]), parseFloat(zalvh[2])); else if (zalvd && zalvi === "Ks") zalvd.options.specular = new Color(parseFloat(zalvh[0]), parseFloat(zalvh[1]), parseFloat(zalvh[2])); else if (zalvd && zalvi === "Ns") zalvd.options.shininess = parseFloat(zalvh[0]); else if (zalvd && (zalvi === "d" || zalvi === "Tr")) {
+                zalvd.options.opacity = zalvi === "Tr" ? 1 - parseFloat(zalvh[0]) : parseFloat(zalvh[0]);
+                zalvd.options.transparent = zalvd.options.opacity < 1;
+            } else if (zalvd && (zalvi === "map_Kd" || zalvi === "map_Bump" || zalvi === "bump" || zalvi === "map_Pr" || zalvi === "map_Pm")) {
+                var zalvj = zalve + zalvh.join(" ");
+                if (zalvi === "map_Kd") zalvd.options.diffuseMap = new Texture(zalvj, {
+                    flipY: false
+                }); else if (zalvi === "map_Bump" || zalvi === "bump") zalvd.options.normalMap = new Texture(zalvj, {
+                    flipY: false
+                }); else if (zalvi === "map_Pr") zalvd.options.roughnessMap = new Texture(zalvj, {
+                    flipY: false
+                }); else zalvd.options.metalnessMap = new Texture(zalvj, {
+                    flipY: false
+                });
+            }
+        }
+        return zalvc;
+    }
+    decodeDataUri(zalva) {
+        var zalvb = zalva.indexOf(",");
+        var zalvc = zalva.slice(0, zalvb);
+        var zalvd = zalva.slice(zalvb + 1);
+        if (zalvc.indexOf(";base64") !== -1) {
+            var zalve = typeof atob === "function" ? atob(zalvd) : Buffer.from(zalvd, "base64").toString("binary");
+            var zalvf = new Uint8Array(zalve.length);
+            for (var zalvg = 0; zalvg < zalve.length; zalvg++) zalvf[zalvg] = zalve.charCodeAt(zalvg);
+            return zalvf.buffer;
+        }
+        return (new TextEncoder).encode(decodeURIComponent(zalvd)).buffer;
+    }
+    parseGLB(zalva, zalvb) {
+        var zalvc = new DataView(zalva);
+        if (zalvc.getUint32(0, true) !== 1179937895) throw new Error("Invalid GLB");
+        var zalvd = 12;
+        var zalve = null;
+        var zalvf = [];
+        while (zalvd < zalvc.byteLength) {
+            var zalvg = zalvc.getUint32(zalvd, true);
+            var zalvh = zalvc.getUint32(zalvd + 4, true);
+            var zalvi = zalva.slice(zalvd + 8, zalvd + 8 + zalvg);
+            if (zalvh === 1313821514) zalve = JSON.parse((new TextDecoder).decode(new Uint8Array(zalvi)).replace(/[\u0000 ]+$/, "")); else if (zalvh === 5130562) zalvf.push(zalvi);
+            zalvd += 8 + zalvg;
+        }
+        return this.parseGLTF(zalve, zalvb, zalvf);
+    }
+    async parseGLTF(zalva, zalvb, zalvc) {
+        var zalvd = zalvb.slice(0, zalvb.lastIndexOf("/") + 1);
+        var zalve = [];
+        for (var zalvf = 0; zalvf < (zalva.buffers || []).length; zalvf++) {
+            var zalvg = zalva.buffers[zalvf].uri;
+            if (!zalvg && zalvc && zalvc[zalvf]) zalve.push(zalvc[zalvf]); else if (zalvg && zalvg.indexOf("data:") === 0) zalve.push(this.decodeDataUri(zalvg)); else if (zalvg) zalve.push(await fetch(zalvd + zalvg).then(function(zalva) {
+                return zalva.arrayBuffer();
+            })); else zalve.push(new ArrayBuffer(0));
+        }
+        await this.prepareMeshopt(zalva, zalve);
+        await this.prepareDraco(zalva, zalve);
+        var zalvh = {
+            5120: Int8Array,
+            5121: Uint8Array,
+            5122: Int16Array,
+            5123: Uint16Array,
+            5125: Uint32Array,
+            5126: Float32Array
+        };
+        var zalvi = {
+            SCALAR: 1,
+            VEC2: 2,
+            VEC3: 3,
+            VEC4: 4,
+            MAT2: 4,
+            MAT3: 9,
+            MAT4: 16
+        };
+        var zalvj = function(zalvb) {
+            var zalvc = zalva.accessors[zalvb];
+            var zalvd = zalva.bufferViews[zalvc.bufferView];
+            var zalvf = zalve[zalvd.buffer];
+            var zalvg = zalvc.count;
+            var zalvj = zalvi[zalvc.type];
+            var zalvk = zalvh[zalvc.componentType];
+            var zalvl = (zalvd.byteOffset || 0) + (zalvc.byteOffset || 0);
+            var zalvm = zalvd.byteStride || zalvk.BYTES_PER_ELEMENT * zalvj;
+            var zalvn;
+            if (zalvm === zalvk.BYTES_PER_ELEMENT * zalvj) zalvn = new zalvk(zalvf, zalvl, zalvg * zalvj); else {
+                zalvn = new zalvk(zalvg * zalvj);
+                var zalvo = new DataView(zalvf);
+                for (var zalvp = 0; zalvp < zalvg; zalvp++) for (var zalvq = 0; zalvq < zalvj; zalvq++) {
+                    var zalvr = zalvl + zalvp * zalvm + zalvq * zalvk.BYTES_PER_ELEMENT;
+                    zalvn[zalvp * zalvj + zalvq] = zalvk === Float32Array ? zalvo.getFloat32(zalvr, true) : zalvk === Uint32Array ? zalvo.getUint32(zalvr, true) : zalvk === Uint16Array ? zalvo.getUint16(zalvr, true) : zalvk === Int16Array ? zalvo.getInt16(zalvr, true) : zalvk === Uint8Array ? zalvo.getUint8(zalvr) : zalvk === Int8Array ? zalvo.getInt8(zalvr) : 0;
+                }
+            }
+            return {
+                array: zalvn,
+                itemSize: zalvj,
+                normalized: !!zalvc.normalized,
+                count: zalvg
+            };
+        };
+        var zalvk = function(zalvb) {
+            if (!zalvb) return null;
+            if (zalvb.uri) return zalvb.uri.indexOf("data:") === 0 ? zalvb.uri : zalvd + zalvb.uri;
+            if (zalvb.bufferView !== undefined) {
+                var zalvc = zalva.bufferViews[zalvb.bufferView];
+                var zalvf = zalve[zalvc.buffer].slice(zalvc.byteOffset || 0, (zalvc.byteOffset || 0) + zalvc.byteLength);
+                if (typeof URL !== "undefined" && URL.createObjectURL) return URL.createObjectURL(new Blob([ zalvf ], {
+                    type: zalvb.mimeType || "application/octet-stream"
+                }));
+            }
+            return null;
+        };
+        var zalvl = function(zalva) {
+            if (zalva === "POSITION") return "position";
+            if (zalva === "NORMAL") return "normal";
+            if (zalva === "TANGENT") return "tangent";
+            if (zalva === "TEXCOORD_0") return "uv";
+            if (zalva.indexOf("TEXCOORD_") === 0) return "uv" + zalva.slice(9);
+            if (zalva === "COLOR_0") return "color";
+            if (zalva.indexOf("COLOR_") === 0) return "color" + zalva.slice(6);
+            if (zalva === "JOINTS_0") return "skinIndex";
+            if (zalva === "WEIGHTS_0") return "skinWeight";
+            return zalva.toLowerCase().replace(/[^a-z0-9_$]/g, "_");
+        };
+        var zalvm = function(zalva, zalvb) {
+            var zalvc = Object.assign({
+                flipY: false
+            }, zalvb || {}), zalvd = zalva && zalva.extensions && zalva.extensions.KHR_texture_transform;
+            zalvc.channel = zalva && zalva.texCoord !== undefined ? zalva.texCoord : 0;
+            if (zalvd) {
+                if (zalvd.texCoord !== undefined) zalvc.channel = zalvd.texCoord;
+                if (zalvd.offset) zalvc.offset = new Vector2(zalvd.offset[0] || 0, zalvd.offset[1] || 0);
+                if (zalvd.scale) zalvc.repeat = new Vector2(zalvd.scale[0] === undefined ? 1 : zalvd.scale[0], zalvd.scale[1] === undefined ? 1 : zalvd.scale[1]);
+                if (zalvd.rotation !== undefined) zalvc.rotation = zalvd.rotation;
+            }
+            return zalvc;
+        };
+        var zalvn = function(zalvb) {
+            var zalvc = zalva.materials && zalva.materials[zalvb];
+            if (!zalvc) return new StandardMaterial({
+                color: 16777215,
+                vertexColors: true
+            });
+            var zalvd = zalvc.extensions || {};
+            var zalve = zalvc.pbrMetallicRoughness || {};
+            var zalvf = zalvd.KHR_materials_pbrSpecularGlossiness || {};
+            var zalvg = zalve.baseColorFactor || zalvf.diffuseFactor || [ 1, 1, 1, 1 ];
+            var zalvh = zalvc.alphaMode || "OPAQUE";
+            var zalvi = zalvc.alphaCutoff === undefined ? .5 : zalvc.alphaCutoff;
+            var zalvj = {
+                color: new Color(zalvg[0], zalvg[1], zalvg[2]),
+                opacity: zalvg[3],
+                transparent: zalvh === "BLEND" || zalvg[3] < 1,
+                alphaTest: zalvh === "MASK" ? zalvi : 0,
+                side: zalvc.doubleSided ? DoubleSide : FrontSide,
+                vertexColors: true,
+                metalness: zalve.metallicFactor === undefined ? 0 : zalve.metallicFactor,
+                roughness: zalve.roughnessFactor === undefined ? zalvf.glossinessFactor === undefined ? .5 : 1 - zalvf.glossinessFactor : zalve.roughnessFactor
+            };
+            var zalvl = function(zalvb, zalvc) {
+                if (!zalvb || !zalva.images || !zalva.textures || !zalva.textures[zalvb.index]) return null;
+                var zalvd = zalva.textures[zalvb.index];
+                var zalve = zalvd.extensions && zalvd.extensions.KHR_texture_basisu;
+                var zalvf = zalve && zalve.source !== undefined ? zalve.source : zalvd.source;
+                var zalvg = zalva.images[zalvf];
+                var zalvh = zalvg ? new Texture(zalvk(zalvg), zalvm(zalvb, zalvc)) : null;
+                if (zalvh && zalve) {
+                    zalvh.compressedSource = zalvk(zalvg);
+                    zalvh.compressedTexture = true;
+                    zalvh.colorSpace = zalvc && zalvc.colorSpace ? zalvc.colorSpace : "srgb";
+                }
+                return zalvh;
+            };
+            if (zalve.baseColorTexture) zalvj.diffuseMap = zalvl(zalve.baseColorTexture, {
+                flipY: false,
+                colorSpace: "srgb"
+            });
+            if (zalve.metallicRoughnessTexture) {
+                var zalvn = zalvl(zalve.metallicRoughnessTexture, {
+                    flipY: false,
+                    colorSpace: "linear"
+                });
+                zalvj.roughnessMap = zalvn;
+                zalvj.metalnessMap = zalvn;
+            }
+            if (zalvc.normalTexture) {
+                zalvj.normalMap = zalvl(zalvc.normalTexture, {
+                    flipY: false,
+                    colorSpace: "linear"
+                });
+                zalvj.normalScale = new Vector2(zalvc.normalTexture.scale === undefined ? 1 : zalvc.normalTexture.scale, zalvc.normalTexture.scale === undefined ? 1 : zalvc.normalTexture.scale);
+            }
+            if (zalvc.occlusionTexture) zalvj.aoMap = zalvl(zalvc.occlusionTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvc.emissiveTexture) zalvj.emissiveMap = zalvl(zalvc.emissiveTexture, {
+                flipY: false,
+                colorSpace: "srgb"
+            });
+            if (zalvc.emissiveFactor) zalvj.emissive = new Color(zalvc.emissiveFactor[0] || 0, zalvc.emissiveFactor[1] || 0, zalvc.emissiveFactor[2] || 0);
+            if (zalvf.specularFactor) zalvj.specular = new Color(zalvf.specularFactor[0] || 0, zalvf.specularFactor[1] || 0, zalvf.specularFactor[2] || 0);
+            var zalvo = zalvc.unlit || zalvd.KHR_materials_unlit ? new BasicMaterial(zalvj) : new StandardMaterial(zalvj);
+            var zalvp = zalvd.KHR_materials_clearcoat || {};
+            var zalvq = zalvd.KHR_materials_sheen || {};
+            var zalvr = zalvd.KHR_materials_transmission || {};
+            var zalvs = zalvd.KHR_materials_iridescence || {};
+            var zalvt = zalvd.KHR_materials_anisotropy || {};
+            zalvo.name = zalvc.name || "material" + (zalvb === undefined ? "" : zalvb);
+            zalvo.alphaMode = zalvh;
+            zalvo.alphaCutoff = zalvi;
+            zalvo.doubleSided = !!zalvc.doubleSided;
+            zalvo.clearcoat = zalvp.clearcoatFactor || 0;
+            zalvo.clearcoatRoughness = zalvp.clearcoatRoughnessFactor === undefined ? .03 : zalvp.clearcoatRoughnessFactor;
+            zalvo.sheen = zalvq.sheenRoughnessFactor || 0;
+            zalvo.sheenColor = zalvq.sheenColorFactor || [ 0, 0, 0 ];
+            zalvo.transmission = zalvr.transmissionFactor || 0;
+            zalvo.ior = zalvd.KHR_materials_ior && zalvd.KHR_materials_ior.ior ? zalvd.KHR_materials_ior.ior : 1.5;
+            zalvo.iridescence = zalvs.iridescenceFactor || 0;
+            zalvo.iridescenceIor = zalvs.iridescenceIor || 1.3;
+            zalvo.iridescenceThicknessMinimum = zalvs.iridescenceThicknessMinimum || 100;
+            zalvo.iridescenceThicknessMaximum = zalvs.iridescenceThicknessMaximum || 400;
+            zalvo.anisotropy = zalvt.anisotropyStrength || 0;
+            zalvo.anisotropyRotation = zalvt.anisotropyRotation || 0;
+            var zalvu = zalvd.KHR_materials_specular || {};
+            zalvo.specularIntensity = zalvu.specularFactor === undefined ? 1 : zalvu.specularFactor;
+            zalvo.specularColor = zalvu.specularColorFactor ? new Color(zalvu.specularColorFactor[0], zalvu.specularColorFactor[1], zalvu.specularColorFactor[2]) : new Color(16777215);
+            zalvo.emissiveStrength = zalvd.KHR_materials_emissive_strength && zalvd.KHR_materials_emissive_strength.emissiveStrength !== undefined ? zalvd.KHR_materials_emissive_strength.emissiveStrength : 1;
+            zalvo.occlusionStrength = zalvc.occlusionTexture && zalvc.occlusionTexture.strength !== undefined ? zalvc.occlusionTexture.strength : 1;
+            if (zalvo.emissiveStrength !== 1) zalvo.emissive.multiplyScalar(zalvo.emissiveStrength);
+            if (zalvp.clearcoatTexture) zalvo.clearcoatMap = zalvl(zalvp.clearcoatTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvp.clearcoatRoughnessTexture) zalvo.clearcoatRoughnessMap = zalvl(zalvp.clearcoatRoughnessTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvp.clearcoatNormalTexture) zalvo.clearcoatNormalMap = zalvl(zalvp.clearcoatNormalTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvq.sheenColorTexture) zalvo.sheenColorMap = zalvl(zalvq.sheenColorTexture, {
+                flipY: false,
+                colorSpace: "srgb"
+            });
+            if (zalvq.sheenRoughnessTexture) zalvo.sheenRoughnessMap = zalvl(zalvq.sheenRoughnessTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvr.transmissionTexture) zalvo.transmissionMap = zalvl(zalvr.transmissionTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvs.iridescenceTexture) zalvo.iridescenceMap = zalvl(zalvs.iridescenceTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            if (zalvt.anisotropyTexture) zalvo.anisotropyMap = zalvl(zalvt.anisotropyTexture, {
+                flipY: false,
+                colorSpace: "linear"
+            });
+            zalvo.volume = zalvd.KHR_materials_volume || null;
+            zalvo.thickness = zalvo.volume && zalvo.volume.thicknessFactor !== undefined ? zalvo.volume.thicknessFactor : 0;
+            zalvo.attenuationDistance = zalvo.volume && zalvo.volume.attenuationDistance !== undefined ? zalvo.volume.attenuationDistance : Infinity;
+            zalvo.attenuationColor = zalvo.volume && zalvo.volume.attenuationColor ? new Color(zalvo.volume.attenuationColor[0], zalvo.volume.attenuationColor[1], zalvo.volume.attenuationColor[2]) : new Color(16777215);
+            zalvo.dispersion = zalvd.KHR_materials_dispersion && zalvd.KHR_materials_dispersion.dispersion !== undefined ? zalvd.KHR_materials_dispersion.dispersion : 0;
+            zalvo.variants = zalvd.KHR_materials_variants || null;
+            zalvo.extras = zalvc.extras || null;
+            return zalvo;
+        };
+        var zalvo = function(zalva) {
+            var zalvb = new Geometry;
+            var zalvc = zalva.attributes || {};
+            if (zalva._decoded) {
+                for (var zalvd in zalva._decoded.attributes) zalvb.setAttribute(zalvl(zalvd), zalva._decoded.attributes[zalvd]);
+                zalvb.setIndex(zalva._decoded.index);
+                zalvb.computeBounds();
+                zalvb.userData.gltfPrimitive = zalva;
+                return zalvb;
+            }
+            for (var zalve in zalvc) zalvb.setAttribute(zalvl(zalve), zalvj(zalvc[zalve]));
+            var zalvf = zalvb.attributes.position;
+            var zalvg = zalvf ? zalvf.array.length / zalvf.itemSize : 0;
+            if (zalva.targets) {
+                var zalvh = [ "position", "normal", "tangent" ];
+                for (var zalvi = 0; zalvi < zalvh.length; zalvi++) {
+                    var zalvk = zalvh[zalvi], zalvm = [], zalvn = zalvk === "position" || zalvk === "normal" ? 3 : 4;
+                    for (var zalvo = 0; zalvo < zalva.targets.length; zalvo++) {
+                        var zalvp = zalva.targets[zalvo] || {}, zalvq = zalvp[zalvk === "position" ? "POSITION" : zalvk === "normal" ? "NORMAL" : "TANGENT"];
+                        zalvm.push(zalvq === undefined ? {
+                            array: new Float32Array(zalvg * zalvn),
+                            itemSize: zalvn,
+                            normalized: false
+                        } : zalvj(zalvq));
+                    }
+                    if (zalvm.length) zalvb.setMorphAttribute(zalvk, zalvm);
+                }
+                zalvb.morphTargetsRelative = true;
+            }
+            if (zalva.indices !== undefined) zalvb.setIndex(zalvj(zalva.indices));
+            if (!zalvb.attributes.normal) zalvb.computeVertexNormals();
+            if (!zalvb.attributes.tangent && zalvb.attributes.normal && zalvb.attributes.uv) zalvb.computeTangents();
+            zalvb.computeBounds();
+            zalvb.userData.gltfPrimitive = zalva;
+            zalvb.userData.morphTargetsRelative = !!zalva.targets;
+            return zalvb;
+        };
+        var zalvp = (zalva.meshes || []).map(function(zalva, zalvb) {
+            return (zalva.primitives || []).map(function(zalva, zalvc) {
+                return {
+                    geometry: zalvo(zalva),
+                    material: zalvn(zalva.material),
+                    materialIndex: zalva.material === undefined ? 0 : zalva.material,
+                    mode: zalva.mode || 4,
+                    meshIndex: zalvb,
+                    primitiveIndex: zalvc,
+                    primitive: zalva
+                };
+            });
+        });
+        var zalvq = {};
+        var zalvr = {};
+        var zalvs = {};
+        for (var zalvt = 0; zalvt < (zalva.skins || []).length; zalvt++) for (var zalvu = 0; zalvu < zalva.skins[zalvt].joints.length; zalvu++) zalvs[zalva.skins[zalvt].joints[zalvu]] = true;
+        var zalvv = zalva.nodes || [];
+        var zalvw = new Array(zalvv.length);
+        for (var zalvx = 0; zalvx < zalvv.length; zalvx++) {
+            var zalvy = zalvv[zalvx], zalvz = zalvs[zalvx] ? new Bone : new Node;
+            zalvz.name = zalvy.name || "node" + zalvx;
+            zalvz.userData.gltfNode = zalvy;
+            if (zalvy.matrix) zalvz.matrix.fromArray(zalvy.matrix); else {
+                if (zalvy.translation) zalvz.position.fromArray(zalvy.translation);
+                if (zalvy.rotation) zalvz.quaternion.fromArray(zalvy.rotation);
+                if (zalvy.scale) zalvz.scale.fromArray(zalvy.scale);
+            }
+            if (zalvy.mesh !== undefined) {
+                var zalvaa = zalvp[zalvy.mesh] || [], zalvab = [], zalvac = [], zalvad = zalvy.weights || zalva.meshes[zalvy.mesh] && zalva.meshes[zalvy.mesh].weights || [];
+                for (var zalvae = 0; zalvae < zalvaa.length; zalvae++) {
+                    var zalvaf = zalvaa[zalvae], zalvag = zalvy.skin !== undefined ? new SkinnedMesh(zalvaf.geometry, zalvaf.material) : new Mesh(zalvaf.geometry, zalvaf.material);
+                    zalvag.name = zalvz.name + (zalvaa.length > 1 ? ":primitive" + zalvae : "");
+                    zalvag.userData.gltfMesh = zalvaf.meshIndex;
+                    zalvag.userData.gltfPrimitive = zalvaf.primitiveIndex;
+                    zalvag.materialIndex = zalvaf.materialIndex;
+                    if (zalvaf.geometry.morphAttributes && zalvaf.geometry.morphAttributes.position) {
+                        zalvag.morphTargetInfluences = new Array(zalvaf.geometry.morphAttributes.position.length).fill(0);
+                        for (var zalvah = 0; zalvah < zalvag.morphTargetInfluences.length; zalvah++) zalvag.morphTargetInfluences[zalvah] = zalvad[zalvah] || 0;
+                        zalvag.morphTargetDictionary = {};
+                        var zalvai = zalva.meshes[zalvy.mesh] && zalva.meshes[zalvy.mesh].extras && zalva.meshes[zalvy.mesh].extras.targetNames;
+                        if (zalvai) for (var zalvaj = 0; zalvaj < zalvai.length; zalvaj++) zalvag.morphTargetDictionary[zalvai[zalvaj]] = zalvaj;
+                    }
+                    var zalvak = zalva.extensions && zalva.extensions.KHR_materials_variants && zalva.extensions.KHR_materials_variants.variants || [];
+                    var zalval = zalvaf.primitive && zalvaf.primitive.extensions && zalvaf.primitive.extensions.KHR_materials_variants;
+                    if (zalval && zalval.mappings) {
+                        zalvag.userData.materialVariants = {
+                            default: zalvaf.material
+                        };
+                        for (var zalvam = 0; zalvam < zalval.mappings.length; zalvam++) {
+                            var zalvan = zalval.mappings[zalvam];
+                            var zalvao = zalvn(zalvan.material);
+                            for (var zalvap = 0; zalvap < (zalvan.variants || []).length; zalvap++) {
+                                var zalvaq = zalvak[zalvan.variants[zalvap]] && zalvak[zalvan.variants[zalvap]].name;
+                                if (zalvaq) zalvag.userData.materialVariants[zalvaq] = zalvao;
+                            }
+                        }
+                    }
+                    zalvab.push(zalvag);
+                    zalvac.push(zalvaf.material);
+                    if (zalvaf.materialIndex !== undefined && zalvr[zalvaf.materialIndex] === undefined) zalvr[zalvaf.materialIndex] = zalvaf.material;
+                }
+                zalvz.userData.meshes = zalvab;
+                zalvz.userData.materials = zalvac;
+                zalvz.userData.weights = zalvad.slice ? zalvad.slice() : zalvad;
+            }
+            if (zalvy.camera !== undefined && zalva.cameras && zalva.cameras[zalvy.camera]) {
+                var zalvar = zalva.cameras[zalvy.camera];
+                var zalvas = null;
+                if (zalvar.type === "perspective" && zalvar.perspective) {
+                    var zalvat = zalvar.perspective;
+                    var zalvau = (zalvat.yfov || .6) * 180 / Math.PI;
+                    zalvas = new PerspectiveCamera(zalvau, zalvat.aspectRatio || 1, zalvat.znear || .1, zalvat.zfar || 1e3);
+                } else if (zalvar.type === "orthographic" && zalvar.orthographic) {
+                    var zalvav = zalvar.orthographic;
+                    zalvas = new OrthographicCamera(-zalvav.xmag || -1, zalvav.xmag || 1, zalvav.ymag || 1, -zalvav.ymag || -1, zalvav.znear || .1, zalvav.zfar || 1e3);
+                }
+                if (zalvas) {
+                    zalvas.name = zalvar.name || zalvz.name + "_Camera";
+                    zalvz.add(zalvas);
+                    zalvz.userData.camera = zalvas;
+                }
+            }
+            var zalvaw = zalva.extensions && zalva.extensions.KHR_lights_punctual && zalva.extensions.KHR_lights_punctual.lights;
+            var zalvax = zalvy.extensions && zalvy.extensions.KHR_lights_punctual;
+            if (zalvaw && zalvax && zalvax.light !== undefined) {
+                var zalvay = zalvaw[zalvax.light];
+                if (zalvay) {
+                    var zalvaz = zalvay.color ? new Color(zalvay.color[0], zalvay.color[1], zalvay.color[2]) : new Color(16777215);
+                    var zalvba = zalvay.intensity !== undefined ? zalvay.intensity : 1;
+                    var zalvbb = zalvba > 100 ? zalvba / 1e3 : zalvba;
+                    var zalvbc = null;
+                    if (zalvay.type === "directional") zalvbc = new DirectionalLight(zalvaz, zalvbb); else if (zalvay.type === "point") zalvbc = new PointLight(zalvaz, zalvbb, zalvay.range || 0); else if (zalvay.type === "spot") {
+                        var zalvbd = zalvay.spot || {};
+                        zalvbc = new SpotLight(zalvaz, zalvbb, zalvay.range || 0, zalvbd.outerConeAngle || Math.PI / 4, zalvbd.innerConeAngle ? 1 - zalvbd.innerConeAngle / (zalvbd.outerConeAngle || 1) : 0);
+                    }
+                    if (zalvbc) {
+                        zalvbc.name = zalvay.name || zalvz.name + "_Light";
+                        zalvz.add(zalvbc);
+                        zalvz.userData.light = zalvbc;
+                        zalvq["light" + zalvax.light] = zalvbc;
+                    }
+                }
+            }
+            zalvw[zalvx] = zalvz;
+        }
+        for (var zalvbe = 0; zalvbe < zalvv.length; zalvbe++) {
+            var zalvbf = zalvw[zalvbe], zalvbg = zalvv[zalvbe].children || [];
+            for (var zalvbh = 0; zalvbh < zalvbg.length; zalvbh++) if (zalvw[zalvbg[zalvbh]]) zalvbf.add(zalvw[zalvbg[zalvbh]]);
+            var zalvbi = zalvbf.userData.meshes || [];
+            for (var zalvae = 0; zalvae < zalvbi.length; zalvae++) zalvbf.add(zalvbi[zalvae]);
+        }
+        var zalvbj = new Group;
+        zalvbj.name = zalva.asset && zalva.asset.generator ? zalva.asset.generator : "gltf";
+        zalvbj.userData.gltfAsset = zalva.asset || {};
+        zalvbj.userData.gltf = zalva;
+        var zalvbk = zalva.scenes && zalva.scenes[zalva.scene || 0];
+        var zalvbl = zalvbk ? zalvbk.nodes : [];
+        for (var zalvbm = 0; zalvbm < zalvbl.length; zalvbm++) if (zalvw[zalvbl[zalvbm]]) zalvbj.add(zalvw[zalvbl[zalvbm]]);
+        zalvbj.updateMatrixWorld(true);
+        for (var zalvbn = 0; zalvbn < (zalva.skins || []).length; zalvbn++) {
+            var zalvbo = zalva.skins[zalvbn], zalvbp = zalvbo.joints.map(function(zalva) {
+                return zalvw[zalva];
+            }), zalvbq = [];
+            if (zalvbo.inverseBindMatrices !== undefined) {
+                var zalvbr = zalvj(zalvbo.inverseBindMatrices);
+                for (var zalvbs = 0; zalvbs < zalvbo.joints.length; zalvbs++) zalvbq.push((new Matrix4).fromArray(zalvbr.array, zalvbs * 16));
+            }
+            var zalvbt = new Skeleton(zalvbp, zalvbq);
+            zalvbt.name = zalvbo.name || "skeleton" + zalvbn;
+            for (var zalvbu = 0; zalvbu < zalvw.length; zalvbu++) {
+                var zalvbv = zalvw[zalvbu] && zalvw[zalvbu].userData.meshes || [];
+                for (var zalvae = 0; zalvae < zalvbv.length; zalvae++) if (zalvbv[zalvae] instanceof SkinnedMesh && zalvv[zalvbu].skin === zalvbn) {
+                    zalvbv[zalvae].bind(zalvbt, zalvw[zalvbu].matrixWorld);
+                    zalvbv[zalvae].userData.gltfSkin = zalvbn;
+                }
+            }
+        }
+        var zalvbw = [];
+        for (var zalvbx = 0; zalvbx < (zalva.animations || []).length; zalvbx++) {
+            var zalvby = zalva.animations[zalvbx], zalvbz = [];
+            for (var zalvca = 0; zalvca < zalvby.channels.length; zalvca++) {
+                var zalvcb = zalvby.channels[zalvca], zalvcc = zalvby.samplers[zalvcb.sampler], zalvcd = zalvj(zalvcc.input).array, zalvce = zalvj(zalvcc.output).array, zalvcf = zalvcb.target.path, zalvcg = zalvw[zalvcb.target.node], zalvch = zalvcf === "rotation" ? "quaternion" : zalvcf === "weights" ? "array" : "vector3";
+                var zalvci = zalvcb.target.extensions && zalvcb.target.extensions.KHR_animation_pointer;
+                if (zalvci && zalvci.pointer) {
+                    var zalvcj = zalvci.pointer.split("/"), zalvck = [];
+                    for (var zalvcl = 0; zalvcl < zalvcj.length; zalvcl++) if (zalvcj[zalvcl]) zalvck.push(zalvcj[zalvcl]);
+                    if (zalvck[0] === "nodes" && zalvck.length >= 3 && (zalvck[2] === "translation" || zalvck[2] === "rotation" || zalvck[2] === "scale" || zalvck[2] === "weights")) {
+                        var zalvcm = null;
+                        if (/^[0-9]+$/.test(zalvck[1])) zalvcm = zalvw[Number(zalvck[1])]; else {
+                            for (var zalvcn = 0; zalvcn < zalvv.length; zalvcn++) if (zalvv[zalvcn] && zalvv[zalvcn].name === zalvck[1]) {
+                                zalvcm = zalvw[zalvcn];
+                                break;
+                            }
+                        }
+                        if (zalvcm) {
+                            var zalvco = zalvck[2];
+                            zalvbz.push(new AnimationTrack((zalvcm.name || "node") + "." + (zalvco === "translation" ? "position" : zalvco), zalvcd, zalvce, zalvco === "rotation" ? "quaternion" : zalvco === "weights" ? "array" : "vector3", zalvcc.interpolation || "LINEAR"));
+                        }
+                        continue;
+                    }
+                    if (zalvck[0] === "materials" && zalvck.length >= 3) {
+                        var zalvcp = null;
+                        if (/^[0-9]+$/.test(zalvck[1])) zalvcp = Number(zalvck[1]); else {
+                            for (var zalvcq = 0; zalvcq < (zalva.materials || []).length; zalvcq++) if (zalva.materials[zalvcq] && zalva.materials[zalvcq].name === zalvck[1]) {
+                                zalvcp = zalvcq;
+                                break;
+                            }
+                        }
+                        if (zalvcp !== null) {
+                            if (zalvr[zalvcp] === undefined) zalvr[zalvcp] = zalvn(zalvcp);
+                            if (zalvq["material" + zalvcp] === undefined) zalvq["material" + zalvcp] = zalvr[zalvcp];
+                            var zalvcr = "userData.pointerTargets.material" + zalvcp + ".", zalvcs = zalvck[zalvck.length - 1];
+                            if (zalvcs === "baseColorFactor" && zalvce.length >= zalvcd.length * 4) {
+                                var zalvct = new Array(zalvcd.length * 3), zalvcu = new Array(zalvcd.length);
+                                for (var zalvcv = 0; zalvcv < zalvcd.length; zalvcv++) {
+                                    zalvct[zalvcv * 3] = zalvce[zalvcv * 4];
+                                    zalvct[zalvcv * 3 + 1] = zalvce[zalvcv * 4 + 1];
+                                    zalvct[zalvcv * 3 + 2] = zalvce[zalvcv * 4 + 2];
+                                    zalvcu[zalvcv] = zalvce[zalvcv * 4 + 3];
+                                }
+                                zalvbz.push(new AnimationTrack(zalvcr + "color", zalvcd, zalvct, "color", zalvcc.interpolation || "LINEAR"));
+                                zalvbz.push(new AnimationTrack(zalvcr + "opacity", zalvcd, zalvcu, "number", zalvcc.interpolation || "LINEAR"));
+                            } else if (zalvcs === "metallicFactor" || zalvcs === "roughnessFactor" || zalvcs === "alphaCutoff") zalvbz.push(new AnimationTrack(zalvcr + (zalvcs === "metallicFactor" ? "metalness" : zalvcs === "roughnessFactor" ? "roughness" : "alphaCutoff"), zalvcd, zalvce, "number", zalvcc.interpolation || "LINEAR")); else if (zalvcs === "emissiveFactor") zalvbz.push(new AnimationTrack(zalvcr + "emissive", zalvcd, zalvce, "color", zalvcc.interpolation || "LINEAR"));
+                        }
+                        continue;
+                    }
+                    if (zalvck[0] === "extensions" && zalvck[1] === "KHR_lights_punctual" && zalvck[2] === "lights" && zalvck.length >= 5) {
+                        var zalvcw = zalvq["light" + zalvck[3]], zalvcx = zalvck[zalvck.length - 1];
+                        if (zalvcw && (zalvcx === "intensity" || zalvcx === "color")) zalvbz.push(new AnimationTrack("userData.pointerTargets.light" + zalvck[3] + "." + (zalvcx === "color" ? "color" : "intensity"), zalvcd, zalvce, zalvcx === "color" ? "color" : "number", zalvcc.interpolation || "LINEAR"));
+                        continue;
+                    }
+                    continue;
+                }
+                if (!zalvcg) continue;
+                zalvbz.push(new AnimationTrack((zalvcg.name || "node" + zalvcb.target.node) + "." + (zalvcf === "translation" ? "position" : zalvcf), zalvcd, zalvce, zalvch, zalvcc.interpolation || "LINEAR"));
+            }
+            zalvbw.push(new AnimationClip(zalvby.name || "animation" + zalvbx, undefined, zalvbz));
+        }
+        zalvbj.userData.animations = zalvbw;
+        zalvbj.userData.pointerTargets = zalvq;
+        var zalvcy = zalva.extensions && zalva.extensions.EXT_lights_image_based;
+        if (zalvcy && zalvcy.lights && zalvcy.lights.length) {
+            var zalvcz = zalvcy.lights[0];
+            var zalvda = zalvcz.radianceCube && zalvcz.radianceCube.indices;
+            if (zalvda && zalvda.length === 6) {
+                var zalvdb = [];
+                for (var zalvdc = 0; zalvdc < 6; zalvdc++) {
+                    var zalvdd = zalva.textures[zalvda[zalvdc]];
+                    var zalvde = zalvdd && zalva.images[zalvdd.source];
+                    zalvdb.push(zalvk(zalvde));
+                }
+                var zalvdf = new CubeTexture(zalvdb);
+                zalvbj.userData.environmentCube = zalvdf;
+                var zalvdg = zalvdf.promise.catch(function() {
+                    return zalvdf;
+                });
+                var zalvdh = await zalvdg;
+                if (this.options && this.options.renderer && this.options.renderer.resourceManager && this.options.renderer.device) {
+                    try {
+                        zalvbj.userData.environment = await new PMREMGenerator(this.options.renderer).generate(zalvdh);
+                    } catch (zalva) {
+                        zalvbj.userData.environment = zalvdh;
+                    }
+                } else zalvbj.userData.environment = zalvdh;
+                zalvbj.environment = zalvbj.userData.environment;
+            }
+        }
+        return zalvbj;
+    }
+    parseOBJ(zalva) {
+        var zalvb = [], zalvc = [], zalvd = [], zalve = [], zalvf = [], zalvg = [], zalvh = [], zalvi = {};
+        var zalvj = zalva.split(/\r?\n/);
+        for (var zalvk = 0; zalvk < zalvj.length; zalvk++) {
+            var zalvl = zalvj[zalvk].trim();
+            var zalvm = zalvl.split(/\s+/);
+            if (zalvm[0] === "v") zalvb.push(new Vector3(parseFloat(zalvm[1]), parseFloat(zalvm[2]), parseFloat(zalvm[3]))); else if (zalvm[0] === "vn") zalvc.push(new Vector3(parseFloat(zalvm[1]), parseFloat(zalvm[2]), parseFloat(zalvm[3]))); else if (zalvm[0] === "vt") zalvd.push(new Vector2(parseFloat(zalvm[1]), parseFloat(zalvm[2]))); else if (zalvm[0] === "f") {
+                var zalvn = [];
+                for (var zalvo = 1; zalvo < zalvm.length; zalvo++) {
+                    var zalvp = zalvm[zalvo];
+                    if (zalvi[zalvp] === undefined) {
+                        var zalvq = zalvp.split("/");
+                        var zalvr = parseInt(zalvq[0], 10);
+                        var zalvs = parseInt(zalvq[1] || 0, 10);
+                        var zalvt = parseInt(zalvq[2] || 0, 10);
+                        var zalvu = zalvb[zalvr < 0 ? zalvb.length + zalvr : zalvr - 1] || new Vector3;
+                        var zalvv = zalvd[zalvs < 0 ? zalvd.length + zalvs : zalvs - 1] || new Vector2;
+                        var zalvw = zalvc[zalvt < 0 ? zalvc.length + zalvt : zalvt - 1] || new Vector3(0, 1, 0);
+                        zalve.push(zalvu.x, zalvu.y, zalvu.z);
+                        zalvg.push(zalvv.x, zalvv.y);
+                        zalvf.push(zalvw.x, zalvw.y, zalvw.z);
+                        zalvi[zalvp] = zalve.length / 3 - 1;
+                    }
+                    zalvn.push(zalvi[zalvp]);
+                }
+                for (var zalvx = 1; zalvx < zalvn.length - 1; zalvx++) zalvh.push(zalvn[0], zalvn[zalvx], zalvn[zalvx + 1]);
+            }
+        }
+        return new Mesh(faoxomgeometry(zalve, zalvf, zalvg, zalvh), new StandardMaterial);
+    }
+    loadModelInWorker(zalva, zalvb) {
+        zalvb = zalvb || {};
+        if (typeof Worker === "undefined" || typeof Blob === "undefined" || typeof URL === "undefined" || !URL.createObjectURL) return this.loadModel(zalva, zalvb);
+        var zalvc = "self.onmessage=async function(event){try{var response=await fetch(event.data.url,event.data.request||{});if(!response.ok)throw new Error('Asset request failed: '+response.status);var buffer=await response.arrayBuffer();var view=new DataView(buffer);if(buffer.byteLength<20||view.getUint32(0,true)!==0x46546c67)throw new Error('Background worker currently requires GLB input');var jsonLength=view.getUint32(12,true),jsonStart=20,jsonBytes=new Uint8Array(buffer,jsonStart,jsonLength),json=JSON.parse(new TextDecoder().decode(jsonBytes));self.postMessage({buffer:buffer,json:json,bytes:buffer.byteLength},[buffer]);}catch(error){self.postMessage({error:String(error&&error.message?error.message:error)});}};";
+        var zalvd = new Worker(URL.createObjectURL(new Blob([ zalvc ], {
+            type: "application/javascript"
+        }))), zalve = this;
+        return new Promise(function(zalvc, zalvf) {
+            zalvd.onmessage = function(zalvb) {
+                var zalvg = zalvb.data || {};
+                zalvd.terminate();
+                if (zalvg.error) {
+                    zalvf(new Error(zalvg.error));
+                    return;
+                }
+                try {
+                    var zalvh = zalve.parseGLB(zalvg.buffer, zalva);
+                    Promise.resolve(zalve.prepareCompressedTextures(zalvh)).then(zalvc, zalvf);
+                } catch (zalva) {
+                    zalvf(zalva);
+                }
+            };
+            zalvd.onerror = function(zalva) {
+                zalvd.terminate();
+                zalvf(zalva);
+            };
+            var zalvg = zalva;
+            if (typeof document !== "undefined" && typeof URL !== "undefined") zalvg = new URL(zalva, document.baseURI).href;
+            zalvd.postMessage({
+                url: zalvg,
+                request: {
+                    headers: zalvb.headers || {}
+                }
+            });
+        });
+    }
 }
-AssetLoader.prototype.parseFBX = async function(buffer, url, options) {
-    options = options || {};
-    if (!(buffer instanceof ArrayBuffer)) buffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-    var bytes = new Uint8Array(buffer); var signature = "Kaydara FBX Binary  "; var header = faoxomfbxtext(bytes.slice(0, 21)); if (header.indexOf(signature) !== 0) throw new Error("Invalid FBX binary header");
-    var view = new DataView(buffer); var version = view.getUint32(23, true); var cursor = { offset: 27 }; var nodes = []; while (cursor.offset < view.byteLength) { if (view.byteLength - cursor.offset < 13) break; var node = faoxomfbxparsenode(view, cursor, buffer, version, view.byteLength); if (node) nodes.push(node); else if (cursor.offset >= view.byteLength) break; }
-    var rootNode = { name: "Root", children: nodes, properties: [] }; await faoxomfbxresolvenode(rootNode, view, buffer);
-    var objectsNode = faoxomfbxchild(rootNode, "Objects"); var connectionsNode = faoxomfbxchild(rootNode, "Connections"); var records = {}; var modelRecords = [], geometryRecords = [], materialRecords = [], textureRecords = [], deformerRecords = [];
-    var objectChildren = faoxomfbxchildren(objectsNode); for (var oi = 0; oi < objectChildren.length; oi++) { var record = objectChildren[oi]; var id = record.properties.length ? String(record.properties[0]) : ""; if (!id) continue; record.id = id; records[id] = record; if (record.name === "Model") modelRecords.push(record); else if (record.name === "Geometry") geometryRecords.push(record); else if (record.name === "Material") materialRecords.push(record); else if (record.name === "Texture") textureRecords.push(record); else if (record.name === "Deformer") deformerRecords.push(record); }
-    var connections = []; var connectionChildren = faoxomfbxchildren(connectionsNode, "C"); for (var ci = 0; ci < connectionChildren.length; ci++) { var cp = connectionChildren[ci].properties; if (cp.length >= 3) connections.push({ type: String(cp[0]), child: String(cp[1]), parent: String(cp[2]), property: cp.length > 3 ? String(cp[3]) : "" }); }
-    var parents = {}, childrenByParent = {}; for (var connectionIndex = 0; connectionIndex < connections.length; connectionIndex++) { var connection = connections[connectionIndex]; if (!childrenByParent[connection.parent]) childrenByParent[connection.parent] = []; childrenByParent[connection.parent].push(connection); if (connection.type === "OO") parents[connection.child] = connection.parent; }
-    var root = new Group(); root.name = options.name || "FBX"; root.userData.fbxVersion = version; root.userData.fbxRecords = records;
-    var skinnedModelIds = {}; for (var dr = 0; dr < deformerRecords.length; dr++) if (String(deformerRecords[dr].properties[2] || "") === "Cluster") for (var dci = 0; dci < connections.length; dci++) if (connections[dci].child === deformerRecords[dr].id && records[connections[dci].parent] && records[connections[dci].parent].name === "Model") skinnedModelIds[connections[dci].parent] = true;
-    var modelObjects = {}; for (var modelIndex = 0; modelIndex < modelRecords.length; modelIndex++) { var model = modelRecords[modelIndex]; var object = skinnedModelIds[model.id] ? new Bone() : new Group(); object.name = faoxomfbxname(model.properties[1] || model.properties[0]); object.userData.fbxId = model.id; var translation = faoxomfbxproperty(model, "Lcl Translation", [0, 0, 0]); var rotation = faoxomfbxproperty(model, "Lcl Rotation", [0, 0, 0]); var scaling = faoxomfbxproperty(model, "Lcl Scaling", [1, 1, 1]); object.position.set(faoxomfbxnumber(translation[0]), faoxomfbxnumber(translation[1]), faoxomfbxnumber(translation[2])); object.rotation.set(faoxomfbxnumber(rotation[0]) * Math.PI / 180, faoxomfbxnumber(rotation[1]) * Math.PI / 180, faoxomfbxnumber(rotation[2]) * Math.PI / 180, "XYZ"); object.scale.set(faoxomfbxnumber(scaling[0]) || 1, faoxomfbxnumber(scaling[1]) || 1, faoxomfbxnumber(scaling[2]) || 1); modelObjects[model.id] = object; }
-    for (var modelParentIndex = 0; modelParentIndex < modelRecords.length; modelParentIndex++) { var modelRecord = modelRecords[modelParentIndex], modelObject = modelObjects[modelRecord.id], parentId = parents[modelRecord.id], parentObject = modelObjects[parentId]; if (parentObject) parentObject.add(modelObject); else root.add(modelObject); }
-    var materials = {}; for (var materialIndex = 0; materialIndex < materialRecords.length; materialIndex++) { var materialRecord = materialRecords[materialIndex], materialType = String(materialRecord.properties[2] || ""); var materialOptions = { color: faoxomfbxcolor(faoxomfbxproperty(materialRecord, "DiffuseColor", [0.8, 0.8, 0.8])), diffuse: faoxomfbxcolor(faoxomfbxproperty(materialRecord, "DiffuseColor", [0.8, 0.8, 0.8])), emissive: faoxomfbxcolor(faoxomfbxproperty(materialRecord, "EmissiveColor", [0, 0, 0])), specular: faoxomfbxcolor(faoxomfbxproperty(materialRecord, "SpecularColor", [0.2, 0.2, 0.2])), shininess: faoxomfbxnumber(faoxomfbxproperty(materialRecord, "Shininess", [30])[0]), opacity: 1 - faoxomfbxnumber(faoxomfbxproperty(materialRecord, "TransparencyFactor", [0])[0]) }; var material = materialType.indexOf("Phong") >= 0 ? new PhongMaterial(materialOptions) : new StandardMaterial(materialOptions); material.name = faoxomfbxname(materialRecord.properties[1] || materialRecord.id); material.userData = { fbxId: materialRecord.id }; materials[materialRecord.id] = material; }
-    var textures = {}; var base = url || ""; for (var textureIndex = 0; textureIndex < textureRecords.length; textureIndex++) { var textureRecord = textureRecords[textureIndex], fileNode = faoxomfbxchild(textureRecord, "FileName"), relativeNode = faoxomfbxchild(textureRecord, "RelativeFileName"), fileName = fileNode ? fileNode.properties[0] : relativeNode ? relativeNode.properties[0] : ""; fileName = String(fileName || "").replace(/\\/g, "/"); var textureUrl = fileName; if (base && fileName && typeof URL !== "undefined") try { textureUrl = new URL(fileName, base).href; } catch (error) {} textures[textureRecord.id] = new Texture(textureUrl, { flipY: false }); }
-    for (var textureConnectionIndex = 0; textureConnectionIndex < connections.length; textureConnectionIndex++) { var textureConnection = connections[textureConnectionIndex]; if (!textures[textureConnection.child] || !materials[textureConnection.parent]) continue; var targetMaterial = materials[textureConnection.parent]; var targetTexture = textures[textureConnection.child]; if (textureConnection.property.indexOf("Normal") >= 0 || textureConnection.property.indexOf("Bump") >= 0) targetMaterial.normalMap = targetTexture; else if (textureConnection.property.indexOf("Specular") >= 0) targetMaterial.specularMap = targetTexture; else if (textureConnection.property.indexOf("Emissive") >= 0) targetMaterial.emissiveMap = targetTexture; else targetMaterial.diffuseMap = targetTexture; targetMaterial.needsUpdate = true; }
-    var geometryObjects = {}; var meshInfo = []; for (var geometryIndex = 0; geometryIndex < geometryRecords.length; geometryIndex++) { var geometryRecord = geometryRecords[geometryIndex]; var geometry = faoxomfbxgeometry(geometryRecord); geometryObjects[geometryRecord.id] = geometry; var modelConnections = []; for (var geometryConnectionIndex = 0; geometryConnectionIndex < connections.length; geometryConnectionIndex++) if (connections[geometryConnectionIndex].child === geometryRecord.id && modelObjects[connections[geometryConnectionIndex].parent]) modelConnections.push(modelObjects[connections[geometryConnectionIndex].parent]); if (!modelConnections.length) modelConnections.push(root); for (var modelConnectionIndex = 0; modelConnectionIndex < modelConnections.length; modelConnectionIndex++) meshInfo.push({ geometry: geometry, model: modelConnections[modelConnectionIndex], geometryId: geometryRecord.id }); }
-    var clusterData = {}; for (var clusterIndex = 0; clusterIndex < deformerRecords.length; clusterIndex++) { var cluster = deformerRecords[clusterIndex]; if (String(cluster.properties[2] || "") !== "Cluster") continue; var clusterGeometry = null, clusterBone = null, clusterSkin = null; for (var clusterConnectionIndex = 0; clusterConnectionIndex < connections.length; clusterConnectionIndex++) { var cc = connections[clusterConnectionIndex]; if (cc.child === cluster.id) { if (records[cc.parent] && records[cc.parent].name === "Model") clusterBone = modelObjects[cc.parent]; if (records[cc.parent] && records[cc.parent].name === "Deformer" && String(records[cc.parent].properties[2] || "") === "Skin") clusterSkin = cc.parent; } if (clusterSkin && cc.child === clusterSkin && records[cc.parent] && records[cc.parent].name === "Geometry") clusterGeometry = cc.parent; } if (!clusterGeometry) for (var skinConnectionIndex = 0; skinConnectionIndex < connections.length; skinConnectionIndex++) if (connections[skinConnectionIndex].child === cluster.id && records[connections[skinConnectionIndex].parent] && records[connections[skinConnectionIndex].parent].name === "Deformer") { clusterSkin = connections[skinConnectionIndex].parent; for (var skinGeometryConnection = 0; skinGeometryConnection < connections.length; skinGeometryConnection++) if (connections[skinGeometryConnection].child === clusterSkin && records[connections[skinGeometryConnection].parent] && records[connections[skinGeometryConnection].parent].name === "Geometry") clusterGeometry = connections[skinGeometryConnection].parent; } if (clusterGeometry && clusterBone) clusterData[clusterGeometry] = (clusterData[clusterGeometry] || []).concat([{ bone: clusterBone, indices: faoxomfbxarray(cluster, "Indexes") || [], weights: faoxomfbxarray(cluster, "Weights") || [], inverse: faoxomfbxarray(cluster, "TransformLink") || [] }]); }
-    var createdMeshes = []; for (var meshInfoIndex = 0; meshInfoIndex < meshInfo.length; meshInfoIndex++) { var info = meshInfo[meshInfoIndex], materialList = []; for (var materialConnectionIndex = 0; materialConnectionIndex < connections.length; materialConnectionIndex++) if (connections[materialConnectionIndex].parent === info.model.userData.fbxId && materials[connections[materialConnectionIndex].child]) materialList.push(materials[connections[materialConnectionIndex].child]); var clusters = clusterData[info.geometryId] || []; var mesh = clusters.length ? new SkinnedMesh(info.geometry, materialList.length ? materialList : new StandardMaterial({ color: 0xcccccc })) : new Mesh(info.geometry, materialList.length ? materialList : new StandardMaterial({ color: 0xcccccc })); mesh.name = info.model.name || "FBXMesh"; mesh.userData.fbxGeometryId = info.geometryId; if (materialList.length) mesh.material = materialList.length === 1 ? materialList[0] : materialList; if (clusters.length) { var original = info.geometry.userData && info.geometry.userData.originalVertex ? info.geometry.userData.originalVertex : []; var skinIndices = new Uint16Array(original.length * 4), skinWeights = new Float32Array(original.length * 4); var inverseBind = [], bones = []; for (var clusterNo = 0; clusterNo < clusters.length; clusterNo++) { var clusterInfo = clusters[clusterNo]; bones.push(clusterInfo.bone); var inverse = clusterInfo.inverse && clusterInfo.inverse.length >= 16 ? new Matrix4().fromArray(clusterInfo.inverse) : clusterInfo.bone.matrixWorld.clone().invert(); inverseBind.push(inverse); for (var weightNo = 0; weightNo < clusterInfo.indices.length; weightNo++) { var originalIndex = faoxomfbxnumber(clusterInfo.indices[weightNo]); var weight = faoxomfbxnumber(clusterInfo.weights[weightNo]); for (var outputVertex = 0; outputVertex < original.length; outputVertex++) if (original[outputVertex] === originalIndex) { var baseWeight = outputVertex * 4, slot = 0; while (slot < 4 && skinWeights[baseWeight + slot] > weight) slot++; if (slot < 4) { for (var shift = 3; shift > slot; shift--) { skinWeights[baseWeight + shift] = skinWeights[baseWeight + shift - 1]; skinIndices[baseWeight + shift] = skinIndices[baseWeight + shift - 1]; } skinWeights[baseWeight + slot] = weight; skinIndices[baseWeight + slot] = clusterNo; } } } } info.geometry.setAttribute("skinIndex", skinIndices, 4); info.geometry.setAttribute("skinWeight", skinWeights, 4); var skeleton = new Skeleton(bones, inverseBind); mesh.bind(skeleton, info.model.matrixWorld); mesh.userData.fbxSkeleton = skeleton; } if (mesh.skeleton) { mesh.userData.fbxBindModel = info.model; for (var normalizeVertex = 0; normalizeVertex < skinWeights.length; normalizeVertex += 4) { var weightSum = skinWeights[normalizeVertex] + skinWeights[normalizeVertex + 1] + skinWeights[normalizeVertex + 2] + skinWeights[normalizeVertex + 3]; if (weightSum > 0) { skinWeights[normalizeVertex] /= weightSum; skinWeights[normalizeVertex + 1] /= weightSum; skinWeights[normalizeVertex + 2] /= weightSum; skinWeights[normalizeVertex + 3] /= weightSum; } } } info.model.add(mesh); createdMeshes.push(mesh); }
-    root.updateMatrixWorld(true); for (var meshIndex = 0; meshIndex < createdMeshes.length; meshIndex++) { if (createdMeshes[meshIndex].skeleton) { createdMeshes[meshIndex].bind(createdMeshes[meshIndex].skeleton, createdMeshes[meshIndex].userData.fbxBindModel ? createdMeshes[meshIndex].userData.fbxBindModel.matrixWorld : createdMeshes[meshIndex].matrixWorld); createdMeshes[meshIndex].skeleton.update(); } }
-    var animationStacks = []; for (var animationRecordId in records) if (records[animationRecordId].name === "AnimationStack") animationStacks.push(records[animationRecordId]); var curveNodes = {}; var curves = {};
-    for (var animationRecordKey in records) { if (records[animationRecordKey].name === "AnimationCurveNode") curveNodes[animationRecordKey] = { record: records[animationRecordKey], curves: {} }; if (records[animationRecordKey].name === "AnimationCurve") curves[animationRecordKey] = records[animationRecordKey]; }
-    var curveNodeTargets = {}; for (var animationConnectionIndex = 0; animationConnectionIndex < connections.length; animationConnectionIndex++) { var animationConnection = connections[animationConnectionIndex]; if (curves[animationConnection.child] && curveNodes[animationConnection.parent]) curveNodes[animationConnection.parent].curves[animationConnection.property.split("|").pop().toUpperCase()] = curves[animationConnection.child]; if (curveNodes[animationConnection.child] && modelObjects[animationConnection.parent]) curveNodeTargets[animationConnection.child] = { model: modelObjects[animationConnection.parent], property: animationConnection.property.split("|").pop() }; }
-    var animations = []; for (var stackIndex = 0; stackIndex < animationStacks.length; stackIndex++) { var stack = animationStacks[stackIndex], stackLayers = {}; for (var stackConnectionIndex = 0; stackConnectionIndex < connections.length; stackConnectionIndex++) if (connections[stackConnectionIndex].parent === stack.id && records[connections[stackConnectionIndex].child] && records[connections[stackConnectionIndex].child].name === "AnimationLayer") stackLayers[connections[stackConnectionIndex].child] = true; var tracks = []; for (var curveNodeId in curveNodes) { var targetInfo = curveNodeTargets[curveNodeId]; if (!targetInfo) continue; var belongs = false; for (var curveLayerConnection = 0; curveLayerConnection < connections.length; curveLayerConnection++) if (connections[curveLayerConnection].child === curveNodeId && stackLayers[connections[curveLayerConnection].parent]) belongs = true; if (!belongs) continue; var nodeCurves = curveNodes[curveNodeId].curves, channelNames = ["X", "Y", "Z"], timeMap = {}, componentValues = { X: {}, Y: {}, Z: {} }; for (var channelIndex = 0; channelIndex < channelNames.length; channelIndex++) { var curve = nodeCurves[channelNames[channelIndex]]; if (!curve) continue; var keyTimes = faoxomfbxarray(curve, "KeyTime") || [], keyValues = faoxomfbxarray(curve, "KeyValueFloat") || []; for (var keyIndex = 0; keyIndex < keyTimes.length; keyIndex++) { var seconds = faoxomfbxnumber(keyTimes[keyIndex]) / 46186158000; timeMap[seconds] = true; componentValues[channelNames[channelIndex]][seconds] = faoxomfbxnumber(keyValues[keyIndex]); } } var times = Object.keys(timeMap).map(Number).sort(function(a, b) { return a - b; }); if (!times.length) continue; var propertyName = targetInfo.property, lowerProperty = propertyName.toLowerCase(); if (lowerProperty.indexOf("translation") >= 0 || lowerProperty.indexOf("scaling") >= 0) { var baseValue = lowerProperty.indexOf("scaling") >= 0 ? targetInfo.model.scale : targetInfo.model.position; var values = []; for (var timeIndex = 0; timeIndex < times.length; timeIndex++) values.push(componentValues.X[times[timeIndex]] === undefined ? baseValue.x : componentValues.X[times[timeIndex]], componentValues.Y[times[timeIndex]] === undefined ? baseValue.y : componentValues.Y[times[timeIndex]], componentValues.Z[times[timeIndex]] === undefined ? baseValue.z : componentValues.Z[times[timeIndex]]); tracks.push(new AnimationTrack(targetInfo.model.name + "." + (lowerProperty.indexOf("scaling") >= 0 ? "scale" : "position"), times, values, "vector3")); } else if (lowerProperty.indexOf("rotation") >= 0) { var rotationValues = []; for (var rotationTimeIndex = 0; rotationTimeIndex < times.length; rotationTimeIndex++) { var rx = componentValues.X[times[rotationTimeIndex]] === undefined ? targetInfo.model.rotation.x * 180 / Math.PI : componentValues.X[times[rotationTimeIndex]], ry = componentValues.Y[times[rotationTimeIndex]] === undefined ? targetInfo.model.rotation.y * 180 / Math.PI : componentValues.Y[times[rotationTimeIndex]], rz = componentValues.Z[times[rotationTimeIndex]] === undefined ? targetInfo.model.rotation.z * 180 / Math.PI : componentValues.Z[times[rotationTimeIndex]]; var quaternion = new Quaternion().setFromEuler(new Euler(rx * Math.PI / 180, ry * Math.PI / 180, rz * Math.PI / 180, "XYZ")); rotationValues.push(quaternion.x, quaternion.y, quaternion.z, quaternion.w); } tracks.push(new AnimationTrack(targetInfo.model.name + ".quaternion", times, rotationValues, "quaternion")); } }
-        if (tracks.length) animations.push(new AnimationClip(faoxomfbxname(stack.properties[1] || stack.id), undefined, tracks)); }
-    root.userData.meshes = createdMeshes; root.userData.materials = materials; root.userData.textures = textures; root.userData.animations = animations; root.userData.animationsByName = {}; for (var animationListIndex = 0; animationListIndex < animations.length; animationListIndex++) root.userData.animationsByName[animations[animationListIndex].name] = animations[animationListIndex]; return root;
+
+AssetLoader.prototype.parseFBX = async function(zalva, zalvb, zalvc) {
+    zalvc = zalvc || {};
+    if (!(zalva instanceof ArrayBuffer)) zalva = zalva.buffer.slice(zalva.byteOffset, zalva.byteOffset + zalva.byteLength);
+    var zalvd = new Uint8Array(zalva);
+    var zalve = "Kaydara FBX Binary  ";
+    var zalvf = faoxomfbxtext(zalvd.slice(0, 21));
+    if (zalvf.indexOf(zalve) !== 0) throw new Error("Invalid FBX binary header");
+    var zalvg = new DataView(zalva);
+    var zalvh = zalvg.getUint32(23, true);
+    var zalvi = {
+        offset: 27
+    };
+    var zalvj = [];
+    while (zalvi.offset < zalvg.byteLength) {
+        if (zalvg.byteLength - zalvi.offset < 13) break;
+        var zalvk = faoxomfbxparsenode(zalvg, zalvi, zalva, zalvh, zalvg.byteLength);
+        if (zalvk) zalvj.push(zalvk); else if (zalvi.offset >= zalvg.byteLength) break;
+    }
+    var zalvl = {
+        name: "Root",
+        children: zalvj,
+        properties: []
+    };
+    await faoxomfbxresolvenode(zalvl, zalvg, zalva);
+    var zalvm = faoxomfbxchild(zalvl, "Objects");
+    var zalvn = faoxomfbxchild(zalvl, "Connections");
+    var zalvo = {};
+    var zalvp = [], zalvq = [], zalvr = [], zalvs = [], zalvt = [];
+    var zalvu = faoxomfbxchildren(zalvm);
+    for (var zalvv = 0; zalvv < zalvu.length; zalvv++) {
+        var zalvw = zalvu[zalvv];
+        var zalvx = zalvw.properties.length ? String(zalvw.properties[0]) : "";
+        if (!zalvx) continue;
+        zalvw.id = zalvx;
+        zalvo[zalvx] = zalvw;
+        if (zalvw.name === "Model") zalvp.push(zalvw); else if (zalvw.name === "Geometry") zalvq.push(zalvw); else if (zalvw.name === "Material") zalvr.push(zalvw); else if (zalvw.name === "Texture") zalvs.push(zalvw); else if (zalvw.name === "Deformer") zalvt.push(zalvw);
+    }
+    var zalvy = [];
+    var zalvz = faoxomfbxchildren(zalvn, "C");
+    for (var zalvaa = 0; zalvaa < zalvz.length; zalvaa++) {
+        var zalvab = zalvz[zalvaa].properties;
+        if (zalvab.length >= 3) zalvy.push({
+            type: String(zalvab[0]),
+            child: String(zalvab[1]),
+            parent: String(zalvab[2]),
+            property: zalvab.length > 3 ? String(zalvab[3]) : ""
+        });
+    }
+    var zalvac = {}, zalvad = {};
+    for (var zalvae = 0; zalvae < zalvy.length; zalvae++) {
+        var zalvaf = zalvy[zalvae];
+        if (!zalvad[zalvaf.parent]) zalvad[zalvaf.parent] = [];
+        zalvad[zalvaf.parent].push(zalvaf);
+        if (zalvaf.type === "OO") zalvac[zalvaf.child] = zalvaf.parent;
+    }
+    var zalvag = new Group;
+    zalvag.name = zalvc.name || "FBX";
+    zalvag.userData.fbxVersion = zalvh;
+    zalvag.userData.fbxRecords = zalvo;
+    var zalvah = {};
+    for (var zalvai = 0; zalvai < zalvt.length; zalvai++) if (String(zalvt[zalvai].properties[2] || "") === "Cluster") for (var zalvaj = 0; zalvaj < zalvy.length; zalvaj++) if (zalvy[zalvaj].child === zalvt[zalvai].id && zalvo[zalvy[zalvaj].parent] && zalvo[zalvy[zalvaj].parent].name === "Model") zalvah[zalvy[zalvaj].parent] = true;
+    var zalvak = {};
+    for (var zalval = 0; zalval < zalvp.length; zalval++) {
+        var zalvam = zalvp[zalval];
+        var zalvan = zalvah[zalvam.id] ? new Bone : new Group;
+        zalvan.name = faoxomfbxname(zalvam.properties[1] || zalvam.properties[0]);
+        zalvan.userData.fbxId = zalvam.id;
+        var zalvao = faoxomfbxproperty(zalvam, "Lcl Translation", [ 0, 0, 0 ]);
+        var zalvap = faoxomfbxproperty(zalvam, "Lcl Rotation", [ 0, 0, 0 ]);
+        var zalvaq = faoxomfbxproperty(zalvam, "Lcl Scaling", [ 1, 1, 1 ]);
+        zalvan.position.set(faoxomfbxnumber(zalvao[0]), faoxomfbxnumber(zalvao[1]), faoxomfbxnumber(zalvao[2]));
+        zalvan.rotation.set(faoxomfbxnumber(zalvap[0]) * Math.PI / 180, faoxomfbxnumber(zalvap[1]) * Math.PI / 180, faoxomfbxnumber(zalvap[2]) * Math.PI / 180, "XYZ");
+        zalvan.scale.set(faoxomfbxnumber(zalvaq[0]) || 1, faoxomfbxnumber(zalvaq[1]) || 1, faoxomfbxnumber(zalvaq[2]) || 1);
+        zalvak[zalvam.id] = zalvan;
+    }
+    for (var zalvar = 0; zalvar < zalvp.length; zalvar++) {
+        var zalvas = zalvp[zalvar], zalvat = zalvak[zalvas.id], zalvau = zalvac[zalvas.id], zalvav = zalvak[zalvau];
+        if (zalvav) zalvav.add(zalvat); else zalvag.add(zalvat);
+    }
+    var zalvaw = {};
+    for (var zalvax = 0; zalvax < zalvr.length; zalvax++) {
+        var zalvay = zalvr[zalvax], zalvaz = String(zalvay.properties[2] || "");
+        var zalvba = {
+            color: faoxomfbxcolor(faoxomfbxproperty(zalvay, "DiffuseColor", [ .8, .8, .8 ])),
+            diffuse: faoxomfbxcolor(faoxomfbxproperty(zalvay, "DiffuseColor", [ .8, .8, .8 ])),
+            emissive: faoxomfbxcolor(faoxomfbxproperty(zalvay, "EmissiveColor", [ 0, 0, 0 ])),
+            specular: faoxomfbxcolor(faoxomfbxproperty(zalvay, "SpecularColor", [ .2, .2, .2 ])),
+            shininess: faoxomfbxnumber(faoxomfbxproperty(zalvay, "Shininess", [ 30 ])[0]),
+            opacity: 1 - faoxomfbxnumber(faoxomfbxproperty(zalvay, "TransparencyFactor", [ 0 ])[0])
+        };
+        var zalvbb = zalvaz.indexOf("Phong") >= 0 ? new PhongMaterial(zalvba) : new StandardMaterial(zalvba);
+        zalvbb.name = faoxomfbxname(zalvay.properties[1] || zalvay.id);
+        zalvbb.userData = {
+            fbxId: zalvay.id
+        };
+        zalvaw[zalvay.id] = zalvbb;
+    }
+    var zalvbc = {};
+    var zalvbd = zalvb || "";
+    for (var zalvbe = 0; zalvbe < zalvs.length; zalvbe++) {
+        var zalvbf = zalvs[zalvbe], zalvbg = faoxomfbxchild(zalvbf, "FileName"), zalvbh = faoxomfbxchild(zalvbf, "RelativeFileName"), zalvbi = zalvbg ? zalvbg.properties[0] : zalvbh ? zalvbh.properties[0] : "";
+        zalvbi = String(zalvbi || "").replace(/\\/g, "/");
+        var zalvbj = zalvbi;
+        if (zalvbd && zalvbi && typeof URL !== "undefined") try {
+            zalvbj = new URL(zalvbi, zalvbd).href;
+        } catch (zalva) {}
+        zalvbc[zalvbf.id] = new Texture(zalvbj, {
+            flipY: false
+        });
+    }
+    for (var zalvbk = 0; zalvbk < zalvy.length; zalvbk++) {
+        var zalvbl = zalvy[zalvbk];
+        if (!zalvbc[zalvbl.child] || !zalvaw[zalvbl.parent]) continue;
+        var zalvbm = zalvaw[zalvbl.parent];
+        var zalvbn = zalvbc[zalvbl.child];
+        if (zalvbl.property.indexOf("Normal") >= 0 || zalvbl.property.indexOf("Bump") >= 0) zalvbm.normalMap = zalvbn; else if (zalvbl.property.indexOf("Specular") >= 0) zalvbm.specularMap = zalvbn; else if (zalvbl.property.indexOf("Emissive") >= 0) zalvbm.emissiveMap = zalvbn; else zalvbm.diffuseMap = zalvbn;
+        zalvbm.needsUpdate = true;
+    }
+    var zalvbo = {};
+    var zalvbp = [];
+    for (var zalvbq = 0; zalvbq < zalvq.length; zalvbq++) {
+        var zalvbr = zalvq[zalvbq];
+        var zalvbs = faoxomfbxgeometry(zalvbr);
+        zalvbo[zalvbr.id] = zalvbs;
+        var zalvbt = [];
+        for (var zalvbu = 0; zalvbu < zalvy.length; zalvbu++) if (zalvy[zalvbu].child === zalvbr.id && zalvak[zalvy[zalvbu].parent]) zalvbt.push(zalvak[zalvy[zalvbu].parent]);
+        if (!zalvbt.length) zalvbt.push(zalvag);
+        for (var zalvbv = 0; zalvbv < zalvbt.length; zalvbv++) zalvbp.push({
+            geometry: zalvbs,
+            model: zalvbt[zalvbv],
+            geometryId: zalvbr.id
+        });
+    }
+    var zalvbw = {};
+    for (var zalvbx = 0; zalvbx < zalvt.length; zalvbx++) {
+        var zalvby = zalvt[zalvbx];
+        if (String(zalvby.properties[2] || "") !== "Cluster") continue;
+        var zalvbz = null, zalvca = null, zalvcb = null;
+        for (var zalvcc = 0; zalvcc < zalvy.length; zalvcc++) {
+            var zalvcd = zalvy[zalvcc];
+            if (zalvcd.child === zalvby.id) {
+                if (zalvo[zalvcd.parent] && zalvo[zalvcd.parent].name === "Model") zalvca = zalvak[zalvcd.parent];
+                if (zalvo[zalvcd.parent] && zalvo[zalvcd.parent].name === "Deformer" && String(zalvo[zalvcd.parent].properties[2] || "") === "Skin") zalvcb = zalvcd.parent;
+            }
+            if (zalvcb && zalvcd.child === zalvcb && zalvo[zalvcd.parent] && zalvo[zalvcd.parent].name === "Geometry") zalvbz = zalvcd.parent;
+        }
+        if (!zalvbz) for (var zalvce = 0; zalvce < zalvy.length; zalvce++) if (zalvy[zalvce].child === zalvby.id && zalvo[zalvy[zalvce].parent] && zalvo[zalvy[zalvce].parent].name === "Deformer") {
+            zalvcb = zalvy[zalvce].parent;
+            for (var zalvcf = 0; zalvcf < zalvy.length; zalvcf++) if (zalvy[zalvcf].child === zalvcb && zalvo[zalvy[zalvcf].parent] && zalvo[zalvy[zalvcf].parent].name === "Geometry") zalvbz = zalvy[zalvcf].parent;
+        }
+        if (zalvbz && zalvca) zalvbw[zalvbz] = (zalvbw[zalvbz] || []).concat([ {
+            bone: zalvca,
+            indices: faoxomfbxarray(zalvby, "Indexes") || [],
+            weights: faoxomfbxarray(zalvby, "Weights") || [],
+            inverse: faoxomfbxarray(zalvby, "TransformLink") || []
+        } ]);
+    }
+    var zalvcg = [];
+    for (var zalvch = 0; zalvch < zalvbp.length; zalvch++) {
+        var zalvci = zalvbp[zalvch], zalvcj = [];
+        for (var zalvck = 0; zalvck < zalvy.length; zalvck++) if (zalvy[zalvck].parent === zalvci.model.userData.fbxId && zalvaw[zalvy[zalvck].child]) zalvcj.push(zalvaw[zalvy[zalvck].child]);
+        var zalvcl = zalvbw[zalvci.geometryId] || [];
+        var zalvcm = zalvcl.length ? new SkinnedMesh(zalvci.geometry, zalvcj.length ? zalvcj : new StandardMaterial({
+            color: 13421772
+        })) : new Mesh(zalvci.geometry, zalvcj.length ? zalvcj : new StandardMaterial({
+            color: 13421772
+        }));
+        zalvcm.name = zalvci.model.name || "FBXMesh";
+        zalvcm.userData.fbxGeometryId = zalvci.geometryId;
+        if (zalvcj.length) zalvcm.material = zalvcj.length === 1 ? zalvcj[0] : zalvcj;
+        if (zalvcl.length) {
+            var zalvcn = zalvci.geometry.userData && zalvci.geometry.userData.originalVertex ? zalvci.geometry.userData.originalVertex : [];
+            var zalvco = new Uint16Array(zalvcn.length * 4), zalvcp = new Float32Array(zalvcn.length * 4);
+            var zalvcq = [], zalvcr = [];
+            for (var zalvcs = 0; zalvcs < zalvcl.length; zalvcs++) {
+                var zalvct = zalvcl[zalvcs];
+                zalvcr.push(zalvct.bone);
+                var zalvcu = zalvct.inverse && zalvct.inverse.length >= 16 ? (new Matrix4).fromArray(zalvct.inverse) : zalvct.bone.matrixWorld.clone().invert();
+                zalvcq.push(zalvcu);
+                for (var zalvcv = 0; zalvcv < zalvct.indices.length; zalvcv++) {
+                    var zalvcw = faoxomfbxnumber(zalvct.indices[zalvcv]);
+                    var zalvcx = faoxomfbxnumber(zalvct.weights[zalvcv]);
+                    for (var zalvcy = 0; zalvcy < zalvcn.length; zalvcy++) if (zalvcn[zalvcy] === zalvcw) {
+                        var zalvcz = zalvcy * 4, zalvda = 0;
+                        while (zalvda < 4 && zalvcp[zalvcz + zalvda] > zalvcx) zalvda++;
+                        if (zalvda < 4) {
+                            for (var zalvdb = 3; zalvdb > zalvda; zalvdb--) {
+                                zalvcp[zalvcz + zalvdb] = zalvcp[zalvcz + zalvdb - 1];
+                                zalvco[zalvcz + zalvdb] = zalvco[zalvcz + zalvdb - 1];
+                            }
+                            zalvcp[zalvcz + zalvda] = zalvcx;
+                            zalvco[zalvcz + zalvda] = zalvcs;
+                        }
+                    }
+                }
+            }
+            zalvci.geometry.setAttribute("skinIndex", zalvco, 4);
+            zalvci.geometry.setAttribute("skinWeight", zalvcp, 4);
+            var zalvdc = new Skeleton(zalvcr, zalvcq);
+            zalvcm.bind(zalvdc, zalvci.model.matrixWorld);
+            zalvcm.userData.fbxSkeleton = zalvdc;
+        }
+        if (zalvcm.skeleton) {
+            zalvcm.userData.fbxBindModel = zalvci.model;
+            for (var zalvdd = 0; zalvdd < zalvcp.length; zalvdd += 4) {
+                var zalvde = zalvcp[zalvdd] + zalvcp[zalvdd + 1] + zalvcp[zalvdd + 2] + zalvcp[zalvdd + 3];
+                if (zalvde > 0) {
+                    zalvcp[zalvdd] /= zalvde;
+                    zalvcp[zalvdd + 1] /= zalvde;
+                    zalvcp[zalvdd + 2] /= zalvde;
+                    zalvcp[zalvdd + 3] /= zalvde;
+                }
+            }
+        }
+        zalvci.model.add(zalvcm);
+        zalvcg.push(zalvcm);
+    }
+    zalvag.updateMatrixWorld(true);
+    for (var zalvdf = 0; zalvdf < zalvcg.length; zalvdf++) {
+        if (zalvcg[zalvdf].skeleton) {
+            zalvcg[zalvdf].bind(zalvcg[zalvdf].skeleton, zalvcg[zalvdf].userData.fbxBindModel ? zalvcg[zalvdf].userData.fbxBindModel.matrixWorld : zalvcg[zalvdf].matrixWorld);
+            zalvcg[zalvdf].skeleton.update();
+        }
+    }
+    var zalvdg = [];
+    for (var zalvdh in zalvo) if (zalvo[zalvdh].name === "AnimationStack") zalvdg.push(zalvo[zalvdh]);
+    var zalvdi = {};
+    var zalvdj = {};
+    for (var zalvdk in zalvo) {
+        if (zalvo[zalvdk].name === "AnimationCurveNode") zalvdi[zalvdk] = {
+            record: zalvo[zalvdk],
+            curves: {}
+        };
+        if (zalvo[zalvdk].name === "AnimationCurve") zalvdj[zalvdk] = zalvo[zalvdk];
+    }
+    var zalvdl = {};
+    for (var zalvdm = 0; zalvdm < zalvy.length; zalvdm++) {
+        var zalvdn = zalvy[zalvdm];
+        if (zalvdj[zalvdn.child] && zalvdi[zalvdn.parent]) zalvdi[zalvdn.parent].curves[zalvdn.property.split("|").pop().toUpperCase()] = zalvdj[zalvdn.child];
+        if (zalvdi[zalvdn.child] && zalvak[zalvdn.parent]) zalvdl[zalvdn.child] = {
+            model: zalvak[zalvdn.parent],
+            property: zalvdn.property.split("|").pop()
+        };
+    }
+    var zalvdo = [];
+    for (var zalvdp = 0; zalvdp < zalvdg.length; zalvdp++) {
+        var zalvdq = zalvdg[zalvdp], zalvdr = {};
+        for (var zalvds = 0; zalvds < zalvy.length; zalvds++) if (zalvy[zalvds].parent === zalvdq.id && zalvo[zalvy[zalvds].child] && zalvo[zalvy[zalvds].child].name === "AnimationLayer") zalvdr[zalvy[zalvds].child] = true;
+        var zalvdt = [];
+        for (var zalvdu in zalvdi) {
+            var zalvdv = zalvdl[zalvdu];
+            if (!zalvdv) continue;
+            var zalvdw = false;
+            for (var zalvdx = 0; zalvdx < zalvy.length; zalvdx++) if (zalvy[zalvdx].child === zalvdu && zalvdr[zalvy[zalvdx].parent]) zalvdw = true;
+            if (!zalvdw) continue;
+            var zalvdy = zalvdi[zalvdu].curves, zalvdz = [ "X", "Y", "Z" ], zalvea = {}, zalveb = {
+                X: {},
+                Y: {},
+                Z: {}
+            };
+            for (var zalvec = 0; zalvec < zalvdz.length; zalvec++) {
+                var zalved = zalvdy[zalvdz[zalvec]];
+                if (!zalved) continue;
+                var zalvee = faoxomfbxarray(zalved, "KeyTime") || [], zalvef = faoxomfbxarray(zalved, "KeyValueFloat") || [];
+                for (var zalveg = 0; zalveg < zalvee.length; zalveg++) {
+                    var zalveh = faoxomfbxnumber(zalvee[zalveg]) / 46186158e3;
+                    zalvea[zalveh] = true;
+                    zalveb[zalvdz[zalvec]][zalveh] = faoxomfbxnumber(zalvef[zalveg]);
+                }
+            }
+            var zalvei = Object.keys(zalvea).map(Number).sort(function(zalva, zalvb) {
+                return zalva - zalvb;
+            });
+            if (!zalvei.length) continue;
+            var zalvej = zalvdv.property, zalvek = zalvej.toLowerCase();
+            if (zalvek.indexOf("translation") >= 0 || zalvek.indexOf("scaling") >= 0) {
+                var zalvel = zalvek.indexOf("scaling") >= 0 ? zalvdv.model.scale : zalvdv.model.position;
+                var zalvem = [];
+                for (var zalven = 0; zalven < zalvei.length; zalven++) zalvem.push(zalveb.X[zalvei[zalven]] === undefined ? zalvel.x : zalveb.X[zalvei[zalven]], zalveb.Y[zalvei[zalven]] === undefined ? zalvel.y : zalveb.Y[zalvei[zalven]], zalveb.Z[zalvei[zalven]] === undefined ? zalvel.z : zalveb.Z[zalvei[zalven]]);
+                zalvdt.push(new AnimationTrack(zalvdv.model.name + "." + (zalvek.indexOf("scaling") >= 0 ? "scale" : "position"), zalvei, zalvem, "vector3"));
+            } else if (zalvek.indexOf("rotation") >= 0) {
+                var zalveo = [];
+                for (var zalvep = 0; zalvep < zalvei.length; zalvep++) {
+                    var zalveq = zalveb.X[zalvei[zalvep]] === undefined ? zalvdv.model.rotation.x * 180 / Math.PI : zalveb.X[zalvei[zalvep]], zalver = zalveb.Y[zalvei[zalvep]] === undefined ? zalvdv.model.rotation.y * 180 / Math.PI : zalveb.Y[zalvei[zalvep]], zalves = zalveb.Z[zalvei[zalvep]] === undefined ? zalvdv.model.rotation.z * 180 / Math.PI : zalveb.Z[zalvei[zalvep]];
+                    var zalvet = (new Quaternion).setFromEuler(new Euler(zalveq * Math.PI / 180, zalver * Math.PI / 180, zalves * Math.PI / 180, "XYZ"));
+                    zalveo.push(zalvet.x, zalvet.y, zalvet.z, zalvet.w);
+                }
+                zalvdt.push(new AnimationTrack(zalvdv.model.name + ".quaternion", zalvei, zalveo, "quaternion"));
+            }
+        }
+        if (zalvdt.length) zalvdo.push(new AnimationClip(faoxomfbxname(zalvdq.properties[1] || zalvdq.id), undefined, zalvdt));
+    }
+    zalvag.userData.meshes = zalvcg;
+    zalvag.userData.materials = zalvaw;
+    zalvag.userData.textures = zalvbc;
+    zalvag.userData.animations = zalvdo;
+    zalvag.userData.animationsByName = {};
+    for (var zalveu = 0; zalveu < zalvdo.length; zalveu++) zalvag.userData.animationsByName[zalvdo[zalveu].name] = zalvdo[zalveu];
+    return zalvag;
 };
-AssetLoader.prototype.parsePCD = function(data) { return faoxomdecodepcd(data); };
-AssetLoader.prototype.parseVTK = function(data) { var geometry = new VTKLoader().parse(data); if (!geometry.attributes.normal) geometry.computeVertexNormals(); return new Mesh(geometry, new StandardMaterial(geometry.attributes.color ? { vertexColors: true } : {})); };
-AssetLoader.prototype.parseGCode = function(text) { return new GCodeLoader().parse(text); };
-AssetLoader.prototype.parseMD2 = function(data) { var geometry = new MD2Loader().parse(data); var mesh = new Mesh(geometry, new StandardMaterial({ side: DoubleSide })); var frameCount = geometry.morphAttributes.position.length; mesh.morphTargetInfluences = new Array(frameCount).fill(0); mesh.morphTargetDictionary = geometry.userData.morphTargetDictionary || {}; mesh.userData.animations = geometry.animations || []; return mesh; };
-AssetLoader.prototype.parseMDD = function(data) { return new MDDLoader().parse(data); };
-AssetLoader.prototype.parseBVH = function(text) { var lines = text.split(/\r?\n/).map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; }); var root = new Group(); root.name = "BVH"; var stack = [], bones = [], channels = [], current = null, motionAt = -1, frameCount = 0, frameTime = 1 / 30; for (var i = 0; i < lines.length; i++) { var line = lines[i]; if (line === "MOTION") { motionAt = i; break; } var fields = line.split(/\s+/); if (fields[0] === "ROOT" || fields[0] === "JOINT") { var bone = new Bone(); bone.name = fields.slice(1).join(" "); if (stack.length) stack[stack.length - 1].add(bone); else root.add(bone); bones.push(bone); current = bone; } else if (fields[0] === "End" && fields[1] === "Site") { var end = new Bone(); end.name = (current ? current.name : "bone") + "_end"; if (current) current.add(end); current = end; } else if (fields[0] === "OFFSET" && current) current.position.set(Number(fields[1]) || 0, Number(fields[2]) || 0, Number(fields[3]) || 0); else if (fields[0] === "CHANNELS" && current) { var number = Number(fields[1]) || 0; channels.push({ bone: current, names: fields.slice(2, 2 + number) }); } else if (line === "{") stack.push(current); else if (line === "}") { current = stack.pop() || null; } } if (motionAt < 0) return root; for (var m = motionAt + 1; m < lines.length; m++) { if (lines[m].indexOf("Frames:") === 0) frameCount = Number(lines[m].split(/\s+/)[1]) || 0; else if (lines[m].indexOf("Frame Time:") === 0) frameTime = Number(lines[m].split(/\s+/)[2]) || frameTime; else if (m > motionAt + 1) break; } var values = []; for (var frame = motionAt + 1; frame < lines.length; frame++) { if (lines[frame].indexOf("Frames:") === 0 || lines[frame].indexOf("Frame Time:") === 0) continue; var row = lines[frame].split(/\s+/).map(Number); if (row.length) values.push(row); } var tracks = []; var cursor = 0; for (var channelIndex = 0; channelIndex < channels.length; channelIndex++) { var channel = channels[channelIndex], positionValues = [], rotationValues = [], positionTimes = [], rotationTimes = []; for (var frameIndex = 0; frameIndex < Math.min(frameCount || values.length, values.length); frameIndex++) { var rowValues = values[frameIndex]; var px = channel.bone.position.x, py = channel.bone.position.y, pz = channel.bone.position.z, q = new Quaternion(); for (var channelValue = 0; channelValue < channel.names.length; channelValue++) { var channelName = channel.names[channelValue], value = Number(rowValues[cursor + channelValue]) || 0; if (channelName === "Xposition") px = value; else if (channelName === "Yposition") py = value; else if (channelName === "Zposition") pz = value; else if (channelName === "Xrotation") q.multiply(new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), value * Math.PI / 180)); else if (channelName === "Yrotation") q.multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), value * Math.PI / 180)); else if (channelName === "Zrotation") q.multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), value * Math.PI / 180)); } cursor += channel.names.length; positionTimes.push(frameIndex * frameTime); positionValues.push(px, py, pz); rotationTimes.push(frameIndex * frameTime); rotationValues.push(q.x, q.y, q.z, q.w); } if (channel.names.some(function(name) { return name.indexOf("position") >= 0; })) tracks.push(new AnimationTrack(channel.bone.name + ".position", positionTimes, positionValues, "vector3")); tracks.push(new AnimationTrack(channel.bone.name + ".quaternion", rotationTimes, rotationValues, "quaternion")); } root.userData.animations = [new AnimationClip("BVH", frameCount * frameTime, tracks)]; root.userData.bones = bones; return root; };
-AssetLoader.prototype.loadTGA = function(url) { var self = this; return this.loadBinary(url).then(function(buffer) { return new TGALoader().parse(buffer); }); };
-AssetLoader.prototype.loadDDS = function(url) { var self = this; return this.loadBinary(url).then(function(buffer) { return new DDSLoader().parse(buffer); }); };
-AssetLoader.prototype.loadEXR = function(url) { var self = this; return this.loadBinary(url).then(function(buffer) { return new EXRLoader().parse(buffer); }); };
-AssetLoader.prototype.loadBinary = function(url) { return fetch(url).then(function(response) { if (!response.ok) throw new Error("Asset request failed: " + response.status); return response.arrayBuffer(); }); };
+
+AssetLoader.prototype.parsePCD = function(zalva) {
+    return faoxomdecodepcd(zalva);
+};
+
+AssetLoader.prototype.parseVTK = function(zalva) {
+    var zalvb = (new VTKLoader).parse(zalva);
+    if (!zalvb.attributes.normal) zalvb.computeVertexNormals();
+    return new Mesh(zalvb, new StandardMaterial(zalvb.attributes.color ? {
+        vertexColors: true
+    } : {}));
+};
+
+AssetLoader.prototype.parseGCode = function(zalva) {
+    return (new GCodeLoader).parse(zalva);
+};
+
+AssetLoader.prototype.parseMD2 = function(zalva) {
+    var zalvb = (new MD2Loader).parse(zalva);
+    var zalvc = new Mesh(zalvb, new StandardMaterial({
+        side: DoubleSide
+    }));
+    var zalvd = zalvb.morphAttributes.position.length;
+    zalvc.morphTargetInfluences = new Array(zalvd).fill(0);
+    zalvc.morphTargetDictionary = zalvb.userData.morphTargetDictionary || {};
+    zalvc.userData.animations = zalvb.animations || [];
+    return zalvc;
+};
+
+AssetLoader.prototype.parseMDD = function(zalva) {
+    return (new MDDLoader).parse(zalva);
+};
+
+AssetLoader.prototype.parseBVH = function(zalva) {
+    var zalvb = zalva.split(/\r?\n/).map(function(zalva) {
+        return zalva.trim();
+    }).filter(function(zalva) {
+        return zalva.length > 0;
+    });
+    var zalvc = new Group;
+    zalvc.name = "BVH";
+    var zalvd = [], zalve = [], zalvf = [], zalvg = null, zalvh = -1, zalvi = 0, zalvj = 1 / 30;
+    for (var zalvk = 0; zalvk < zalvb.length; zalvk++) {
+        var zalvl = zalvb[zalvk];
+        if (zalvl === "MOTION") {
+            zalvh = zalvk;
+            break;
+        }
+        var zalvm = zalvl.split(/\s+/);
+        if (zalvm[0] === "ROOT" || zalvm[0] === "JOINT") {
+            var zalvn = new Bone;
+            zalvn.name = zalvm.slice(1).join(" ");
+            if (zalvd.length) zalvd[zalvd.length - 1].add(zalvn); else zalvc.add(zalvn);
+            zalve.push(zalvn);
+            zalvg = zalvn;
+        } else if (zalvm[0] === "End" && zalvm[1] === "Site") {
+            var zalvo = new Bone;
+            zalvo.name = (zalvg ? zalvg.name : "bone") + "_end";
+            if (zalvg) zalvg.add(zalvo);
+            zalvg = zalvo;
+        } else if (zalvm[0] === "OFFSET" && zalvg) zalvg.position.set(Number(zalvm[1]) || 0, Number(zalvm[2]) || 0, Number(zalvm[3]) || 0); else if (zalvm[0] === "CHANNELS" && zalvg) {
+            var zalvp = Number(zalvm[1]) || 0;
+            zalvf.push({
+                bone: zalvg,
+                names: zalvm.slice(2, 2 + zalvp)
+            });
+        } else if (zalvl === "{") zalvd.push(zalvg); else if (zalvl === "}") {
+            zalvg = zalvd.pop() || null;
+        }
+    }
+    if (zalvh < 0) return zalvc;
+    for (var zalvq = zalvh + 1; zalvq < zalvb.length; zalvq++) {
+        if (zalvb[zalvq].indexOf("Frames:") === 0) zalvi = Number(zalvb[zalvq].split(/\s+/)[1]) || 0; else if (zalvb[zalvq].indexOf("Frame Time:") === 0) zalvj = Number(zalvb[zalvq].split(/\s+/)[2]) || zalvj; else if (zalvq > zalvh + 1) break;
+    }
+    var zalvr = [];
+    for (var zalvs = zalvh + 1; zalvs < zalvb.length; zalvs++) {
+        if (zalvb[zalvs].indexOf("Frames:") === 0 || zalvb[zalvs].indexOf("Frame Time:") === 0) continue;
+        var zalvt = zalvb[zalvs].split(/\s+/).map(Number);
+        if (zalvt.length) zalvr.push(zalvt);
+    }
+    var zalvu = [];
+    var zalvv = 0;
+    for (var zalvw = 0; zalvw < zalvf.length; zalvw++) {
+        var zalvx = zalvf[zalvw], zalvy = [], zalvz = [], zalvaa = [], zalvab = [];
+        for (var zalvac = 0; zalvac < Math.min(zalvi || zalvr.length, zalvr.length); zalvac++) {
+            var zalvad = zalvr[zalvac];
+            var zalvae = zalvx.bone.position.x, zalvaf = zalvx.bone.position.y, zalvag = zalvx.bone.position.z, zalvah = new Quaternion;
+            for (var zalvai = 0; zalvai < zalvx.names.length; zalvai++) {
+                var zalvaj = zalvx.names[zalvai], zalvak = Number(zalvad[zalvv + zalvai]) || 0;
+                if (zalvaj === "Xposition") zalvae = zalvak; else if (zalvaj === "Yposition") zalvaf = zalvak; else if (zalvaj === "Zposition") zalvag = zalvak; else if (zalvaj === "Xrotation") zalvah.multiply((new Quaternion).setFromAxisAngle(new Vector3(1, 0, 0), zalvak * Math.PI / 180)); else if (zalvaj === "Yrotation") zalvah.multiply((new Quaternion).setFromAxisAngle(new Vector3(0, 1, 0), zalvak * Math.PI / 180)); else if (zalvaj === "Zrotation") zalvah.multiply((new Quaternion).setFromAxisAngle(new Vector3(0, 0, 1), zalvak * Math.PI / 180));
+            }
+            zalvv += zalvx.names.length;
+            zalvaa.push(zalvac * zalvj);
+            zalvy.push(zalvae, zalvaf, zalvag);
+            zalvab.push(zalvac * zalvj);
+            zalvz.push(zalvah.x, zalvah.y, zalvah.z, zalvah.w);
+        }
+        if (zalvx.names.some(function(zalva) {
+            return zalva.indexOf("position") >= 0;
+        })) zalvu.push(new AnimationTrack(zalvx.bone.name + ".position", zalvaa, zalvy, "vector3"));
+        zalvu.push(new AnimationTrack(zalvx.bone.name + ".quaternion", zalvab, zalvz, "quaternion"));
+    }
+    zalvc.userData.animations = [ new AnimationClip("BVH", zalvi * zalvj, zalvu) ];
+    zalvc.userData.bones = zalve;
+    return zalvc;
+};
+
+AssetLoader.prototype.loadTGA = function(zalva) {
+    var zalvb = this;
+    return this.loadBinary(zalva).then(function(zalva) {
+        return (new TGALoader).parse(zalva);
+    });
+};
+
+AssetLoader.prototype.loadDDS = function(zalva) {
+    var zalvb = this;
+    return this.loadBinary(zalva).then(function(zalva) {
+        return (new DDSLoader).parse(zalva);
+    });
+};
+
+AssetLoader.prototype.loadEXR = function(zalva) {
+    var zalvb = this;
+    return this.loadBinary(zalva).then(function(zalva) {
+        return (new EXRLoader).parse(zalva);
+    });
+};
+
+AssetLoader.prototype.loadBinary = function(zalva) {
+    return fetch(zalva).then(function(zalva) {
+        if (!zalva.ok) throw new Error("Asset request failed: " + zalva.status);
+        return zalva.arrayBuffer();
+    });
+};
 
 export { AssetLoader };
