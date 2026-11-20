@@ -21,7 +21,7 @@ const zavte = {
     lights: [ "Light", "AmbientLight", "DirectionalLight", "HemisphereLight", "PointLight", "SpotLight", "RectAreaLight", "LightClusterGrid", "ClusteredLightingManager" ],
     helpers: [ "CameraHelper", "DirectionalLightHelper", "PointLightHelper", "SkeletonHelper", "StatsPanel" ],
     loaders: [ "FileLoader", "LoadingManager", "AssetLoader", "registerModel", "embedModel", "listEmbeddedModels", "removeEmbeddedModel", "createBlenderFidelityProfile", "BlenderFidelityProfile", "ModelBuilder", "SceneExporter", "Font", "MSDFText" ],
-    textures: [ "Texture", "TextureStreamer", "TextureFormatSelector", "PMREMGenerator", "PMREMEnvironment" ],
+    textures: [ "Texture", "TextureStreamer", "TextureFormatSelector", "PMREMGenerator", "PREMEnv" ],
     renderers: [ "WebGLRenderTarget", "GBufferTarget", "OcclusionCuller", "GPUCullingPipeline", "GPUIndirectDrawBuffer", "SunBeam", "GPUCompute", "GPUComputePass", "WebGPUCompute", "RenderTarget", "CascadedShadowMap", "RenderLayers" ],
     nodes: [ "tsl", "TSLBufferPacker", "ShaderNode", "NodeMaterial" ],
     animation: [ "BlendTree", "MotionMatcher", "RootMotionExtractor", "FacialAnimation", "TwoBoneIKSolver" ],

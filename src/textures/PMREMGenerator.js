@@ -2,7 +2,7 @@ import { faoxomvalue } from "../math/index.js";
 
 import { CubeTexture } from "./CubeTexture.js";
 
-import { PMREMEnvironment } from "./PMREMEnvironment.js";
+import { PREMEnv } from "./PREMEnv.js";
 
 class PMREMGenerator {
     constructor(zavca) {
@@ -108,7 +108,7 @@ class PMREMGenerator {
                 minFilter: "linearMipmapLinear"
             })
         };
-        return new PMREMEnvironment(zavcq, zavcd, zavce);
+        return new PREMEnv(zavcq, zavcd, zavce);
     }
 }
 

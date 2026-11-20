@@ -206,11 +206,11 @@ export class NodeMaterial extends ShaderMaterial {
   build(): void;
 }
 
-export class MeshStandardNodeMaterial extends NodeMaterial {
+export class StandardNodeMaterial extends NodeMaterial {
   constructor(parameters?: MaterialParameters);
 }
 
-export class MeshBasicNodeMaterial extends NodeMaterial {
+export class BasicNodeMaterial extends NodeMaterial {
   constructor(parameters?: MaterialParameters);
 }
 

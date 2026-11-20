@@ -1,4 +1,4 @@
-class PMREMEnvironment {
+class PREMEnv {
     constructor(zavba, zavbb, zavbc) {
         this.resource = zavba;
         this.size = zavbb;
@@ -7,7 +7,7 @@ class PMREMEnvironment {
         this.view = zavba.view;
         this.sampler = zavba.sampler;
         this.needsUpdate = false;
-        this.type = "PMREMEnvironment";
+        this.type = "PREMEnv";
     }
     dispose() {
         if (this.texture && this.texture.destroy) this.texture.destroy();
@@ -18,4 +18,4 @@ class PMREMEnvironment {
     }
 }
 
-export { PMREMEnvironment };
+export { PREMEnv };

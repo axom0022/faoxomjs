@@ -34,9 +34,9 @@ export * from "./tsl.js";
 
 export * from "./NodeMaterial.js";
 
-export * from "./MeshStandardNodeMaterial.js";
+export * from "./StandardNodeMaterial.js";
 
-export * from "./MeshBasicNodeMaterial.js";
+export * from "./BasicNodeMaterial.js";
 
 export * from "./TSLBufferPacker.js";
 

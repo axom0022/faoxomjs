@@ -6,7 +6,7 @@ import { MeshletSet, MegaGeometry, FXOMVGS, PCGRandom, PCGNoise, PCGTerrain, PCG
 
 import { BloomPass, BokehDepthOfFieldPass, CascadedShadowMap, ColorGradePass, EffectComposer, FXAAPass, FXOMDGIAR, FrameGraph, GBufferTarget, GPUCompute, GPUComputePass, GPUCullingPipeline, GPUIndirectDrawBuffer, GPURayQuery, GPURTShadows, GPURTReflections, GPUMeshletCuller, ClusteredLighting, GPUDrivenPipeline, GTAOPass, HBAOPass, HiZBuffer, HiZOcclusion, OcclusionCuller, Pass, PostProcessPass, PostProcessingComposer, ProgressiveBloomPass, RenderPass, RenderTarget, SSAOPass, SSGIPass, SSRPass, ScreenSpaceReflectionsPass, SunBeam, TAAPass, VignettePass, VolumetricPass, WebGLRenderTarget, WebGLRenderer, WebGPUBloomPass, WebGPUCompute, WebGPUFXAAPass, WebGPUPostProcessPass, WebGPUPostProcessingComposer, WebGPURenderer, WebGPUResourceManager, WebGPUToneMappingPass, OITRenderer, FroxelLighting, AtmosphereRenderer, GaussianSplatRenderer, FFTOcean, GPUParticles, SkinnedCrowd, ResourceLedger, DeviceLossManager, FrameProfiler } from "../renderers/index.js";
 
-import { CompressedCubeTexture, CompressedTexture3D, CompressedTextureArray, CubeTexture, Data3DTexture, DataArrayTexture, DataTexture, DepthTexture, HDRTexture, PMREMEnvironment, PMREMGenerator, Texture, TextureFormatSelector, TextureStreamer, VideoTexture, VirtualTexture, VTStreamer, VTSurface, VTShadowBaker } from "../textures/index.js";
+import { CompressedCubeTexture, CompressedTexture3D, CompressedTextureArray, CubeTexture, Data3DTexture, DataArrayTexture, DataTexture, DepthTexture, HDRTexture, PREMEnv, PMREMGenerator, Texture, TextureFormatSelector, TextureStreamer, VideoTexture, VirtualTexture, VTStreamer, VTSurface, VTShadowBaker } from "../textures/index.js";
 
 import { AntiTamper, AtmosphericSky, BVHNode, BallAndSocketJoint, BlindedInt32, BoxCollider, BreakableConstraint, CanaryGrid, CapsuleCollider, CCDSolver, CharacterController, Cloth, ClothSimulation, CollisionShape, CompoundCollisionShape, Constraint, ContinuousLOD, ConvexCollisionShape, ConvexHullCollider, CrossOrigin, CylinderCollisionShape, Decal, DestructionBody, DistanceConstraint, DistanceJoint, EPA, FaoxomReact, FixedConstraint, FrameKeyChain, Fluid, GJK, GPUParticleComputeSystem, GPUStateVault, HeightfieldShape, HingeJoint, IntegrityVM, Inspector, JointLimit, MeshCollisionShape, Navmesh, NavmeshManager, NetcodeSession, Pathfinder, PhysicsDebugRenderer, PhysicsWorld, PlaneCollider, ProtectedValue, Ragdoll, RagdollChain, ReflectionProbe, ReflectionProbeEnvironment, ReplayPlayer, ReplayRecorder, RigidBody, Rope, SPHFluidSimulation, SharedCounter, SharedRingBuffer, SliderJoint, SoftBody, SoftBodySimulation, SphereCollider, SpeedhackDetector, SpringConstraint, SpringJoint, Terrain, TerrainManager, TriMeshBVH, TriMeshCollider, TrustedInput, Vehicle, VehicleWheel, WebXRHandTracker, WebXRHaptics, WebXRInputVisualizer, WebXRLightEstimator, WebXRManager, WebXRPlaneDetector, WorldStreamer } from "../extras/index.js";
 
@@ -18,7 +18,7 @@ import { ArcballControls, Camera, FirstPersonControls, InputManager, MapControls
 
 import { CameraHelper, DirectionalLightHelper, PointLightHelper, SkeletonHelper, StatsPanel } from "../helpers/index.js";
 
-import { CameraPositionNode, ColorNode, FloatNode, FresnelNode, MathNode, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NodeMaterial, NoiseNode, NormalNode, OperatorNode, PositionNode, ShaderNode, TSLBufferPacker, TextureNode, TimerNode, UVNode, Vector2Node, Vector3Node, Vector4Node, tsl } from "../nodes/index.js";
+import { CameraPositionNode, ColorNode, FloatNode, FresnelNode, MathNode, BasicNodeMaterial, StandardNodeMaterial, NodeMaterial, NoiseNode, NormalNode, OperatorNode, PositionNode, ShaderNode, TSLBufferPacker, TextureNode, TimerNode, UVNode, Vector2Node, Vector3Node, Vector4Node, tsl } from "../nodes/index.js";
 
 import { AudioEnvironment, AudioListener, PositionalAudio, SpatialAudioSystem } from "../audio/index.js";
 
@@ -184,7 +184,7 @@ FaoxomJs.WebGPUPostProcessingComposer = WebGPUPostProcessingComposer;
 
 FaoxomJs.WebGPUCompute = WebGPUCompute;
 
-FaoxomJs.PMREMEnvironment = PMREMEnvironment;
+FaoxomJs.PREMEnv = PREMEnv;
 
 FaoxomJs.PMREMGenerator = PMREMGenerator;
 
@@ -934,9 +934,9 @@ FaoxomJs.tsl = tsl;
 
 FaoxomJs.NodeMaterial = NodeMaterial;
 
-FaoxomJs.MeshStandardNodeMaterial = MeshStandardNodeMaterial;
+FaoxomJs.StandardNodeMaterial = StandardNodeMaterial;
 
-FaoxomJs.MeshBasicNodeMaterial = MeshBasicNodeMaterial;
+FaoxomJs.BasicNodeMaterial = BasicNodeMaterial;
 
 FaoxomJs.Data3DTexture = Data3DTexture;
 

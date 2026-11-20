@@ -19257,7 +19257,7 @@ class TextureStreamer {
 }
 
 
-class PMREMEnvironment {
+class PREMEnv {
     constructor(zavba, zavbb, zavbc) {
         this.resource = zavba;
         this.size = zavbb;
@@ -19266,7 +19266,7 @@ class PMREMEnvironment {
         this.view = zavba.view;
         this.sampler = zavba.sampler;
         this.needsUpdate = false;
-        this.type = "PMREMEnvironment";
+        this.type = "PREMEnv";
     }
     dispose() {
         if (this.texture && this.texture.destroy) this.texture.destroy();
@@ -19382,7 +19382,7 @@ class PMREMGenerator {
                 minFilter: "linearMipmapLinear"
             })
         };
-        return new PMREMEnvironment(zavcq, zavcd, zavce);
+        return new PREMEnv(zavcq, zavcd, zavce);
     }
 }
 
@@ -47341,18 +47341,18 @@ class NodeMaterial extends Material {
 }
 
 
-class MeshStandardNodeMaterial extends NodeMaterial {
+class StandardNodeMaterial extends NodeMaterial {
     constructor(zaqua) {
         super(zaqua);
-        this.type = "MeshStandardNodeMaterial";
+        this.type = "StandardNodeMaterial";
     }
 }
 
 
-class MeshBasicNodeMaterial extends NodeMaterial {
+class BasicNodeMaterial extends NodeMaterial {
     constructor(zaqta) {
         super(zaqta);
-        this.type = "MeshBasicNodeMaterial";
+        this.type = "BasicNodeMaterial";
     }
 }
 
@@ -50097,7 +50097,7 @@ FaoxomJs.WebGPUPostProcessingComposer = WebGPUPostProcessingComposer;
 
 FaoxomJs.WebGPUCompute = WebGPUCompute;
 
-FaoxomJs.PMREMEnvironment = PMREMEnvironment;
+FaoxomJs.PREMEnv = PREMEnv;
 
 FaoxomJs.PMREMGenerator = PMREMGenerator;
 
@@ -50847,9 +50847,9 @@ FaoxomJs.tsl = tsl;
 
 FaoxomJs.NodeMaterial = NodeMaterial;
 
-FaoxomJs.MeshStandardNodeMaterial = MeshStandardNodeMaterial;
+FaoxomJs.StandardNodeMaterial = StandardNodeMaterial;
 
-FaoxomJs.MeshBasicNodeMaterial = MeshBasicNodeMaterial;
+FaoxomJs.BasicNodeMaterial = BasicNodeMaterial;
 
 FaoxomJs.Data3DTexture = Data3DTexture;
 

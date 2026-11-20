@@ -22,7 +22,7 @@ export * from "./TextureFormatSelector.js";
 
 export * from "./TextureStreamer.js";
 
-export * from "./PMREMEnvironment.js";
+export * from "./PREMEnv.js";
 
 export * from "./PMREMGenerator.js";
 
