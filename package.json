@@ -1,7 +1,7 @@
 {
   "name": "faoxomjs",
   "version": "7.0.0",
-  "description": "Zero-dependency, high-performance, single-file and modular 3D engine for WebGL2 and WebGPU",
+  "description": "Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU",
   "type": "module",
   "main": "./FaoxomJs.js",
   "module": "./esm/index.js",
