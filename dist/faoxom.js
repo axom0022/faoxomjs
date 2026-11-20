@@ -3463,6 +3463,10 @@ class Material {
         this.displacementMap = zanqa.displacementMap || zanqa.heightMap || null;
         this.displacementScale = faoxomvalue(zanqa.displacementScale, .1);
         this.displacementBias = faoxomvalue(zanqa.displacementBias, 0);
+        this.parallaxMap = zanqa.parallaxMap || null;
+        this.parallaxScale = faoxomvalue(zanqa.parallaxScale, 0);
+        this.parallaxMinLayers = faoxomvalue(zanqa.parallaxMinLayers, 8);
+        this.parallaxMaxLayers = faoxomvalue(zanqa.parallaxMaxLayers, 32);
         this.roughnessMap = zanqa.roughnessMap || null;
         this.metalnessMap = zanqa.metalnessMap || zanqa.metallicMap || null;
         this.metallicMap = this.metalnessMap;
@@ -3498,6 +3502,10 @@ class Material {
             displacementMap: this.displacementMap,
             displacementScale: this.displacementScale,
             displacementBias: this.displacementBias,
+            parallaxMap: this.parallaxMap,
+            parallaxScale: this.parallaxScale,
+            parallaxMinLayers: this.parallaxMinLayers,
+            parallaxMaxLayers: this.parallaxMaxLayers,
             normalScale: this.normalScale,
             roughnessMap: this.roughnessMap,
             metalnessMap: this.metalnessMap,
@@ -8102,6 +8110,96 @@ class WebGPUResourceManager {
 }
 
 
+const parallaxOcclusionDefaults = {
+    scale: .05,
+    minLayers: 8,
+    maxLayers: 32,
+    fade: 1
+};
+
+const parallaxOcclusionGLSL = `
+vec2 faoxomParallaxUv(sampler2D heightMap, vec2 baseUv, vec3 viewTangent, float scale, float minLayers, float maxLayers, float fade) {
+    float facing = clamp(viewTangent.z, 0.0, 1.0);
+    float layerCount = floor(clamp(mix(max(minLayers, 1.0), max(maxLayers, 1.0), facing), 1.0, 32.0));
+    if (scale <= 0.0) return baseUv;
+    float layerDepth = 1.0 / layerCount;
+    vec2 deltaUv = viewTangent.xy * scale * fade / layerCount;
+    vec2 currentUv = baseUv;
+    float currentLayer = 0.0;
+    float currentHeight = 1.0 - texture2D(heightMap, currentUv).r;
+    for (int step = 0; step < 32; step++) {
+        if (float(step) >= layerCount || currentLayer >= currentHeight) break;
+        currentUv -= deltaUv;
+        currentHeight = 1.0 - texture2D(heightMap, currentUv).r;
+        currentLayer += layerDepth;
+    }
+    vec2 previousUv = currentUv + deltaUv;
+    float after = currentHeight - currentLayer;
+    float before = 1.0 - texture2D(heightMap, previousUv).r - currentLayer + layerDepth;
+    float weight = clamp(after / max(after - before, 0.0001), 0.0, 1.0);
+    return mix(currentUv, previousUv, weight);
+}
+`;
+
+const parallaxOcclusionWGSL = `var pomUv = input.uv;
+if (modelData.extra2.y > 0.5) {
+    let pomDp1 = dpdx(input.worldPosition);
+    let pomDp2 = dpdy(input.worldPosition);
+    let pomDu1 = dpdx(input.uv);
+    let pomDu2 = dpdy(input.uv);
+    let pomDet = pomDu1.x * pomDu2.y - pomDu2.x * pomDu1.y;
+    if (abs(pomDet) > 0.0000001) {
+        let pomDpdu = (pomDp1 * pomDu2.y - pomDp2 * pomDu1.y) / pomDet;
+        let pomDpdv = (pomDp2 * pomDu1.x - pomDp1 * pomDu2.x) / pomDet;
+        let pomT0 = normalize(pomDpdu);
+        let pomB0 = normalize(pomDpdv);
+        let pomN = normalize(cross(pomT0, pomB0));
+        let pomT = normalize(pomT0 - pomN * dot(pomT0, pomN));
+        let pomB = cross(pomN, pomT);
+        let pomV = normalize(camera.cameraPosition.xyz - input.worldPosition);
+        let pomView = vec3<f32>(dot(pomV, pomT), dot(pomV, pomB), dot(pomV, pomN));
+        let pomFacing = clamp(pomView.z, 0.0, 1.0);
+        let pomLayers = floor(clamp(mix(8.0, max(modelData.extra2.w, 1.0), pomFacing), 1.0, 32.0));
+        let pomLayerDepth = 1.0 / pomLayers;
+        let pomDelta = pomView.xy * modelData.extra2.z / pomLayers;
+        var pomCurUv = input.uv;
+        var pomCurDepth = 0.0;
+        var pomCurValue = 1.0 - textureSample(parallaxTexture, parallaxSampler, pomCurUv).r;
+        for (var pomStep = 0; pomStep < 32; pomStep = pomStep + 1) {
+            if (f32(pomStep) >= pomLayers || pomCurDepth >= pomCurValue) { break; }
+            pomCurUv = pomCurUv - pomDelta;
+            pomCurValue = 1.0 - textureSample(parallaxTexture, parallaxSampler, pomCurUv).r;
+            pomCurDepth = pomCurDepth + pomLayerDepth;
+        }
+        let pomPrevUv = pomCurUv + pomDelta;
+        let pomAfter = pomCurValue - pomCurDepth;
+        let pomBefore = 1.0 - textureSample(parallaxTexture, parallaxSampler, pomPrevUv).r - pomCurDepth + pomLayerDepth;
+        let pomWeight = clamp(pomAfter / max(pomAfter - pomBefore, 0.0001), 0.0, 1.0);
+        pomUv = mix(pomCurUv, pomPrevUv, pomWeight);
+    }
+}
+`;
+
+function applyParallaxOcclusion(material, options) {
+    if (!material) return material;
+    options = options || {};
+    if (options.map !== undefined) material.parallaxMap = options.map;
+    if (options.scale !== undefined) material.parallaxScale = options.scale;
+    else if (material.parallaxScale === undefined) material.parallaxScale = parallaxOcclusionDefaults.scale;
+    if (options.minLayers !== undefined) material.parallaxMinLayers = options.minLayers;
+    else if (material.parallaxMinLayers === undefined) material.parallaxMinLayers = parallaxOcclusionDefaults.minLayers;
+    if (options.maxLayers !== undefined) material.parallaxMaxLayers = options.maxLayers;
+    else if (material.parallaxMaxLayers === undefined) material.parallaxMaxLayers = parallaxOcclusionDefaults.maxLayers;
+    if (options.fade !== undefined) material.parallaxFade = options.fade;
+    material.needsUpdate = true;
+    return material;
+}
+
+function parallaxOcclusionEnabled(material) {
+    return !!(material && material.parallaxMap && material.parallaxScale > 0);
+}
+
+
 class CubeTexture extends Texture {
     constructor(zauva, zauvb) {
         super(null, zauvb);
@@ -9572,7 +9670,7 @@ class WebGPURenderer {
         if (!this._shaderModuleCache) this._shaderModuleCache = {};
         if (this._shaderModuleCache[zauma]) return this._shaderModuleCache[zauma];
         this._nodeBaseCode = this._nodeBaseCode === undefined ? null : this._nodeBaseCode;
-        var zaumb = "struct Camera { viewProj: mat4x4<f32>, cameraPosition: vec4<f32>, params: vec4<f32>, shadowMatrix: mat4x4<f32>, shadowParams: vec4<f32> }; struct LightData { position: vec4<f32>, direction: vec4<f32>, color: vec4<f32>, factors: vec4<f32>, kind: vec4<f32> }; struct Lights { count: vec4<f32>, lights: array<LightData, 8> }; struct Model { model: mat4x4<f32>, normal: mat4x4<f32>, baseColor: vec4<f32>, params: vec4<f32>, emissive: vec4<f32>, extra: vec4<f32>, skinData: vec4<f32>, morphWeights: vec4<f32>, flags: vec4<f32>, shading: vec4<f32>, extra2: vec4<f32> }; @group(0) @binding(0) var<uniform> camera: Camera; @group(0) @binding(1) var shadowTexture: texture_depth_2d; @group(0) @binding(2) var shadowSampler: sampler_comparison; @group(0) @binding(3) var<uniform> lights: Lights; @group(1) @binding(0) var<uniform> modelData: Model; @group(1) @binding(1) var baseTexture: texture_2d<f32>; @group(1) @binding(2) var baseSampler: sampler; @group(1) @binding(3) var normalTexture: texture_2d<f32>; @group(1) @binding(4) var normalSampler: sampler; @group(1) @binding(5) var roughnessTexture: texture_2d<f32>; @group(1) @binding(6) var roughnessSampler: sampler; @group(1) @binding(7) var metalnessTexture: texture_2d<f32>; @group(1) @binding(8) var metalnessSampler: sampler; @group(1) @binding(9) var aoTexture: texture_2d<f32>; @group(1) @binding(10) var aoSampler: sampler; @group(1) @binding(11) var emissiveTexture: texture_2d<f32>; @group(1) @binding(12) var emissiveSampler: sampler; @group(1) @binding(13) var environmentTexture: texture_cube<f32>; @group(1) @binding(14) var environmentSampler: sampler; @group(2) @binding(0) var<storage, read> bones: array<mat4x4<f32>>; struct VertexInput { @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) skinIndex: vec4<u32>, @location(4) skinWeight: vec4<f32>, @location(5) morph0: vec3<f32>, @location(6) morph1: vec3<f32>, @location(7) morph2: vec3<f32>, @location(8) morph3: vec3<f32>, @location(9) color: vec3<f32>, @location(10) instanceMatrix0: vec4<f32>, @location(11) instanceMatrix1: vec4<f32>, @location(12) instanceMatrix2: vec4<f32>, @location(13) instanceMatrix3: vec4<f32> }; struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) worldPosition: vec3<f32>, @location(1) worldNormal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) color: vec3<f32> }; @vertex fn vertexMain(input: VertexInput) -> VertexOutput { var output: VertexOutput; var localPosition = input.position; var localNormal = input.normal; if (modelData.skinData.x > 0.5) { let skinMatrix = bones[input.skinIndex.x] * input.skinWeight.x + bones[input.skinIndex.y] * input.skinWeight.y + bones[input.skinIndex.z] * input.skinWeight.z + bones[input.skinIndex.w] * input.skinWeight.w; localPosition = (skinMatrix * vec4<f32>(localPosition, 1.0)).xyz; localNormal = (skinMatrix * vec4<f32>(localNormal, 0.0)).xyz; } if (modelData.skinData.y > 0.5) { localPosition = localPosition + input.morph0 * modelData.morphWeights.x + input.morph1 * modelData.morphWeights.y + input.morph2 * modelData.morphWeights.z + input.morph3 * modelData.morphWeights.w; } if (modelData.skinData.z > 0.5) { let instanceMatrix = mat4x4<f32>(input.instanceMatrix0, input.instanceMatrix1, input.instanceMatrix2, input.instanceMatrix3); localPosition = (instanceMatrix * vec4<f32>(localPosition, 1.0)).xyz; localNormal = mat3x3<f32>(instanceMatrix[0].xyz, instanceMatrix[1].xyz, instanceMatrix[2].xyz) * localNormal; } let world = modelData.model * vec4<f32>(localPosition, 1.0); output.position = camera.viewProj * world; output.position.z = output.position.z * 0.5 + output.position.w * 0.5; output.worldPosition = world.xyz; output.worldNormal = normalize((modelData.normal * vec4<f32>(localNormal, 0.0)).xyz); output.uv = input.uv; output.color = input.color; return output; } fn distributionGGX(n: vec3<f32>, h: vec3<f32>, a: f32) -> f32 { let a2 = a * a; let nh = max(dot(n, h), 0.0); let nh2 = nh * nh; let dterm = nh2 * (a2 - 1.0) + 1.0; return a2 / max(3.14159265359 * dterm * dterm, 0.00000001); } fn distributionGGXAnisotropic(n: vec3<f32>, h: vec3<f32>, t: vec3<f32>, b: vec3<f32>, at: f32, ab: f32) -> f32 { let nh = max(dot(n, h), 0.0); let th = dot(t, h) / at; let bh = dot(b, h) / ab; let denom = th * th + bh * bh + nh * nh; return 1.0 / max(3.14159265359 * at * ab * denom * denom, 0.00000001); } fn geometrySchlickGGX(n: f32, k: f32) -> f32 { return n / max(n * (1.0 - k) + k, 0.0001); } fn geometrySmith(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, k: f32) -> f32 { return geometrySchlickGGX(max(dot(n, v), 0.0), k) * geometrySchlickGGX(max(dot(n, l), 0.0), k); } fn fresnelSchlick(c: f32, f0: vec3<f32>) -> vec3<f32> { return f0 + (vec3<f32>(1.0) - f0) * pow(1.0 - c, 5.0); } fn fresnelScalar(c: f32, f0: f32) -> f32 { return f0 + (1.0 - f0) * pow(1.0 - c, 5.0); } fn smoothStepF(e0: f32, e1: f32, x: f32) -> f32 { let t = clamp((x - e0) / (e1 - e0), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); } fn thinFilmF0(f0: vec3<f32>, eta2: f32, thickness: f32, cosTheta1: f32) -> vec3<f32> { if (thickness <= 0.0) { return f0; } let sin2 = (1.0 - cosTheta1 * cosTheta1) / (eta2 * eta2); if (sin2 >= 1.0) { return f0; } let cos2 = sqrt(1.0 - sin2); let r12a = (eta2 * cosTheta1 - cos2) / (eta2 * cosTheta1 + cos2); let r12 = r12a * r12a; let r23 = clamp(f0, vec3<f32>(0.0), vec3<f32>(1.0)); let delta = 4.0 * 3.14159265359 * eta2 * thickness * cos2 / vec3<f32>(680.0, 550.0, 440.0); let interference = 2.0 * sqrt(r12 * r23) * cos(delta); return clamp((r12 + r23 + interference) / max(1.0 + r12 * r23 + interference, vec3<f32>(0.0001)), vec3<f32>(0.0), vec3<f32>(1.0)); } @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> { let sampled = textureSample(baseTexture, baseSampler, input.uv); let normalSample = textureSample(normalTexture, normalSampler, input.uv); let roughnessSample = textureSample(roughnessTexture, roughnessSampler, input.uv); let metalnessSample = textureSample(metalnessTexture, metalnessSampler, input.uv); let aoSample = textureSample(aoTexture, aoSampler, input.uv); let emissiveSample = textureSample(emissiveTexture, emissiveSampler, input.uv); let n = normalize(input.worldNormal + (normalSample.xyz * 2.0 - vec3<f32>(1.0)) * modelData.extra.w); let v = normalize(camera.cameraPosition.xyz - input.worldPosition); var base = modelData.baseColor.rgb * sampled.rgb; var alpha = modelData.baseColor.a * sampled.a; if (modelData.flags.z > 0.5 && alpha < modelData.flags.w) { discard; } if (modelData.flags.y > 0.5) { base = base * input.color; } if (modelData.flags.x > 0.5) { return vec4<f32>(base, alpha); } let metallic = clamp(modelData.params.x * metalnessSample.b, 0.0, 1.0); let roughness = clamp(modelData.params.y * roughnessSample.g, 0.04, 1.0); let clearcoat = clamp(modelData.params.z, 0.0, 1.0); let transmission = clamp(modelData.params.w, 0.0, 1.0); let coatR = clamp(modelData.shading.z, 0.04, 1.0); let coatA = coatR * coatR; let aBase = roughness * roughness; var anisoT = vec3<f32>(1.0, 0.0, 0.0); var anisoB = vec3<f32>(0.0, 1.0, 0.0); var at = aBase; var ab = aBase; var anisoOn = modelData.extra.z > 0.0; if (anisoOn) { let anisoStrength = clamp(modelData.extra.z, 0.0, 1.0); let dp1 = dpdx(input.worldPosition); let dp2 = dpdy(input.worldPosition); let du1 = dpdx(input.uv); let du2 = dpdy(input.uv); let det = du1.x * du2.y - du2.x * du1.y; if (abs(det) > 0.0000001) { let dpdu = (dp1 * du2.y - dp2 * du1.y) / det; let tRaw = normalize(dpdu); anisoT = normalize(tRaw - n * dot(tRaw, n)); anisoB = normalize(cross(n, anisoT)); let rotCa = cos(modelData.extra2.x); let rotSa = sin(modelData.extra2.x); let rotT = anisoT * rotCa + anisoB * rotSa; let rotB = anisoB * rotCa - anisoT * rotSa; anisoT = rotT; anisoB = rotB; at = max(aBase * (1.0 + anisoStrength * 0.9), 0.0001); ab = max(aBase * (1.0 - anisoStrength * 0.9), 0.0001); } else { anisoOn = false; } } let ndv = max(dot(n, v), 0.001); var f0 = mix(vec3<f32>(0.04), base, metallic); if (modelData.extra.y > 0.0) { f0 = mix(f0, thinFilmF0(f0, 1.69, modelData.shading.w, ndv), clamp(modelData.extra.y, 0.0, 1.0)); } var shadowVisibility = 1.0; if (camera.shadowParams.x > 0.5) { let shadowPosition = camera.shadowMatrix * vec4<f32>(input.worldPosition, 1.0); let shadowUv = shadowPosition.xyz / max(shadowPosition.w, 0.0001); let inBounds = shadowUv.x >= 0.0 && shadowUv.x <= 1.0 && shadowUv.y >= 0.0 && shadowUv.y <= 1.0 && shadowUv.z >= 0.0 && shadowUv.z <= 1.0; let sampled = textureSampleCompare(shadowTexture, shadowSampler, clamp(shadowUv.xy, vec2<f32>(0.0), vec2<f32>(1.0)), shadowUv.z - camera.shadowParams.y); shadowVisibility = select(1.0, sampled, inBounds); } var lo = vec3<f32>(0.0); for (var i = 0; i < 8; i = i + 1) { if (f32(i) >= lights.count.x) { break; } let light = lights.lights[i]; let intensity = light.factors.x; let kind = light.kind.x; if (kind < 0.5) { lo = lo + base * light.color.rgb * intensity; continue; } var l = vec3<f32>(0.0, 0.0, 1.0); var attenuation = 1.0; if (kind < 1.5) { l = normalize(-light.direction.xyz); } else { let delta = light.position.xyz - input.worldPosition; let distanceToLight = length(delta); l = normalize(delta); if (light.factors.y > 0.0) { attenuation = max(0.0, 1.0 - distanceToLight / light.factors.y); } attenuation = attenuation * (1.0 / (1.0 + distanceToLight * distanceToLight * 0.015)); if (kind > 2.5 && kind < 3.5) { let cone = dot(normalize(light.direction.xyz), -l); let edge = light.factors.z; let inner = edge * (1.0 - light.factors.w); attenuation = attenuation * smoothStepF(edge, inner, cone); } } let radiance = light.color.rgb * intensity * attenuation; let lightShadow = select(1.0, shadowVisibility, kind < 1.5); let ndl = max(dot(n, l), 0.0); if (ndl > 0.0) { let h = normalize(v + l); var d = distributionGGX(n, h, aBase); if (anisoOn) { d = distributionGGXAnisotropic(n, h, anisoT, anisoB, at, ab); } let g = geometrySmith(n, v, l, (roughness + 1.0) * (roughness + 1.0) / 8.0); let f = fresnelSchlick(max(dot(h, v), 0.0), f0); let specular = (d * g * f) / max(4.0 * ndv * ndl, 0.001); let kd = (vec3<f32>(1.0) - f) * (1.0 - metallic); lo = lo + (kd * base / 3.14159265359 + specular) * radiance * ndl * lightShadow; if (clearcoat > 0.0) { let coatD = distributionGGX(n, h, coatA); let coatG = geometrySmith(n, v, l, (coatR + 1.0) * (coatR + 1.0) / 8.0); let coatFres = fresnelScalar(max(dot(h, v), 0.0), 0.04); lo = lo + vec3<f32>(clearcoat * coatD * coatG * coatFres / max(4.0 * ndv * ndl, 0.001)) * radiance * ndl * lightShadow; } } } var ambient = base * (1.0 - metallic) * 0.03 * aoSample.r; if (modelData.skinData.w > 0.5) { let irradiance = textureSample(environmentTexture, environmentSampler, n).rgb; let reflectionDirection = reflect(-v, n); let environmentLod = clamp(roughness * 5.0, 0.0, 8.0); let prefiltered = textureSampleLevel(environmentTexture, environmentSampler, reflectionDirection, environmentLod).rgb; let fenv = fresnelSchlick(ndv, f0); let envInt = modelData.shading.x; ambient = ambient + ((1.0 - fenv) * base * (1.0 - metallic) + prefiltered * fenv) * envInt * aoSample.r; ambient = ambient + irradiance * base * (1.0 - metallic) * 0.08 * envInt; } var finalColor = ambient + lo; if (transmission > 0.0) { let refracted = refract(-v, n, 0.6667); var transmitted = base * 0.4; if (modelData.skinData.w > 0.5) { transmitted = textureSampleLevel(environmentTexture, environmentSampler, refracted, clamp(roughness * 5.0, 0.0, 8.0)).rgb * mix(vec3<f32>(1.0), base, 0.25); } let transF0 = 0.04; let transFresnel = transF0 + (1.0 - transF0) * pow(1.0 - ndv, 5.0); finalColor = mix(finalColor, transmitted, transmission * (1.0 - transFresnel)); } var mapped = (finalColor + modelData.emissive.rgb * modelData.shading.y + emissiveSample.rgb) * camera.params.x; if (camera.params.y > 0.5 && camera.params.y < 1.5) { mapped = mapped / (mapped + vec3<f32>(1.0)); } else if (camera.params.y > 1.5) { var toneInput = max(mapped - vec3<f32>(0.004), vec3<f32>(0.0)); mapped = (toneInput * (6.2 * toneInput + 0.5)) / (toneInput * (6.2 * toneInput + 1.7) + 0.06); } return vec4<f32>(pow(max(mapped, vec3<f32>(0.0)), vec3<f32>(1.0 / max(camera.params.z, 0.1))), alpha); }";
+        var zaumb = "struct Camera { viewProj: mat4x4<f32>, cameraPosition: vec4<f32>, params: vec4<f32>, shadowMatrix: mat4x4<f32>, shadowParams: vec4<f32> }; struct LightData { position: vec4<f32>, direction: vec4<f32>, color: vec4<f32>, factors: vec4<f32>, kind: vec4<f32> }; struct Lights { count: vec4<f32>, lights: array<LightData, 8> }; struct Model { model: mat4x4<f32>, normal: mat4x4<f32>, baseColor: vec4<f32>, params: vec4<f32>, emissive: vec4<f32>, extra: vec4<f32>, skinData: vec4<f32>, morphWeights: vec4<f32>, flags: vec4<f32>, shading: vec4<f32>, extra2: vec4<f32> }; @group(0) @binding(0) var<uniform> camera: Camera; @group(0) @binding(1) var shadowTexture: texture_depth_2d; @group(0) @binding(2) var shadowSampler: sampler_comparison; @group(0) @binding(3) var<uniform> lights: Lights; @group(1) @binding(0) var<uniform> modelData: Model; @group(1) @binding(1) var baseTexture: texture_2d<f32>; @group(1) @binding(2) var baseSampler: sampler; @group(1) @binding(3) var normalTexture: texture_2d<f32>; @group(1) @binding(4) var normalSampler: sampler; @group(1) @binding(5) var roughnessTexture: texture_2d<f32>; @group(1) @binding(6) var roughnessSampler: sampler; @group(1) @binding(7) var metalnessTexture: texture_2d<f32>; @group(1) @binding(8) var metalnessSampler: sampler; @group(1) @binding(9) var aoTexture: texture_2d<f32>; @group(1) @binding(10) var aoSampler: sampler; @group(1) @binding(11) var emissiveTexture: texture_2d<f32>; @group(1) @binding(12) var emissiveSampler: sampler; @group(1) @binding(13) var environmentTexture: texture_cube<f32>; @group(1) @binding(14) var environmentSampler: sampler; @group(1) @binding(15) var parallaxTexture: texture_2d<f32>; @group(1) @binding(16) var parallaxSampler: sampler; @group(2) @binding(0) var<storage, read> bones: array<mat4x4<f32>>; struct VertexInput { @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) skinIndex: vec4<u32>, @location(4) skinWeight: vec4<f32>, @location(5) morph0: vec3<f32>, @location(6) morph1: vec3<f32>, @location(7) morph2: vec3<f32>, @location(8) morph3: vec3<f32>, @location(9) color: vec3<f32>, @location(10) instanceMatrix0: vec4<f32>, @location(11) instanceMatrix1: vec4<f32>, @location(12) instanceMatrix2: vec4<f32>, @location(13) instanceMatrix3: vec4<f32> }; struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) worldPosition: vec3<f32>, @location(1) worldNormal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) color: vec3<f32> }; @vertex fn vertexMain(input: VertexInput) -> VertexOutput { var output: VertexOutput; var localPosition = input.position; var localNormal = input.normal; if (modelData.skinData.x > 0.5) { let skinMatrix = bones[input.skinIndex.x] * input.skinWeight.x + bones[input.skinIndex.y] * input.skinWeight.y + bones[input.skinIndex.z] * input.skinWeight.z + bones[input.skinIndex.w] * input.skinWeight.w; localPosition = (skinMatrix * vec4<f32>(localPosition, 1.0)).xyz; localNormal = (skinMatrix * vec4<f32>(localNormal, 0.0)).xyz; } if (modelData.skinData.y > 0.5) { localPosition = localPosition + input.morph0 * modelData.morphWeights.x + input.morph1 * modelData.morphWeights.y + input.morph2 * modelData.morphWeights.z + input.morph3 * modelData.morphWeights.w; } if (modelData.skinData.z > 0.5) { let instanceMatrix = mat4x4<f32>(input.instanceMatrix0, input.instanceMatrix1, input.instanceMatrix2, input.instanceMatrix3); localPosition = (instanceMatrix * vec4<f32>(localPosition, 1.0)).xyz; localNormal = mat3x3<f32>(instanceMatrix[0].xyz, instanceMatrix[1].xyz, instanceMatrix[2].xyz) * localNormal; } let world = modelData.model * vec4<f32>(localPosition, 1.0); output.position = camera.viewProj * world; output.position.z = output.position.z * 0.5 + output.position.w * 0.5; output.worldPosition = world.xyz; output.worldNormal = normalize((modelData.normal * vec4<f32>(localNormal, 0.0)).xyz); output.uv = input.uv; output.color = input.color; return output; } fn distributionGGX(n: vec3<f32>, h: vec3<f32>, a: f32) -> f32 { let a2 = a * a; let nh = max(dot(n, h), 0.0); let nh2 = nh * nh; let dterm = nh2 * (a2 - 1.0) + 1.0; return a2 / max(3.14159265359 * dterm * dterm, 0.00000001); } fn distributionGGXAnisotropic(n: vec3<f32>, h: vec3<f32>, t: vec3<f32>, b: vec3<f32>, at: f32, ab: f32) -> f32 { let nh = max(dot(n, h), 0.0); let th = dot(t, h) / at; let bh = dot(b, h) / ab; let denom = th * th + bh * bh + nh * nh; return 1.0 / max(3.14159265359 * at * ab * denom * denom, 0.00000001); } fn geometrySchlickGGX(n: f32, k: f32) -> f32 { return n / max(n * (1.0 - k) + k, 0.0001); } fn geometrySmith(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, k: f32) -> f32 { return geometrySchlickGGX(max(dot(n, v), 0.0), k) * geometrySchlickGGX(max(dot(n, l), 0.0), k); } fn fresnelSchlick(c: f32, f0: vec3<f32>) -> vec3<f32> { return f0 + (vec3<f32>(1.0) - f0) * pow(1.0 - c, 5.0); } fn fresnelScalar(c: f32, f0: f32) -> f32 { return f0 + (1.0 - f0) * pow(1.0 - c, 5.0); } fn smoothStepF(e0: f32, e1: f32, x: f32) -> f32 { let t = clamp((x - e0) / (e1 - e0), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); } fn thinFilmF0(f0: vec3<f32>, eta2: f32, thickness: f32, cosTheta1: f32) -> vec3<f32> { if (thickness <= 0.0) { return f0; } let sin2 = (1.0 - cosTheta1 * cosTheta1) / (eta2 * eta2); if (sin2 >= 1.0) { return f0; } let cos2 = sqrt(1.0 - sin2); let r12a = (eta2 * cosTheta1 - cos2) / (eta2 * cosTheta1 + cos2); let r12 = r12a * r12a; let r23 = clamp(f0, vec3<f32>(0.0), vec3<f32>(1.0)); let delta = 4.0 * 3.14159265359 * eta2 * thickness * cos2 / vec3<f32>(680.0, 550.0, 440.0); let interference = 2.0 * sqrt(r12 * r23) * cos(delta); return clamp((r12 + r23 + interference) / max(1.0 + r12 * r23 + interference, vec3<f32>(0.0001)), vec3<f32>(0.0), vec3<f32>(1.0)); } @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> { " + parallaxOcclusionWGSL + " let sampled = textureSample(baseTexture, baseSampler, pomUv);  let normalSample = textureSample(normalTexture, normalSampler, pomUv); let roughnessSample = textureSample(roughnessTexture, roughnessSampler, pomUv); let metalnessSample = textureSample(metalnessTexture, metalnessSampler, pomUv); let aoSample = textureSample(aoTexture, aoSampler, pomUv); let emissiveSample = textureSample(emissiveTexture, emissiveSampler, pomUv); let n = normalize(input.worldNormal + (normalSample.xyz * 2.0 - vec3<f32>(1.0)) * modelData.extra.w); let v = normalize(camera.cameraPosition.xyz - input.worldPosition); var base = modelData.baseColor.rgb * sampled.rgb; var alpha = modelData.baseColor.a * sampled.a; if (modelData.flags.z > 0.5 && alpha < modelData.flags.w) { discard; } if (modelData.flags.y > 0.5) { base = base * input.color; } if (modelData.flags.x > 0.5) { return vec4<f32>(base, alpha); } let metallic = clamp(modelData.params.x * metalnessSample.b, 0.0, 1.0); let roughness = clamp(modelData.params.y * roughnessSample.g, 0.04, 1.0); let clearcoat = clamp(modelData.params.z, 0.0, 1.0); let transmission = clamp(modelData.params.w, 0.0, 1.0); let coatR = clamp(modelData.shading.z, 0.04, 1.0); let coatA = coatR * coatR; let aBase = roughness * roughness; var anisoT = vec3<f32>(1.0, 0.0, 0.0); var anisoB = vec3<f32>(0.0, 1.0, 0.0); var at = aBase; var ab = aBase; var anisoOn = modelData.extra.z > 0.0; if (anisoOn) { let anisoStrength = clamp(modelData.extra.z, 0.0, 1.0); let dp1 = dpdx(input.worldPosition); let dp2 = dpdy(input.worldPosition); let du1 = dpdx(input.uv); let du2 = dpdy(input.uv); let det = du1.x * du2.y - du2.x * du1.y; if (abs(det) > 0.0000001) { let dpdu = (dp1 * du2.y - dp2 * du1.y) / det; let tRaw = normalize(dpdu); anisoT = normalize(tRaw - n * dot(tRaw, n)); anisoB = normalize(cross(n, anisoT)); let rotCa = cos(modelData.extra2.x); let rotSa = sin(modelData.extra2.x); let rotT = anisoT * rotCa + anisoB * rotSa; let rotB = anisoB * rotCa - anisoT * rotSa; anisoT = rotT; anisoB = rotB; at = max(aBase * (1.0 + anisoStrength * 0.9), 0.0001); ab = max(aBase * (1.0 - anisoStrength * 0.9), 0.0001); } else { anisoOn = false; } } let ndv = max(dot(n, v), 0.001); var f0 = mix(vec3<f32>(0.04), base, metallic); if (modelData.extra.y > 0.0) { f0 = mix(f0, thinFilmF0(f0, 1.69, modelData.shading.w, ndv), clamp(modelData.extra.y, 0.0, 1.0)); } var shadowVisibility = 1.0; if (camera.shadowParams.x > 0.5) { let shadowPosition = camera.shadowMatrix * vec4<f32>(input.worldPosition, 1.0); let shadowUv = shadowPosition.xyz / max(shadowPosition.w, 0.0001); let inBounds = shadowUv.x >= 0.0 && shadowUv.x <= 1.0 && shadowUv.y >= 0.0 && shadowUv.y <= 1.0 && shadowUv.z >= 0.0 && shadowUv.z <= 1.0; let sampled = textureSampleCompare(shadowTexture, shadowSampler, clamp(shadowUv.xy, vec2<f32>(0.0), vec2<f32>(1.0)), shadowUv.z - camera.shadowParams.y); shadowVisibility = select(1.0, sampled, inBounds); } var lo = vec3<f32>(0.0); for (var i = 0; i < 8; i = i + 1) { if (f32(i) >= lights.count.x) { break; } let light = lights.lights[i]; let intensity = light.factors.x; let kind = light.kind.x; if (kind < 0.5) { lo = lo + base * light.color.rgb * intensity; continue; } var l = vec3<f32>(0.0, 0.0, 1.0); var attenuation = 1.0; if (kind < 1.5) { l = normalize(-light.direction.xyz); } else { let delta = light.position.xyz - input.worldPosition; let distanceToLight = length(delta); l = normalize(delta); if (light.factors.y > 0.0) { attenuation = max(0.0, 1.0 - distanceToLight / light.factors.y); } attenuation = attenuation * (1.0 / (1.0 + distanceToLight * distanceToLight * 0.015)); if (kind > 2.5 && kind < 3.5) { let cone = dot(normalize(light.direction.xyz), -l); let edge = light.factors.z; let inner = edge * (1.0 - light.factors.w); attenuation = attenuation * smoothStepF(edge, inner, cone); } } let radiance = light.color.rgb * intensity * attenuation; let lightShadow = select(1.0, shadowVisibility, kind < 1.5); let ndl = max(dot(n, l), 0.0); if (ndl > 0.0) { let h = normalize(v + l); var d = distributionGGX(n, h, aBase); if (anisoOn) { d = distributionGGXAnisotropic(n, h, anisoT, anisoB, at, ab); } let g = geometrySmith(n, v, l, (roughness + 1.0) * (roughness + 1.0) / 8.0); let f = fresnelSchlick(max(dot(h, v), 0.0), f0); let specular = (d * g * f) / max(4.0 * ndv * ndl, 0.001); let kd = (vec3<f32>(1.0) - f) * (1.0 - metallic); lo = lo + (kd * base / 3.14159265359 + specular) * radiance * ndl * lightShadow; if (clearcoat > 0.0) { let coatD = distributionGGX(n, h, coatA); let coatG = geometrySmith(n, v, l, (coatR + 1.0) * (coatR + 1.0) / 8.0); let coatFres = fresnelScalar(max(dot(h, v), 0.0), 0.04); lo = lo + vec3<f32>(clearcoat * coatD * coatG * coatFres / max(4.0 * ndv * ndl, 0.001)) * radiance * ndl * lightShadow; } } } var ambient = base * (1.0 - metallic) * 0.03 * aoSample.r; if (modelData.skinData.w > 0.5) { let irradiance = textureSample(environmentTexture, environmentSampler, n).rgb; let reflectionDirection = reflect(-v, n); let environmentLod = clamp(roughness * 5.0, 0.0, 8.0); let prefiltered = textureSampleLevel(environmentTexture, environmentSampler, reflectionDirection, environmentLod).rgb; let fenv = fresnelSchlick(ndv, f0); let envInt = modelData.shading.x; ambient = ambient + ((1.0 - fenv) * base * (1.0 - metallic) + prefiltered * fenv) * envInt * aoSample.r; ambient = ambient + irradiance * base * (1.0 - metallic) * 0.08 * envInt; } var finalColor = ambient + lo; if (transmission > 0.0) { let refracted = refract(-v, n, 0.6667); var transmitted = base * 0.4; if (modelData.skinData.w > 0.5) { transmitted = textureSampleLevel(environmentTexture, environmentSampler, refracted, clamp(roughness * 5.0, 0.0, 8.0)).rgb * mix(vec3<f32>(1.0), base, 0.25); } let transF0 = 0.04; let transFresnel = transF0 + (1.0 - transF0) * pow(1.0 - ndv, 5.0); finalColor = mix(finalColor, transmitted, transmission * (1.0 - transFresnel)); } var mapped = (finalColor + modelData.emissive.rgb * modelData.shading.y + emissiveSample.rgb) * camera.params.x; if (camera.params.y > 0.5 && camera.params.y < 1.5) { mapped = mapped / (mapped + vec3<f32>(1.0)); } else if (camera.params.y > 1.5) { var toneInput = max(mapped - vec3<f32>(0.004), vec3<f32>(0.0)); mapped = (toneInput * (6.2 * toneInput + 0.5)) / (toneInput * (6.2 * toneInput + 1.7) + 0.06); } return vec4<f32>(pow(max(mapped, vec3<f32>(0.0)), vec3<f32>(1.0 / max(camera.params.z, 0.1))), alpha); }";
         if (this._nodeBaseCode === null) this._nodeBaseCode = zaumb;
         if (zauma.indexOf("mega") >= 0) {
             zaumb = zaumb.replace("@location(13) instanceMatrix3: vec4<f32> };", "@location(13) instanceMatrix3: vec4<f32>, @location(14) materialIndex: f32 };");
@@ -10177,6 +10275,9 @@ class WebGPURenderer {
             var zaumah = zaumb.material && zaumb.material.iridescenceThicknessRange ? zaumb.material.iridescenceThicknessRange : [ 100, 400 ];
             zaumab[63] = (zaumah[0] + zaumah[1]) * .5;
             zaumab[64] = zaumb.material && zaumb.material.anisotropyRotation !== undefined ? zaumb.material.anisotropyRotation : 0;
+            zaumab[65] = zaumb.material && zaumb.material.parallaxMap ? 1 : 0;
+            zaumab[66] = zaumb.material && zaumb.material.parallaxScale !== undefined ? zaumb.material.parallaxScale : 0;
+            zaumab[67] = zaumb.material && zaumb.material.parallaxMaxLayers !== undefined ? zaumb.material.parallaxMaxLayers : 32;
             var zaumai = zaumo.modelBufferFor(zaumb);
             zaumo.device.queue.writeBuffer(zaumai, 0, zaumab);
             var zaumaj = zaumb.material && (zaumb.material.diffuseMap || zaumb.material.map);
@@ -10192,9 +10293,7 @@ class WebGPURenderer {
             var zaumat = zauman ? zaumo.resourceManager.texture(zauman) : zaumo.resourceManager.defaultTextureResource("ao", [ 255, 255, 255, 255 ]);
             var zaumau = zaumao ? zaumo.resourceManager.texture(zaumao) : zaumo.resourceManager.defaultTextureResource("emissive", [ 0, 0, 0, 255 ]);
             var zaumav = zaumae && zaumae.resource ? zaumae.resource : zaumae && zaumae instanceof CubeTexture ? zaumo.resourceManager.cubeTexture(zaumae) : zaumo.resourceManager.defaultCubeResource();
-            var zaumaw = zaumo.device.createBindGroup({
-                layout: zaume.getBindGroupLayout(1),
-                entries: [ {
+            var zaumaentries = [ {
                     binding: 0,
                     resource: {
                         buffer: zaumai
@@ -10241,7 +10340,21 @@ class WebGPURenderer {
                 }, {
                     binding: 14,
                     resource: zaumav.sampler
-                } ]
+                } ];
+            if (!(zaumb.material && zaumb.material.isFNMaterial)) {
+                var zaumapom = zaumb.material && zaumb.material.parallaxMap;
+                var zaumapor = zaumapom ? zaumo.resourceManager.texture(zaumapom) : zaumo.resourceManager.defaultTextureResource("parallax", [ 255, 255, 255, 255 ]);
+                zaumaentries.push({
+                    binding: 15,
+                    resource: zaumapor.view
+                }, {
+                    binding: 16,
+                    resource: zaumapor.sampler
+                });
+            }
+            var zaumaw = zaumo.device.createBindGroup({
+                layout: zaume.getBindGroupLayout(1),
+                entries: zaumaentries
             });
             var zaumax = zaumo.resourceManager.boneResource(zaumb.skeleton);
             var zaumay = zaumo.device.createBindGroup({
@@ -18721,6 +18834,214 @@ class SSSPass extends PostProcessPass {
         this._scratch = null;
         return this;
     }
+}
+
+
+const backends = {
+    webgl: {
+        name: "webgl",
+        shaderLanguage: "glsl",
+        versions: [ "webgl2", "webgl1" ],
+        compute: false,
+        storageBuffers: false,
+        indirectDraw: false,
+        rayQuery: false,
+        gpuTimestamps: false,
+        instancing: true,
+        vertexTextureFetch: true,
+        floatingPointTargets: true,
+        depthTextures: true,
+        dualSourceBlending: true,
+        textureArrays: true,
+        cubeTextures: true,
+        anisotropy: true,
+        maxLights: 8,
+        maxTextureUnits: 16,
+        parallaxOcclusion: true,
+        nodeMaterials: true,
+        shaderDefines: true
+    },
+    webgpu: {
+        name: "webgpu",
+        shaderLanguage: "wgsl",
+        versions: [ "webgpu" ],
+        compute: true,
+        storageBuffers: true,
+        indirectDraw: true,
+        rayQuery: true,
+        gpuTimestamps: true,
+        instancing: true,
+        vertexTextureFetch: true,
+        floatingPointTargets: true,
+        depthTextures: true,
+        dualSourceBlending: false,
+        textureArrays: true,
+        cubeTextures: true,
+        anisotropy: true,
+        maxLights: 8,
+        maxTextureUnits: 32,
+        parallaxOcclusion: true,
+        nodeMaterials: true,
+        shaderDefines: false
+    }
+};
+
+function backendFeatures(backend) {
+    var key = String(backend || "").toLowerCase();
+    if (key === "gpu" || key === "webgpu") return backends.webgpu;
+    if (key === "gl" || key === "webgl" || key === "webgl2") return backends.webgl;
+    return null;
+}
+
+function supportsFeature(backend, feature) {
+    var table = backendFeatures(backend);
+    if (!table || !feature) return false;
+    return table[feature] === true;
+}
+
+function featureParity() {
+    var result = {};
+    var names = Object.keys(backends.webgl);
+    for (var index = 0; index < names.length; index++) {
+        var name = names[index];
+        result[name] = {
+            webgl: backends.webgl[name],
+            webgpu: backends.webgpu[name],
+            parity: backends.webgl[name] === backends.webgpu[name]
+        };
+    }
+    return result;
+}
+
+function featureGaps() {
+    var parity = featureParity();
+    var gaps = [];
+    var names = Object.keys(parity);
+    for (var index = 0; index < names.length; index++) {
+        var entry = parity[names[index]];
+        if (typeof entry.webgl !== "boolean") continue;
+        if (!entry.parity) gaps.push(names[index]);
+    }
+    return gaps;
+}
+
+function describeBackend(backend) {
+    var table = backendFeatures(backend);
+    if (!table) return null;
+    return {
+        name: table.name,
+        shaderLanguage: table.shaderLanguage,
+        compute: table.compute,
+        indirectDraw: table.indirectDraw,
+        rayQuery: table.rayQuery,
+        gpuTimestamps: table.gpuTimestamps,
+        maxLights: table.maxLights,
+        parallaxOcclusion: table.parallaxOcclusion
+    };
+}
+
+
+class WebGPUVignettePass extends WebGPUPostProcessPass {
+    constructor(zauua) {
+        zauua = zauua || {};
+        super("vignette", "let p = input.uv - vec2<f32>(0.5); let vignette = 1.0 - smoothstep(0.25, 0.75, length(p)) * params.strength; return vec4<f32>(color * vignette, 1.0);", zauua);
+    }
+}
+
+class WebGPUColorGradePass extends WebGPUPostProcessPass {
+    constructor(zauva) {
+        zauva = zauva || {};
+        super("colorGrade", "let mapped = vec3<f32>(1.0) - exp(-color * params.exposure); let luma = dot(mapped, vec3<f32>(0.2126, 0.7152, 0.0722)); let graded = mix(vec3<f32>(luma), mapped, params.strength); return vec4<f32>(max(graded, vec3<f32>(0.0)), 1.0);", zauva);
+    }
+}
+
+class WebGPUDepthOfFieldPass extends WebGPUPostProcessPass {
+    constructor(zauwa) {
+        zauwa = zauwa || {};
+        super("depthOfField", "let radius = params.texelSize * max(params.threshold, 1.0); var sum = color; sum = sum + textureSample(inputTexture, inputSampler, input.uv + vec2<f32>(radius.x, 0.0)).rgb; sum = sum + textureSample(inputTexture, inputSampler, input.uv - vec2<f32>(radius.x, 0.0)).rgb; sum = sum + textureSample(inputTexture, inputSampler, input.uv + vec2<f32>(0.0, radius.y)).rgb; sum = sum + textureSample(inputTexture, inputSampler, input.uv - vec2<f32>(0.0, radius.y)).rgb; return vec4<f32>(mix(color, sum / 5.0, params.strength), 1.0);", zauwa);
+    }
+}
+
+class WebGPUMotionBlurPass extends WebGPUPostProcessPass {
+    constructor(zauwa) {
+        zauwa = zauwa || {};
+        super("motionBlur", "var sum = color; for (var step = 1u; step < 4u; step = step + 1u) { let offset = params.texelSize * params.threshold * f32(step); sum = sum + textureSample(inputTexture, inputSampler, input.uv - offset).rgb; } return vec4<f32>(sum / 4.0, 1.0);", zauwa);
+    }
+}
+
+
+const passes = {
+    bloom: { glsl: BloomPass, wgsl: WebGPUBloomPass },
+    progressivebloom: { glsl: ProgressiveBloomPass, wgsl: WebGPUBloomPass },
+    fxaa: { glsl: FXAAPass, wgsl: WebGPUFXAAPass },
+    tonemapping: { glsl: null, wgsl: WebGPUToneMappingPass },
+    vignette: { glsl: VignettePass, wgsl: WebGPUVignettePass },
+    colorgrade: { glsl: ColorGradePass, wgsl: WebGPUColorGradePass },
+    dof: { glsl: BokehDepthOfFieldPass, wgsl: WebGPUDepthOfFieldPass },
+    depthoffield: { glsl: BokehDepthOfFieldPass, wgsl: WebGPUDepthOfFieldPass },
+    motionblur: { glsl: MotionBlurPass, wgsl: WebGPUMotionBlurPass },
+    ssao: { glsl: SSAOPass, wgsl: null },
+    gtao: { glsl: GTAOPass, wgsl: null },
+    hbao: { glsl: HBAOPass, wgsl: null },
+    ssgi: { glsl: SSGIPass, wgsl: null },
+    ssr: { glsl: SSRPass, wgsl: null },
+    taa: { glsl: TAAPass, wgsl: null },
+    copy: { glsl: PostProcessPass, wgsl: WebGPUPostProcessPass }
+};
+
+function normalizeBackend(backend) {
+    var key = String(backend || "").toLowerCase();
+    return key === "webgpu" || key === "gpu" ? "wgsl" : "glsl";
+}
+
+function passClass(backend, name) {
+    var entry = passes[String(name || "").toLowerCase()];
+    if (!entry) return null;
+    return entry[normalizeBackend(backend)] || null;
+}
+
+function createPass(backend, name, options) {
+    var Constructor = passClass(backend, name);
+    if (!Constructor) return null;
+    return new Constructor(options);
+}
+
+function createComposer(renderer, options) {
+    if (renderer && renderer.device) return new WebGPUPostProcessingComposer(renderer, options);
+    return new PostProcessingComposer(renderer, options);
+}
+
+function passParity() {
+    var result = {};
+    var names = Object.keys(passes);
+    for (var index = 0; index < names.length; index++) {
+        var entry = passes[names[index]];
+        result[names[index]] = {
+            webgl: !!entry.glsl,
+            webgpu: !!entry.wgsl
+        };
+    }
+    return result;
+}
+
+function missingPasses(backend) {
+    var key = normalizeBackend(backend);
+    var parity = passParity();
+    var names = Object.keys(parity);
+    var missing = [];
+    for (var index = 0; index < names.length; index++) {
+        if (!parity[names[index]][key === "wgsl" ? "webgpu" : "webgl"]) missing.push(names[index]);
+    }
+    return missing;
+}
+
+function registerPass(name, entry) {
+    if (!name || !entry) return null;
+    passes[String(name).toLowerCase()] = {
+        glsl: entry.glsl || null,
+        wgsl: entry.wgsl || null
+    };
+    return passes[String(name).toLowerCase()];
 }
 
 
@@ -43519,6 +43840,59 @@ if (typeof WebGLRenderer !== "undefined" && WebGLRenderer && WebGLRenderer.proto
 }
 
 
+const installed = {};
+
+function normalizePlugin(plugin) {
+    if (!plugin) return null;
+    if (typeof plugin === "function") return { name: plugin.name || "plugin", install: plugin };
+    if (typeof plugin.install !== "function") return null;
+    return { name: plugin.name || plugin.id || plugin.install.name || "plugin", install: plugin.install, version: plugin.version || null };
+}
+
+function registerPlugin(plugin) {
+    var entry = normalizePlugin(plugin);
+    if (!entry) throw new Error("faoxomplugin: a plugin needs a name and an install function");
+    if (installed[entry.name]) return installed[entry.name];
+    installed[entry.name] = entry;
+    return entry;
+}
+
+function unregisterPlugin(name) {
+    if (!installed[name]) return false;
+    delete installed[name];
+    return true;
+}
+
+function pluginNames() {
+    return Object.keys(installed);
+}
+
+function pluginCount() {
+    return Object.keys(installed).length;
+}
+
+function getPlugin(name) {
+    return installed[name] || null;
+}
+
+function applyPlugins(target) {
+    var names = pluginNames();
+    var applied = [];
+    for (var index = 0; index < names.length; index++) {
+        var plugin = installed[names[index]];
+        plugin.install(target);
+        applied.push(plugin.name);
+    }
+    return applied;
+}
+
+function resetPlugins() {
+    var names = pluginNames();
+    for (var index = 0; index < names.length; index++) delete installed[names[index]];
+    return names;
+}
+
+
 function zaawa(zaawa) {
     var zaawb = zaawa.lastIndexOf(".");
     if (zaawb <= 0) return null;
@@ -46721,6 +47095,218 @@ const tsl = {
 };
 
 
+const tslBackends = {
+    glsl: "glsl",
+    wgsl: "wgsl"
+};
+
+function faoxomnodefloat(value) {
+    var number = Number(value);
+    if (!isFinite(number)) return "0.0";
+    if (Number.isInteger(number)) return number.toFixed(1);
+    return number.toFixed(4);
+}
+
+function faoxomnodevec(backend, count, values) {
+    var body = values.map(faoxomnodefloat).join(", ");
+    return backend === "wgsl" ? "vec" + count + "<f32>(" + body + ")" : "vec" + count + "(" + body + ")";
+}
+
+function faoxomnodescope(backend) {
+    if (backend === "wgsl") {
+        return {
+            uv: "input.uv",
+            normalWorld: "normalize(input.worldNormal)",
+            normalLocal: "input.worldNormal",
+            positionWorld: "input.worldPosition",
+            positionLocal: "input.worldPosition",
+            camera: "camera.cameraPosition.xyz",
+            time: "0.0",
+            texture: function(uv) {
+                return "textureSample(baseTexture, baseSampler, " + uv + ")";
+            },
+            textureType: "vec4<f32>"
+        };
+    }
+    return {
+        uv: "vUv",
+        normalWorld: "normalize(vNormal)",
+        normalLocal: "vNormal",
+        positionWorld: "vWorldPosition",
+        positionLocal: "vLocalPosition",
+        camera: "uCameraPosition",
+        time: "uTime",
+        texture: function(uv) {
+            return "texture2D(uDiffuseMap, " + uv + ")";
+        },
+        textureType: "vec4"
+    };
+}
+
+function faoxomnodeemit(node, backend, scope) {
+    if (!node) return backend === "wgsl" ? "0.0" : "0.0";
+    var bind = function(child) {
+        return faoxomnodeemit(child, backend, scope);
+    };
+    switch (node.type) {
+      case "float":
+        return faoxomnodefloat(node.value);
+
+      case "vec2":
+        return faoxomnodevec(backend, 2, [ node.x, node.y ]);
+
+      case "vec3":
+        return faoxomnodevec(backend, 3, [ node.x, node.y, node.z ]);
+
+      case "vec4":
+        return faoxomnodevec(backend, 4, [ node.x, node.y, node.z, node.w ]);
+
+      case "color":
+        return faoxomnodevec(backend, 3, [ node.color ? node.color.r : 0, node.color ? node.color.g : 0, node.color ? node.color.b : 0 ]);
+
+      case "operator":
+        if (node.op === "dot" || node.op === "cross") return node.op + "(" + bind(node.a) + ", " + bind(node.b) + ")";
+        return "(" + bind(node.a) + " " + node.op + " " + bind(node.b) + ")";
+
+      case "math": {
+        var args = [];
+        if (node.a) args.push(bind(node.a));
+        if (node.b) args.push(bind(node.b));
+        if (node.c) args.push(bind(node.c));
+        return node.method + "(" + args.join(", ") + ")";
+      }
+
+      case "uv":
+        return scope.uv;
+
+      case "normal":
+        return node.space === "local" ? scope.normalLocal : scope.normalWorld;
+
+      case "position":
+        return node.space === "local" ? scope.positionLocal : scope.positionWorld;
+
+      case "cameraPosition":
+        return scope.camera;
+
+      case "time":
+        return "(" + scope.time + " * " + faoxomnodefloat(node.speed || 1) + ")";
+
+      case "fresnel": {
+        var bias = faoxomnodefloat(node.bias || 0);
+        var power = faoxomnodefloat(node.power || 1);
+        var scale = faoxomnodefloat(node.scale === undefined ? 1 : node.scale);
+        return "(" + bias + " + " + scale + " * pow(1.0 - max(0.0, dot(" + scope.normalWorld + ", normalize(" + scope.camera + " - " + scope.positionWorld + "))), " + power + "))";
+      }
+
+      case "noise": {
+        var noiseScale = faoxomnodefloat(node.scale === undefined ? 1 : node.scale);
+        var uv = scope.uv;
+        if (backend === "wgsl") return "fract(sin(dot(" + uv + " * " + noiseScale + ", vec2<f32>(12.9898, 78.233))) * 43758.5453)";
+        return "fract(sin(dot(" + uv + " * " + noiseScale + ", vec2(12.9898, 78.233))) * 43758.5453)";
+      }
+
+      case "texture": {
+        var textureUv = node.uvNode ? bind(node.uvNode) : scope.uv;
+        return scope.texture(textureUv);
+      }
+
+      default:
+        if (backend === "glsl" && node.build) return node.build(backend);
+        return backend === "wgsl" ? "0.0" : "0.0";
+    }
+}
+
+function emitGlsl(node, options) {
+    return faoxomnodeemit(node, "glsl", (options && options.scope) || faoxomnodescope("glsl"));
+}
+
+function emitWgsl(node, options) {
+    return faoxomnodeemit(node, "wgsl", (options && options.scope) || faoxomnodescope("wgsl"));
+}
+
+function emit(node, backend, options) {
+    return backend === "wgsl" ? emitWgsl(node, options) : emitGlsl(node, options);
+}
+
+function faoxomnodewgsl(material) {
+    var color = material.colorNode ? emitWgsl(material.colorNode) : "modelData.baseColor.rgb";
+    var roughness = material.roughnessNode ? emitWgsl(material.roughnessNode) : "modelData.params.y";
+    var metalness = material.metalnessNode ? emitWgsl(material.metalnessNode) : "modelData.params.x";
+    var emissive = material.emissiveNode ? emitWgsl(material.emissiveNode) : "vec3<f32>(0.0)";
+    var opacity = material.opacityNode ? emitWgsl(material.opacityNode) : "modelData.baseColor.a";
+    var position = material.positionNode ? emitWgsl(material.positionNode) : "input.worldPosition";
+    return [
+        "struct Camera { viewProj: mat4x4<f32>, cameraPosition: vec4<f32>, params: vec4<f32> };",
+        "struct Model { model: mat4x4<f32>, normal: mat4x4<f32>, baseColor: vec4<f32>, params: vec4<f32>, emissive: vec4<f32>, extra: vec4<f32>, skinData: vec4<f32>, morphWeights: vec4<f32>, flags: vec4<f32>, shading: vec4<f32>, extra2: vec4<f32> };",
+        "@group(0) @binding(0) var<uniform> camera: Camera;",
+        "@group(1) @binding(0) var<uniform> modelData: Model;",
+        "@group(1) @binding(1) var baseTexture: texture_2d<f32>;",
+        "@group(1) @binding(2) var baseSampler: sampler;",
+        "struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) worldPosition: vec3<f32>, @location(1) worldNormal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) color: vec3<f32> };",
+        "@vertex fn vertexMain(input: VertexInput) -> VertexOutput { var output: VertexOutput; let world = modelData.model * vec4<f32>(input.position, 1.0); output.position = camera.viewProj * world; output.position.z = output.position.z * 0.5 + output.position.w * 0.5; output.worldPosition = world.xyz; output.worldNormal = normalize((modelData.normal * vec4<f32>(input.normal, 0.0)).xyz); output.uv = input.uv; output.color = input.color; return output; }",
+        "struct VertexInput { @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) color: vec3<f32> };",
+        "@fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {",
+        "    let nodeColor = " + color + ";",
+        "    let nodeRoughness = clamp(" + roughness + ", 0.04, 1.0);",
+        "    let nodeMetalness = clamp(" + metalness + ", 0.0, 1.0);",
+        "    let nodeEmissive = " + emissive + ";",
+        "    let nodeOpacity = clamp(" + opacity + ", 0.0, 1.0);",
+        "    let nodePosition = " + position + ";",
+        "    let n = normalize(input.worldNormal);",
+        "    let v = normalize(camera.cameraPosition.xyz - nodePosition);",
+        "    let l = normalize(vec3<f32>(0.5, 1.0, 0.75));",
+        "    let h = normalize(v + l);",
+        "    let fresnel = 0.04 + 0.96 * pow(1.0 - max(dot(n, v), 0.0), 5.0);",
+        "    let direct = max(dot(n, l), 0.0) * 0.8 + 0.2;",
+        "    let specular = pow(max(dot(n, h), 0.0), mix(128.0, 4.0, nodeRoughness)) * fresnel * (1.0 - nodeRoughness);",
+        "    let lit = nodeColor * (1.0 - nodeMetalness) * direct + nodeColor * nodeMetalness * specular + nodeEmissive;",
+        "    return vec4<f32>(pow(max(lit, vec3<f32>(0.0)), vec3<f32>(1.0 / max(camera.params.z, 0.1))), nodeOpacity);",
+        "}"
+    ].join("\n");
+}
+
+function faoxomnodewgslType(node) {
+    if (!node) return "f32";
+    var type = node.getType ? node.getType() : "float";
+    if (type === "float") return "f32";
+    if (type === "vec2") return "vec2<f32>";
+    if (type === "vec3") return "vec3<f32>";
+    if (type === "vec4") return "vec4<f32>";
+    return "f32";
+}
+
+function compileNodeMaterial(material, backend, options) {
+    backend = backend === "wgsl" ? "wgsl" : "glsl";
+    options = options || {};
+    if (backend === "wgsl") {
+        return {
+            backend: "wgsl",
+            language: "wgsl",
+            code: faoxomnodewgsl(material)
+        };
+    }
+    var color = material.colorNode ? emitGlsl(material.colorNode) : "vec3(1.0)";
+    var roughness = material.roughnessNode ? emitGlsl(material.roughnessNode) : "0.5";
+    var metalness = material.metalnessNode ? emitGlsl(material.metalnessNode) : "0.0";
+    var emissive = material.emissiveNode ? emitGlsl(material.emissiveNode) : "vec3(0.0)";
+    var opacity = material.opacityNode ? emitGlsl(material.opacityNode) : "1.0";
+    var position = material.positionNode ? emitGlsl(material.positionNode) : "vWorldPosition";
+    return {
+        backend: "glsl",
+        language: "glsl",
+        vertexShader: "varying vec3 vWorldPosition; varying vec3 vLocalPosition; varying vec3 vNormal; varying vec2 vUv; void main() { vUv = uv; vLocalPosition = position; vNormal = normalize(normalMatrix * normal); vec4 worldPos = modelMatrix * vec4(position, 1.0); vWorldPosition = worldPos.xyz; gl_Position = projectionMatrix * viewMatrix * worldPos; }",
+        fragmentShader: "precision highp float; varying vec3 vWorldPosition; varying vec3 vLocalPosition; varying vec3 vNormal; varying vec2 vUv; uniform vec3 uCameraPosition; uniform float uTime; uniform sampler2D uDiffuseMap; void main() { vec3 nodeColor = " + color + "; float nodeRoughness = clamp(" + roughness + ", 0.04, 1.0); float nodeMetalness = clamp(" + metalness + ", 0.0, 1.0); vec3 nodeEmissive = " + emissive + "; float nodeOpacity = clamp(" + opacity + ", 0.0, 1.0); vec3 nodePosition = " + position + "; vec3 N = normalize(vNormal); vec3 V = normalize(uCameraPosition - nodePosition); vec3 L = normalize(vec3(0.5, 1.0, 0.75)); vec3 H = normalize(V + L); float fresnel = 0.04 + 0.96 * pow(1.0 - max(dot(N, V), 0.0), 5.0); float direct = max(dot(N, L), 0.0) * 0.8 + 0.2; float specular = pow(max(dot(N, H), 0.0), mix(128.0, 4.0, nodeRoughness)) * fresnel * (1.0 - nodeRoughness); vec3 lit = nodeColor * (1.0 - nodeMetalness) * direct + nodeColor * nodeMetalness * specular + nodeEmissive; gl_FragColor = vec4(pow(max(lit, vec3(0.0)), vec3(1.0 / 2.2)), nodeOpacity); }"
+    };
+}
+
+function compileNodeGraph(node, backend, options) {
+    return {
+        backend: backend === "wgsl" ? "wgsl" : "glsl",
+        expression: emit(node, backend === "wgsl" ? "wgsl" : "glsl", options)
+    };
+}
+
+
 class NodeMaterial extends Material {
     constructor(zaqva) {
         super(zaqva);
@@ -46733,16 +47319,25 @@ class NodeMaterial extends Material {
         this.emissiveNode = zaqva.emissiveNode || null;
         this.opacityNode = zaqva.opacityNode || null;
         this.positionNode = zaqva.positionNode || null;
+        this.backend = zaqva.backend || "glsl";
     }
-    compileShader() {
-        var zaqva = this.colorNode ? this.colorNode.build() : "vec3(1.0)";
-        var zaqvb = this.roughnessNode ? this.roughnessNode.build() : "0.5";
-        var zaqvc = this.metalnessNode ? this.metalnessNode.build() : "0.0";
-        var zaqvd = this.emissiveNode ? this.emissiveNode.build() : "vec3(0.0)";
-        var zaqve = this.opacityNode ? this.opacityNode.build() : "1.0";
+    compileShader(zaqva) {
+        var zaqvb = typeof zaqva === "string" ? {
+            backend: zaqva
+        } : zaqva || {};
+        var zaqvc = compileNodeMaterial(this, zaqvb.backend || this.backend, zaqvb);
+        return zaqvc;
+    }
+    compileGlsl(zaqva) {
+        return compileNodeMaterial(this, "glsl", zaqva);
+    }
+    compileWgsl(zaqva) {
+        return compileNodeMaterial(this, "wgsl", zaqva);
+    }
+    backendShaders() {
         return {
-            vertexShader: "varying vec3 vWorldPosition; varying vec3 vNormal; varying vec2 vUv; void main() { vUv = uv; vNormal = normalize(normalMatrix * normal); vec4 worldPos = modelMatrix * vec4(position, 1.0); vWorldPosition = worldPos.xyz; gl_Position = projectionMatrix * viewMatrix * worldPos; }",
-            fragmentShader: "varying vec3 vWorldPosition; varying vec3 vNormal; varying vec2 vUv; uniform vec3 uCameraPosition; uniform float uTime; void main() { vec3 baseColor = " + zaqva + "; float roughness = " + zaqvb + "; float metalness = " + zaqvc + "; vec3 emissive = " + zaqvd + "; float opacity = " + zaqve + "; vec3 N = normalize(vNormal); vec3 V = normalize(uCameraPosition - vWorldPosition); vec3 L = normalize(vec3(0.5, 1.0, 0.75)); float NdotL = max(0.0, dot(N, L)); vec3 diffuse = baseColor * (NdotL * 0.8 + 0.2); gl_FragColor = vec4(diffuse + emissive, opacity); }"
+            glsl: this.compileGlsl(),
+            wgsl: this.compileWgsl()
         };
     }
 }
@@ -50512,6 +51107,11 @@ FAOXOM["VignettePass"] = VignettePass;
 FAOXOM["ColorGradePass"] = ColorGradePass;
 FAOXOM["GPUCompute"] = GPUCompute;
 FAOXOM["WebGPUResourceManager"] = WebGPUResourceManager;
+FAOXOM["applyParallaxOcclusion"] = applyParallaxOcclusion;
+FAOXOM["parallaxOcclusionDefaults"] = parallaxOcclusionDefaults;
+FAOXOM["parallaxOcclusionEnabled"] = parallaxOcclusionEnabled;
+FAOXOM["parallaxOcclusionGLSL"] = parallaxOcclusionGLSL;
+FAOXOM["parallaxOcclusionWGSL"] = parallaxOcclusionWGSL;
 FAOXOM["CubeTexture"] = CubeTexture;
 FAOXOM["HiZBuffer"] = HiZBuffer;
 FAOXOM["HiZOcclusion"] = HiZOcclusion;
@@ -50563,6 +51163,23 @@ FAOXOM["VelocityBuffer"] = VelocityBuffer;
 FAOXOM["MotionBlurPass"] = MotionBlurPass;
 FAOXOM["SSSSProfile"] = SSSSProfile;
 FAOXOM["SSSPass"] = SSSPass;
+FAOXOM["backendFeatures"] = backendFeatures;
+FAOXOM["backends"] = backends;
+FAOXOM["describeBackend"] = describeBackend;
+FAOXOM["featureGaps"] = featureGaps;
+FAOXOM["featureParity"] = featureParity;
+FAOXOM["supportsFeature"] = supportsFeature;
+FAOXOM["WebGPUColorGradePass"] = WebGPUColorGradePass;
+FAOXOM["WebGPUDepthOfFieldPass"] = WebGPUDepthOfFieldPass;
+FAOXOM["WebGPUMotionBlurPass"] = WebGPUMotionBlurPass;
+FAOXOM["WebGPUVignettePass"] = WebGPUVignettePass;
+FAOXOM["createComposer"] = createComposer;
+FAOXOM["createPass"] = createPass;
+FAOXOM["missingPasses"] = missingPasses;
+FAOXOM["passClass"] = passClass;
+FAOXOM["passParity"] = passParity;
+FAOXOM["passes"] = passes;
+FAOXOM["registerPass"] = registerPass;
 FAOXOM["HDRTexture"] = HDRTexture;
 FAOXOM["CompressedCubeTexture"] = CompressedCubeTexture;
 FAOXOM["CompressedTextureArray"] = CompressedTextureArray;
@@ -50868,6 +51485,13 @@ FAOXOM["createFurShells"] = createFurShells;
 FAOXOM["DecalProjector"] = DecalProjector;
 FAOXOM["CrossOrigin"] = CrossOrigin;
 FAOXOM["Inspector"] = Inspector;
+FAOXOM["applyPlugins"] = applyPlugins;
+FAOXOM["getPlugin"] = getPlugin;
+FAOXOM["pluginCount"] = pluginCount;
+FAOXOM["pluginNames"] = pluginNames;
+FAOXOM["registerPlugin"] = registerPlugin;
+FAOXOM["resetPlugins"] = resetPlugins;
+FAOXOM["unregisterPlugin"] = unregisterPlugin;
 FAOXOM["AnimationGraph"] = AnimationGraph;
 FAOXOM["SkeletonRetargeter"] = SkeletonRetargeter;
 FAOXOM["BeveledBoxGeometry"] = BeveledBoxGeometry;
@@ -50916,6 +51540,13 @@ FAOXOM["FresnelNode"] = FresnelNode;
 FAOXOM["NoiseNode"] = NoiseNode;
 FAOXOM["TextureNode"] = TextureNode;
 FAOXOM["tsl"] = tsl;
+FAOXOM["compileNodeGraph"] = compileNodeGraph;
+FAOXOM["compileNodeMaterial"] = compileNodeMaterial;
+FAOXOM["emit"] = emit;
+FAOXOM["emitGlsl"] = emitGlsl;
+FAOXOM["emitWgsl"] = emitWgsl;
+FAOXOM["faoxomnodewgslType"] = faoxomnodewgslType;
+FAOXOM["tslBackends"] = tslBackends;
 FAOXOM["NodeMaterial"] = NodeMaterial;
 FAOXOM["MeshStandardNodeMaterial"] = MeshStandardNodeMaterial;
 FAOXOM["MeshBasicNodeMaterial"] = MeshBasicNodeMaterial;

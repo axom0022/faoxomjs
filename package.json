@@ -1,13 +1,14 @@
 {
   "name": "faoxomjs",
   "version": "7.0.0",
-  "description": "Zero-dependency, high-performance, 3D engine for WebGL2 and WebGPU",
+  "description": "Zero-dependency, high-performance, single-file and modular 3D engine for WebGL2 and WebGPU",
   "type": "module",
   "main": "./FaoxomJs.js",
   "module": "./esm/index.js",
   "types": "./FaoxomJs.d.ts",
   "unpkg": "./dist/faoxom.min.js",
   "jsdelivr": "./dist/faoxom.min.js",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./FaoxomJs.d.ts",
@@ -79,16 +80,51 @@
       "default": "./src/extras/faoxom-worker.js"
     }
   },
+  "files": [
+    "FaoxomJs.js",
+    "FaoxomJs.d.ts",
+    "dist",
+    "esm",
+    "src",
+    "bindings",
+    "codemods",
+    "bin",
+    "tools",
+    "examples",
+    "LICENSE",
+    "README.md",
+    "VERSION"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axom0022/faoxomjs.git"
+  },
+  "homepage": "https://github.com/axom0022/faoxomjs#readme",
+  "bugs": {
+    "url": "https://github.com/axom0022/faoxomjs/issues"
+  },
+  "keywords": [
+    "3d",
+    "webgl",
+    "webgl2",
+    "webgpu",
+    "renderer",
+    "engine",
+    "shading",
+    "physics",
+    "wgsl"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:browser": "node tests/run_browser_validation.mjs tests/browser-report.json",
-    "test:game": "node tests/run_game_validation.mjs tests/game-parity-report.json tests/game-faoxom-baseline.png",
-    "test:reference": "node tests/run_reference_validation.mjs tests/reference-report.json",
-    "test:feature": "node tests/run_feature_validation.mjs tests/feature-report.json",
-    "test": "npm run typecheck && npm run test:browser && npm run test:game && npm run test:reference && npm run test:feature",
+    "bench": "node tools/faoxombench.mjs",
     "build": "node tools/build_from_src.mjs",
-    "test:round12": "node tests/run_round12_webgpu_validation.mjs",
-    "test:localdist": "node tests/run_localdist_boot_validation.mjs"
+    "test": "npm run typecheck && npm run bench"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "playwright": "^1.65.0",

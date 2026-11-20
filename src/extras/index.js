@@ -191,3 +191,5 @@ export * from "./GPUStateVault.js";
 export * from "./Inspector.js";
 
 export * from "./PhysicsDebugRenderer.js";
+
+export * from "./faoxomplugin.js";

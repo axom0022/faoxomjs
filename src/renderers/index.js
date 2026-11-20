@@ -121,3 +121,9 @@ export * from "./VelocityBuffer.js";
 export * from "./MotionBlurPass.js";
 
 export * from "./SSSPass.js";
+
+export * from "./faoxombexturerfeatures.js";
+
+export * from "./faoxomwgslpasses.js";
+
+export * from "./faoxompassparity.js";

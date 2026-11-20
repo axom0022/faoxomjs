@@ -21,3 +21,5 @@ export * from "./PhysicalMaterial.js";
 export * from "./SSSSProfile.js";
 
 export * from "./FNMaterial.js";
+
+export * from "./faoxompom.js";

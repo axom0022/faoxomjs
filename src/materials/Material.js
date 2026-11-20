@@ -35,6 +35,10 @@ class Material {
         this.displacementMap = zanqa.displacementMap || zanqa.heightMap || null;
         this.displacementScale = faoxomvalue(zanqa.displacementScale, .1);
         this.displacementBias = faoxomvalue(zanqa.displacementBias, 0);
+        this.parallaxMap = zanqa.parallaxMap || null;
+        this.parallaxScale = faoxomvalue(zanqa.parallaxScale, 0);
+        this.parallaxMinLayers = faoxomvalue(zanqa.parallaxMinLayers, 8);
+        this.parallaxMaxLayers = faoxomvalue(zanqa.parallaxMaxLayers, 32);
         this.roughnessMap = zanqa.roughnessMap || null;
         this.metalnessMap = zanqa.metalnessMap || zanqa.metallicMap || null;
         this.metallicMap = this.metalnessMap;
@@ -70,6 +74,10 @@ class Material {
             displacementMap: this.displacementMap,
             displacementScale: this.displacementScale,
             displacementBias: this.displacementBias,
+            parallaxMap: this.parallaxMap,
+            parallaxScale: this.parallaxScale,
+            parallaxMinLayers: this.parallaxMinLayers,
+            parallaxMaxLayers: this.parallaxMaxLayers,
             normalScale: this.normalScale,
             roughnessMap: this.roughnessMap,
             metalnessMap: this.metalnessMap,

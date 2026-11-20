@@ -39,3 +39,5 @@ export * from "./MeshStandardNodeMaterial.js";
 export * from "./MeshBasicNodeMaterial.js";
 
 export * from "./TSLBufferPacker.js";
+
+export * from "./faoxomtslcodegen.js";
