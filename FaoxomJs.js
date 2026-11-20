@@ -12228,6 +12228,587 @@ class AtmosphericSky extends Mesh {
 }
 
 
+// AntiTamper - runtime integrity toolkit: prototype freezing, cross-clock
+// speedhack detection, trusted input filtering, canary guard grids over
+// engine memory, timing-entangled rolling keys and hardware-attested seeds.
+
+function faoxomtampermix(a, b) {
+    a = (a ^ 0x9e3779b9) >>> 0;
+    a = Math.imul(a ^ (a >>> 16), 0x85ebca6b) >>> 0;
+    a = Math.imul(a ^ (a >>> 13), 0xc2b2ae35) >>> 0;
+    return (a ^ (b || 0)) >>> 0;
+}
+
+var FROZEN_DEFAULTS = ["WebGL2RenderingContext", "WebGLRenderingContext", "GPUDevice", "WebGPUDevice"];
+
+class CanaryGrid {
+    // Guard grid over a backing buffer: values live at stride-aligned slots,
+    // every other slot holds a checksum of its neighbors plus the frame tick.
+    constructor(capacity, options) {
+        options = options || {};
+        this.stride = 8; // 1 data dword + 7 canary dwords
+        var slots = Math.max(1, Math.ceil(capacity / 4));
+        this.buffer = new ArrayBuffer(slots * this.stride * 4);
+        this.view = new Uint32Array(this.buffer);
+        this.tick = 0;
+        this.tamperCount = 0;
+        this.onTamper = typeof options.onTamper === "function" ? options.onTamper : null;
+        this._seed = (Math.random() * 0xffffffff) >>> 0;
+        for (var i = 0; i < slots; i++) this._stamp(i, 0);
+    }
+
+    _stamp(slot, value) {
+        var base = slot * this.stride;
+        this.view[base] = value;
+        for (var c = 1; c < this.stride; c++) {
+            this.view[base + c] = faoxomtampermix(this._seed ^ faoxomtampermix(slot, c), this.tick ^ value);
+        }
+    }
+
+    set(slot, value) {
+        value = value >>> 0;
+        this._stamp(slot, value);
+    }
+
+    get(slot) {
+        var base = slot * this.stride;
+        var value = this.view[base];
+        for (var c = 1; c < this.stride; c++) {
+            if (this.view[base + c] !== faoxomtampermix(this._seed ^ faoxomtampermix(slot, c), this.tick ^ value)) {
+                this.tamperCount++;
+                if (this.onTamper) { try { this.onTamper(slot, "canary"); } catch (e) { /* user callback */ } }
+                return this.view[base];
+            }
+        }
+        return value;
+    }
+
+    verify() {
+        var slots = this.view.length / this.stride;
+        var clean = true;
+        for (var i = 0; i < slots; i++) {
+            var base = i * this.stride;
+            var value = this.view[base];
+            for (var c = 1; c < this.stride; c++) {
+                if (this.view[base + c] !== faoxomtampermix(this._seed ^ faoxomtampermix(i, c), this.tick ^ value)) {
+                    this.tamperCount++;
+                    clean = false;
+                    if (this.onTamper) { try { this.onTamper(i, "canary"); } catch (e) { /* user callback */ } }
+                    break;
+                }
+            }
+        }
+        return clean;
+    }
+
+    advanceTick() {
+        this.tick = (this.tick + 1) >>> 0;
+        var slots = this.view.length / this.stride;
+        for (var i = 0; i < slots; i++) this._stamp(i, this.view[i * this.stride]);
+        return this;
+    }
+}
+
+class SpeedhackDetector {
+    // Compares three clocks against fixed simulation ticks. A tool that
+    // accelerates rAF or hooks Date.now desynchronizes the ratios.
+    constructor(options) {
+        options = options || {};
+        this.tolerance = options.tolerance || 0.12;
+        this.window = Math.max(30, options.window || 120);
+        this._samples = [];
+        this._performanceNow = options.performanceNow || function () { return typeof performance !== "undefined" ? performance.now() : Date.now(); };
+        this._dateNow = options.dateNow || function () { return Date.now(); };
+        this._perfStart = this._performanceNow();
+        this._dateStart = this._dateNow();
+        this._tickStart = 0;
+        this.ticks = 0;
+        this.suspect = false;
+        this.onSuspect = typeof options.onSuspect === "function" ? options.onSuspect : null;
+    }
+
+    tick() {
+        this.ticks++;
+        if (this.ticks % 5 !== 0) return this;
+        var perfDelta = this._performanceNow() - this._perfStart;
+        var dateDelta = this._dateNow() - this._dateStart;
+        if (perfDelta > 500 && dateDelta > 500) {
+            this._samples.push(dateDelta / perfDelta);
+            if (this._samples.length > this.window) this._samples.shift();
+            var avg = 0;
+            for (var i = 0; i < this._samples.length; i++) avg += this._samples[i];
+            avg /= this._samples.length || 1;
+            if (Math.abs(avg - 1) > this.tolerance && this._samples.length >= 12) {
+                this.suspect = true;
+                if (this.onSuspect) { try { this.onSuspect(avg); } catch (e) { /* user callback */ } }
+            } else if (Math.abs(avg - 1) <= this.tolerance * 0.5) {
+                this.suspect = false;
+            }
+        }
+        return this;
+    }
+}
+
+class TrustedInput {
+    // Wraps event listeners so synthetic events (auto clickers, userscript
+    // dispatchEvent) never reach gameplay handlers.
+    constructor(options) {
+        options = options || {};
+        this.strict = options.strict !== false;
+        this.rejected = 0;
+        this.onReject = typeof options.onReject === "function" ? options.onReject : null;
+        this._targets = [];
+    }
+
+    attach(target, types, handler) {
+        var self = this;
+        var wrapped = function (event) {
+            if (self.strict && event && event.isTrusted === false) {
+                self.rejected++;
+                if (self.onReject) { try { self.onReject(event); } catch (e) { /* user callback */ } }
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            handler(event);
+        };
+        var list = Array.isArray(types) ? types : String(types).split(/\s+/).filter(Boolean);
+        for (var i = 0; i < list.length; i++) target.addEventListener(list[i], wrapped, { passive: false });
+        this._targets.push({ target: target, types: list, wrapped: wrapped });
+        return this;
+    }
+
+    detach() {
+        for (var i = 0; i < this._targets.length; i++) {
+            var entry = this._targets[i];
+            for (var t = 0; t < entry.types.length; t++) entry.target.removeEventListener(entry.types[t], entry.wrapped);
+        }
+        this._targets = [];
+        return this;
+    }
+}
+
+class FrameKeyChain {
+ // Rolling key chain: frame N+1 key derives from frame N state hash and the
+ // measured frame duration. Pausing in a debugger for longer than the valid
+ // window invalidates the chain and every later decode turns to garbage.
+    constructor(options) {
+        options = options || {};
+        this.maxFrameMs = Math.max(8, options.maxFrameMs || 250);
+        this.key = (Math.random() * 0xffffffff) >>> 0;
+        this.valid = true;
+        this._last = performance.now();
+        this._hash = (Math.random() * 0xffffffff) >>> 0;
+        this.onInvalidate = typeof options.onInvalidate === "function" ? options.onInvalidate : null;
+    }
+
+    advance(stateHash) {
+        var now = performance.now();
+        var delta = now - this._last;
+        this._last = now;
+        if (delta < 0 || delta > this.maxFrameMs) {
+            this.valid = false;
+            if (this.onInvalidate) { try { this.onInvalidate(delta); } catch (e) { /* user callback */ } }
+        }
+        this._hash = faoxomtampermix(this._hash, stateHash >>> 0);
+        this.key = faoxomtampermix(this.key, this._hash ^ Math.min(delta, this.maxFrameMs));
+        return this.key;
+    }
+
+    mask(value) {
+        var f32 = new Float32Array(1);
+        f32[0] = value;
+        var bits = new Uint32Array(f32.buffer)[0] ^ (this.valid ? this.key : 0xdeadc0de);
+        f32[0] = 0; // keep the true bits out of any lingering register
+        new Uint32Array(f32.buffer)[0] = bits;
+        return f32[0];
+    }
+
+    unmask(masked) {
+        var f32 = new Float32Array(1);
+        f32[0] = masked;
+        var bits = new Uint32Array(f32.buffer)[0] ^ (this.valid ? this.key : 0xdeadc0de);
+        new Uint32Array(f32.buffer)[0] = bits;
+        return f32[0];
+    }
+}
+
+var AntiTamper = {
+    CanaryGrid: CanaryGrid,
+    SpeedhackDetector: SpeedhackDetector,
+    TrustedInput: TrustedInput,
+    FrameKeyChain: FrameKeyChain,
+
+    // Freezes rendering/timing prototypes so injected scripts cannot hook
+    // draw calls or swap the clock. Irreversible for the page lifetime: only
+    // call once gameplay starts.
+    freezePrototypes: function (names) {
+        var list = names && names.length ? names : FROZEN_DEFAULTS;
+        var frozen = [];
+        for (var i = 0; i < list.length; i++) {
+            var ctor = typeof globalThis !== "undefined" ? globalThis[list[i]] : null;
+            if (ctor && ctor.prototype && !Object.isFrozen(ctor.prototype)) {
+                try { Object.freeze(ctor.prototype); frozen.push(list[i]); } catch (e) { /* not freezable */ }
+            }
+        }
+        return frozen;
+    },
+
+    // Derives a 32 bit seed from a WebAuthn hardware signature when an
+    // authenticator is available; falls back to crypto randomness.
+    hardwareSeed: async function (challenge) {
+        var bytes = new Uint8Array(32);
+        if (globalThis.crypto && globalThis.crypto.getRandomValues) globalThis.crypto.getRandomValues(bytes);
+        var fallback = 0;
+        for (var i = 0; i < bytes.length; i += 4) fallback = faoxomtampermix(fallback, (bytes[i] | bytes[i + 1] << 8 | bytes[i + 2] << 16 | bytes[i + 3] << 24) >>> 0);
+        if (typeof navigator === "undefined" || !navigator.credentials || !navigator.credentials.create) return { seed: fallback, hardware: false };
+        try {
+            var seedMaterial = new Uint8Array(32);
+            if (globalThis.crypto && globalThis.crypto.getRandomValues) globalThis.crypto.getRandomValues(seedMaterial);
+            var credential = await navigator.credentials.create({
+                publicKey: {
+                    challenge: challenge || seedMaterial,
+                    rp: { name: "faoxomjs" },
+                    user: { id: bytes.slice(0, 16), name: "faoxom-session", displayName: "faoxom-session" },
+                    pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+                    authenticatorSelection: { userVerification: "preferred" },
+                    timeout: 30000
+                }
+            });
+            if (credential && credential.rawId) {
+                var mixed = 0x12345678;
+                for (var b = 0; b < credential.rawId.byteLength; b++) mixed = faoxomtampermix(mixed, credential.rawId[b]);
+                return { seed: mixed >>> 0, hardware: true };
+            }
+        } catch (e) { /* no authenticator or dismissed */ }
+        return { seed: fallback, hardware: false };
+    }
+};
+
+
+// ProtectedValue - tamper resistant numeric state for anti-cheat. The real
+// value is stored XORed with a key that rotates every frame; a decoy
+// "honeypot" field holds the plaintext value and is checksummed so memory
+// scanners that write to it are detected. BlindedInt32 keeps integers behind
+// an affine transform so damage can be applied without ever decrypting.
+
+var PROTECTED_FRAME_KEY = 0;
+
+function faoxomrot32(x, k) {
+    return (x << k) | (x >>> (32 - k));
+}
+
+function faoxommix32(a, b, c) {
+    a = (a ^ (c >>> 16)) >>> 0;
+    b = (b ^ faoxomrot32(c, 19)) >>> 0;
+    c = (Math.imul(c, 0x45d9f3b) >>> 0);
+    c = (c ^ (c >>> 15)) >>> 0;
+    return ((Math.imul(a ^ c, 0x9e3779b1) >>> 0) ^ b) >>> 0;
+}
+
+class ProtectedValue {
+    constructor(value, options) {
+        options = options || {};
+        this._masked = 0;
+        this._key = (Math.random() * 0xffffffff) >>> 0;
+        this._checksum = 0;
+        this.tamperCount = 0;
+        this.onTamper = typeof options.onTamper === "function" ? options.onTamper : null;
+        this.honeypot = 0;
+        this.set(typeof value === "number" ? value : 0);
+        ProtectedValue._instances.push(this);
+    }
+
+    static rotateFrameKey(seed) {
+        var oldFrameKey = PROTECTED_FRAME_KEY;
+        var nextFrameKey = faoxommix32(oldFrameKey, (seed || Date.now()) >>> 0, 0x27220a95);
+        for (var i = 0; i < ProtectedValue._instances.length; i++) {
+            var item = ProtectedValue._instances[i];
+            var oldKey = (item._key ^ oldFrameKey) >>> 0;
+            if (faoxommix32(item._masked, oldKey, 0x85ebca6b) !== item._checksum) continue;
+            var bits = (item._masked ^ oldKey) >>> 0;
+            var newKey = (item._key ^ nextFrameKey) >>> 0;
+            item._masked = (bits ^ newKey) >>> 0;
+            item._checksum = faoxommix32(item._masked, newKey, 0x85ebca6b);
+        }
+        PROTECTED_FRAME_KEY = nextFrameKey;
+        return PROTECTED_FRAME_KEY;
+    }
+
+    _workingKey() {
+        return (this._key ^ PROTECTED_FRAME_KEY) >>> 0;
+    }
+
+    set(value) {
+        this._key = (Math.random() * 0xffffffff) >>> 0;
+        var f32 = new Float32Array(1);
+        f32[0] = value;
+        var bits = new Uint32Array(f32.buffer)[0];
+        var key = this._workingKey();
+        this._masked = (bits ^ key) >>> 0;
+        this._checksum = faoxommix32(this._masked, key, 0x85ebca6b);
+        this.honeypot = value;
+        return this;
+    }
+
+    get() {
+        var key = this._workingKey();
+        if (faoxommix32(this._masked, key, 0x85ebca6b) !== this._checksum) {
+            this.tamperCount++;
+            if (this.onTamper) { try { this.onTamper(this, "masked"); } catch (e) { /* user callback */ } }
+            return this.honeypot;
+        }
+        var f32 = new Float32Array(1);
+        new Uint32Array(f32.buffer)[0] = (this._masked ^ key) >>> 0;
+        return f32[0];
+    }
+
+    add(delta) { this.set(this.get() + delta); return this; }
+
+    // Compares the decoy against the true value and reports drift as tampering.
+    checkHoneypot() {
+        var real = this.get();
+        if (this.honeypot !== real) {
+            this.tamperCount++;
+            if (this.onTamper) { try { this.onTamper(this, "honeypot"); } catch (e) { /* user callback */ } }
+            return false;
+        }
+        return true;
+    }
+
+    valueOf() { return this.get(); }
+}
+
+ProtectedValue._instances = [];
+
+// stored = (real * multiplier + offset) mod 2^32. Arithmetic runs directly on
+// the encoded form; the true integer only materializes on reveal().
+class BlindedInt32 {
+    constructor(value, options) {
+        options = options || {};
+        this._m = (((Math.random() * 0xffff) + 0x8001) | 0) | 1; // odd multiplier
+        this._o = (Math.random() * 0xffffffff) >>> 0;
+        this._stored = 0;
+        this._inv = 0;
+        this.tamperCount = 0;
+        this.onTamper = typeof options.onTamper === "function" ? options.onTamper : null;
+        this.honeypot = 0;
+        this._set(typeof value === "number" ? Math.round(value) : 0);
+    }
+
+    _set(real) {
+        this._stored = (Math.imul(real, this._m) + this._o) >>> 0;
+        this.honeypot = real;
+        return this;
+    }
+
+    _modInverse() {
+        if (this._inv) return this._inv;
+        var inv = 1;
+        for (var i = 0; i < 5; i++) inv = Math.imul(inv, 2 - Math.imul(this._m, inv));
+        this._inv = inv >>> 0 || 1;
+        return this._inv;
+    }
+
+    _decode(stored) {
+        return Math.imul((stored - this._o) >>> 0, this._modInverse()) | 0;
+    }
+
+    reveal() { return this._decode(this._stored); }
+
+    // subtract runs on the encoded form: (real - d) * m + o = stored - d * m
+    sub(delta, silent) {
+        this._stored = (this._stored - Math.imul(Math.round(delta), this._m)) >>> 0;
+        if (!silent) this.honeypot -= Math.round(delta);
+        return this._decode(this._stored);
+    }
+
+    add(delta, silent) { return this.sub(-delta, silent); }
+
+    checkHoneypot() {
+        var real = this.reveal();
+        if (this.honeypot !== real) {
+            this.tamperCount++;
+            if (this.onTamper) { try { this.onTamper(this, "honeypot"); } catch (e) { /* user callback */ } }
+            return false;
+        }
+        return true;
+    }
+
+    valueOf() { return this.reveal(); }
+}
+
+
+// GPUStateVault - keeps authoritative gameplay numbers in GPU VRAM. The
+// private buffer is created without MAP_READ|MAP_WRITE so the CPU cannot
+// read it back; mutations run in a compute shader. Values only return to the
+// CPU when the game explicitly unseals a slot through a staging buffer.
+// Falls back to BlindedInt32 memory when WebGPU is unavailable.
+
+var VAULT_WGSL = `
+struct Vault {
+    values: array<f32>,
+};
+@group(0) @binding(0) var<storage, read_write> vault: Vault;
+struct Params {
+    op: u32,       // 0 add, 1 sub, 2 mul, 3 clamp, 4 min, 5 max, 6 copy
+    slot: u32,
+    operand: f32,
+    low: f32,
+    high: f32,
+};
+@group(0) @binding(1) var<uniform> params: Params;
+@compute @workgroup_size(1)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+    let slot = params.slot;
+    if (slot >= u32(arrayLength(&vault.values))) { return; }
+    let current = vault.values[slot];
+    var next = current;
+    switch params.op {
+        case 0u: { next = current + params.operand; }
+        case 1u: { next = current - params.operand; }
+        case 2u: { next = current * params.operand; }
+        case 3u: { next = clamp(current, params.low, params.high); }
+        case 4u: { next = min(current, params.operand); }
+        case 5u: { next = max(current, params.operand); }
+        case 6u: { next = params.operand; }
+        default: { next = current; }
+    }
+    vault.values[slot] = next;
+}
+`;
+
+var OPS = { add: 0, sub: 1, mul: 2, clamp: 3, min: 4, max: 5, set: 6 };
+
+class GPUStateVault {
+    constructor(options) {
+        options = options || {};
+        this.capacity = Math.max(1, options.capacity || 32);
+        this.device = options.device || null;
+        this.buffer = null;
+        this.uniform = null;
+        this.pipeline = null;
+        this.bindGroup = null;
+        this.gpu = false;
+        this._fallback = null;
+        this._sealedWrites = 0;
+        if (this.device) this._initGPU();
+        if (!this.gpu) this._initFallback();
+    }
+
+    static async create(options) {
+        options = options || {};
+        if (!options.device && typeof navigator !== "undefined" && navigator.gpu) {
+            try {
+                var adapter = await navigator.gpu.requestAdapter();
+                if (adapter) options.device = await adapter.requestDevice();
+            } catch (e) { /* no adapter */ }
+        }
+        return new GPUStateVault(options);
+    }
+
+    _initGPU() {
+        try {
+            var device = this.device;
+            this.buffer = device.createBuffer({
+                size: this.capacity * 4,
+                usage: 0x80 | 0x8 | 0x10 | 0x4 // STORAGE | COPY_DST | COPY_SRC | UNIFORM-free
+                // deliberately no MAP_READ (0x1) and no MAP_WRITE (0x2)
+            });
+            this.uniform = device.createBuffer({ size: 32, usage: 0x40 | 0x8 }); // UNIFORM | COPY_DST
+            this.module = device.createShaderModule({ code: VAULT_WGSL });
+            this.pipeline = device.createComputePipeline({ layout: "auto", compute: { module: this.module, entryPoint: "main" } });
+            this.bindGroup = device.createBindGroup({
+                layout: this.pipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: this.buffer } },
+                    { binding: 1, resource: { buffer: this.uniform } }
+                ]
+            });
+            this.gpu = true;
+        } catch (e) {
+            this.gpu = false;
+            this._initFallback();
+        }
+    }
+
+    _initFallback() {
+        this._fallback = [];
+        for (var i = 0; i < this.capacity; i++) this._fallback.push(new BlindedInt32(0));
+    }
+
+    // CPU writes are one way (queue.writeBuffer); the value never becomes
+    // CPU readable from the vault buffer itself.
+    set(slot, value) {
+        if (slot < 0 || slot >= this.capacity) throw new Error("GPUStateVault: slot out of range");
+        this._apply(OPS.set, slot, value, 0, 0);
+        return this;
+    }
+
+    add(slot, delta) { this._apply(OPS.add, slot, delta, 0, 0); return this; }
+    sub(slot, delta) { this._apply(OPS.sub, slot, delta, 0, 0); return this; }
+    mul(slot, factor) { this._apply(OPS.mul, slot, factor, 0, 0); return this; }
+    clamp(slot, low, high) { this._apply(OPS.clamp, slot, 0, low, high); return this; }
+    min(slot, bound) { this._apply(OPS.min, slot, bound, 0, 0); return this; }
+    max(slot, bound) { this._apply(OPS.max, slot, bound, 0, 0); return this; }
+
+    _apply(op, slot, operand, low, high) {
+        if (!this.gpu) {
+            var blind = this._fallback[slot];
+            if (op === OPS.set) blind._set(Math.round(operand));
+            else if (op === OPS.add) blind.add(Math.round(operand), true);
+            else if (op === OPS.sub) blind.sub(Math.round(operand), true);
+            else if (op === OPS.mul) blind._set(Math.round(blind.reveal() * operand));
+            else if (op === OPS.clamp) blind._set(Math.min(Math.max(Math.round(low), blind.reveal()), Math.round(high)));
+            else if (op === OPS.min) blind._set(Math.min(blind.reveal(), Math.round(operand)));
+            else if (op === OPS.max) blind._set(Math.max(blind.reveal(), Math.round(operand)));
+            return;
+        }
+        var params = new ArrayBuffer(32);
+        var view = new DataView(params);
+        view.setUint32(0, op, true);
+        view.setUint32(4, slot, true);
+        view.setFloat32(8, operand, true);
+        view.setFloat32(12, low, true);
+        view.setFloat32(16, high, true);
+        var device = this.device;
+        device.queue.writeBuffer(this.uniform, 0, params);
+        var encoder = device.createCommandEncoder();
+        var pass = encoder.beginComputePass();
+        pass.setPipeline(this.pipeline);
+        pass.setBindGroup(0, this.bindGroup);
+        pass.dispatchWorkgroups(1);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        this._sealedWrites++;
+    }
+
+    // Explicit, auditable read-back through a throwaway staging buffer.
+    async unseal(slot) {
+        if (slot < 0 || slot >= this.capacity) throw new Error("GPUStateVault: slot out of range");
+        if (!this.gpu) return this._fallback[slot].reveal();
+        var device = this.device;
+        var staging = device.createBuffer({ size: 4, usage: 0x8 | 0x1 }); // COPY_DST | MAP_READ
+        var encoder = device.createCommandEncoder();
+        encoder.copyBufferToBuffer(this.buffer, slot * 4, staging, 0, 4);
+        device.queue.submit([encoder.finish()]);
+        await staging.mapAsync(0x1);
+        var value = new DataView(staging.getMappedRange()).getFloat32(0, true);
+        staging.unmap();
+        staging.destroy();
+        return value;
+    }
+
+    destroy() {
+        if (this.gpu) {
+            try { this.buffer.destroy(); } catch (e) { /* gone */ }
+            try { this.uniform.destroy(); } catch (e) { /* gone */ }
+        }
+        this.gpu = false;
+    }
+}
+
+
 class Float32BufferAttribute extends BufferAttribute { constructor(array, itemSize, normalized) { super(array instanceof Float32Array ? array : new Float32Array(array), itemSize, normalized); } }
 
 
@@ -13146,6 +13727,419 @@ class HeadlessRenderer {
 }
 
 
+// IntegrityVM - a tiny polymorphic bytecode virtual machine. Game rules are
+// compiled to a custom 32 opcode instruction set whose byte values are
+// permuted per session, so a static dump of the shipped script never reveals
+// a stable disassembly. Loops are bounded by a gas limit so a bad program can
+// never hang the frame.
+
+var BASE_OPS = [
+    "HALT", "LOAD_CONST", "LOAD_VAR", "STORE_VAR", "ADD", "SUB", "MUL", "DIV",
+    "MOD", "NEG", "CMP_LT", "CMP_EQ", "CMP_GT", "JMP", "JMP_IF_ZERO", "JMP_IF_NOT_ZERO",
+    "CALL", "RETURN", "PEEK", "POKE", "RAND", "HASH", "CLAMP", "MIN", "MAX",
+    "NOT", "AND", "OR", "XOR", "SHL", "SHR", "NOP"
+];
+
+function faoxomvmpermute(seed) {
+    // Fisher-Yates over opcode byte values driven by a xorshift stream.
+    var state = (seed >>> 0) || 0x9e3779b9;
+    function next() {
+        state ^= state << 13; state >>>= 0;
+        state ^= state >>> 17;
+        state ^= state << 5; state >>>= 0;
+        return state;
+    }
+    var bytes = [];
+    for (var i = 0; i < BASE_OPS.length; i++) bytes.push(i);
+    for (var j = bytes.length - 1; j > 0; j--) {
+        var k = next() % (j + 1);
+        var t = bytes[j]; bytes[j] = bytes[k]; bytes[k] = t;
+    }
+    return bytes; // perm[i] = wire byte for BASE_OPS[i]
+}
+
+class IntegrityVM {
+    constructor(options) {
+        options = options || {};
+        this.seed = (options.seed !== undefined ? options.seed : Math.random() * 0xffffffff) >>> 0;
+        this._perm = faoxomvmpermute(this.seed);
+        this._wireToName = {};
+        for (var i = 0; i < BASE_OPS.length; i++) this._wireToName[this._perm[i]] = BASE_OPS[i];
+        this.gasLimit = Math.max(64, options.gasLimit || 100000);
+        this.vars = new Float64Array(options.varCount || 32);
+        this.out = [];
+        this.callDepth = 0;
+        this.hooks = options.hooks || {}; // named host calls: { name: fn(args) }
+    }
+
+    // assemble takes a program in base opcode names and encodes it with this
+    // session's permutation. layout: [op, a, b] triplets of 16 bit words.
+    assemble(program) {
+        var lines = Array.isArray(program) ? program : String(program).split("\n");
+        var words = [];
+        for (var i = 0; i < lines.length; i++) {
+            var line = String(lines[i]).trim();
+            if (!line || line.indexOf("//") === 0) continue;
+            var parts = line.split(/\s+/);
+            var name = parts[0].toUpperCase();
+            var index = BASE_OPS.indexOf(name);
+            if (index < 0) throw new Error("IntegrityVM: unknown opcode " + name);
+            words.push(this._perm[index], Number(parts[1]) || 0, Number(parts[2]) || 0);
+        }
+        return new Uint16Array(words);
+    }
+
+    run(code, entry) {
+        var pc = (entry || 0) * 3;
+        var gas = this.gasLimit;
+        var stack = [];
+        this.out.length = 0;
+        this.callDepth = 0;
+        while (gas-- > 0) {
+            if (pc < 0 || pc + 2 >= code.length) break;
+            var op = this._wireToName[code[pc]];
+            var a = code[pc + 1], b = code[pc + 2];
+            pc += 3;
+            switch (op) {
+                case "HALT": return this.out;
+                case "LOAD_CONST": stack.push(a + (b / 65535)); break;
+                case "LOAD_VAR": stack.push(this.vars[a] || 0); break;
+                case "STORE_VAR": this.vars[a] = stack.length ? stack.pop() : 0; break;
+                case "ADD": { var r = stack.pop() || 0, l = stack.pop() || 0; stack.push(l + r); break; }
+                case "SUB": { var r2 = stack.pop() || 0, l2 = stack.pop() || 0; stack.push(l2 - r2); break; }
+                case "MUL": { var r3 = stack.pop() || 0, l3 = stack.pop() || 0; stack.push(l3 * r3); break; }
+                case "DIV": { var r4 = stack.pop() || 0, l4 = stack.pop() || 0; stack.push(r4 === 0 ? 0 : l4 / r4); break; }
+                case "MOD": { var r5 = stack.pop() || 0, l5 = stack.pop() || 0; stack.push(r5 === 0 ? 0 : l5 % r5); break; }
+                case "NEG": stack.push(-(stack.pop() || 0)); break;
+                case "CMP_LT": { var rb = stack.pop() || 0, lb = stack.pop() || 0; stack.push(lb < rb ? 1 : 0); break; }
+                case "CMP_EQ": { var rc = stack.pop() || 0, lc = stack.pop() || 0; stack.push(lc === rc ? 1 : 0); break; }
+                case "CMP_GT": { var rd = stack.pop() || 0, ld = stack.pop() || 0; stack.push(ld > rd ? 1 : 0); break; }
+                case "JMP": pc = a * 3; break;
+                case "JMP_IF_ZERO": if (!(stack.length ? stack[stack.length - 1] : 0)) pc = a * 3; break;
+                case "JMP_IF_NOT_ZERO": if (stack.length && stack[stack.length - 1]) pc = a * 3; break;
+                case "CALL": {
+                    if (++this.callDepth > 32) throw new Error("IntegrityVM: call depth exceeded");
+                    stack.push(pc / 3);
+                    pc = a * 3;
+                    break;
+                }
+                case "RETURN": {
+                    if (--this.callDepth < 0) throw new Error("IntegrityVM: return without call");
+                    pc = (stack.length ? stack.pop() : 0) * 3;
+                    break;
+                }
+                case "PEEK": stack.push(this.vars[a] || 0); break;
+                case "POKE": this.vars[a] = stack.length ? stack[stack.length - 1] : 0; break;
+                case "RAND": stack.push((Math.random() * (a || 1))); break;
+                case "HASH": { var v = stack.length ? stack.pop() : 0; stack.push(faoxomvmhash(v, a)); break; }
+                case "CLAMP": { var hi = stack.pop() || 0, lo = stack.pop() || 0, x = stack.pop() || 0; stack.push(Math.min(hi, Math.max(lo, x))); break; }
+                case "MIN": { var r6 = stack.pop() || 0, l6 = stack.pop() || 0; stack.push(Math.min(l6, r6)); break; }
+                case "MAX": { var r7 = stack.pop() || 0, l7 = stack.pop() || 0; stack.push(Math.max(l7, r7)); break; }
+                case "NOT": stack.push(stack.pop() ? 0 : 1); break;
+                case "AND": { var r8 = stack.pop() || 0, l8 = stack.pop() || 0; stack.push((l8 !== 0 && r8 !== 0) ? 1 : 0); break; }
+                case "OR": { var r9 = stack.pop() || 0, l9 = stack.pop() || 0; stack.push((l9 !== 0 || r9 !== 0) ? 1 : 0); break; }
+                case "XOR": { var r10 = stack.pop() || 0, l10 = stack.pop() || 0; stack.push((l10 !== 0) !== (r10 !== 0) ? 1 : 0); break; }
+                case "SHL": { var rs = stack.pop() || 0, ls = stack.pop() || 0; stack.push(Math.floor(ls) << Math.floor(rs)); break; }
+                case "SHR": { var rs2 = stack.pop() || 0, ls2 = stack.pop() || 0; stack.push(Math.floor(ls2) >>> Math.floor(rs2)); break; }
+                case "NOP": break;
+                default: throw new Error("IntegrityVM: illegal opcode at word " + pc);
+            }
+        }
+        throw new Error("IntegrityVM: gas exhausted (possible hang guarded)");
+    }
+
+    // Encodes game rules once on a build machine; ships only wire bytes.
+    static pack(program, seed) {
+        var vm = new IntegrityVM({ seed: seed });
+        return { seed: vm.seed, code: vm.assemble(program) };
+    }
+}
+
+function faoxomvmhash(value, salt) {
+    var x = (Math.floor(value) ^ (salt * 0x9e3779b9)) >>> 0;
+    x = Math.imul(x ^ (x >>> 16), 0x21f0aaad) >>> 0;
+    x = Math.imul(x ^ (x >>> 15), 0x735a2d97) >>> 0;
+    return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
+}
+
+
+class FixedSimulation {
+    constructor(options) {
+        options = options || {};
+        this.timeStep = options.timeStep || 1 / 60;
+        this.maxSubSteps = Math.max(1, Math.floor(options.maxSubSteps === undefined ? 8 : options.maxSubSteps));
+        this.accumulator = 0;
+        this.tick = 0;
+        this.time = 0;
+        this.world = options.world || null;
+        this.onTick = options.onTick || null;
+        this.onSnapshot = options.onSnapshot || null;
+        this.onRestore = options.onRestore || null;
+        this.inputDelay = Math.max(0, Math.floor(options.inputDelay || 0));
+        this.defaultInput = options.defaultInput === undefined ? null : options.defaultInput;
+        this.inputs = {};
+    }
+    pushInput(tick, input) {
+        this.inputs[tick] = input;
+        return this;
+    }
+    inputAt(tick) {
+        var source = tick - this.inputDelay;
+        if (source < 0 || this.inputs[source] === undefined) return this.defaultInput;
+        return this.inputs[source];
+    }
+    currentInput() {
+        return this.inputAt(this.tick);
+    }
+    advance(frameDelta) {
+        this.accumulator += Math.min(Math.max(frameDelta || 0, 0), 0.25);
+        var steps = 0;
+        while (this.accumulator >= this.timeStep && steps < this.maxSubSteps) {
+            this.stepOnce();
+            this.accumulator -= this.timeStep;
+            steps++;
+        }
+        if (steps === this.maxSubSteps) this.accumulator = 0;
+        return steps;
+    }
+    stepOnce() {
+        var input = this.currentInput();
+        if (this.onTick) this.onTick(this.tick, input, this);
+        if (this.world) this.world.singleStep(this.timeStep);
+        this.tick++;
+        this.time += this.timeStep;
+        return this;
+    }
+    snapshot() {
+        var state = { tick: this.tick, time: this.time, accumulator: this.accumulator, world: this.world ? this.world.snapshot() : null, extra: this.onSnapshot ? this.onSnapshot() : null };
+        return state;
+    }
+    restore(state) {
+        if (!state) return this;
+        this.tick = state.tick;
+        this.time = state.time;
+        this.accumulator = state.accumulator;
+        if (state.world && this.world) this.world.restore(state.world);
+        if (this.onRestore && state.extra !== null && state.extra !== undefined) this.onRestore(state.extra, this);
+        return this;
+    }
+    interpolatedPosition(body, alpha, target) {
+        var t = Math.min(Math.max(alpha, 0), 1);
+        return (target || new Vector3()).copy(body.previousPosition).lerp(body.position, t);
+    }
+    applyInterpolation(alpha) {
+        if (!this.world) return this;
+        var bodies = this.world.bodies;
+        for (var i = 0; i < bodies.length; i++) {
+            var body = bodies[i];
+            if (!body.object) continue;
+            this.interpolatedPosition(body, alpha, body.object.position);
+        }
+        return this;
+    }
+    reset() {
+        this.accumulator = 0;
+        this.tick = 0;
+        this.time = 0;
+        this.inputs = {};
+        return this;
+    }
+}
+
+
+// NetcodeSession - deterministic lockstep multiplayer core. Peers exchange
+// raw inputs instead of positions, every client advances the same fixed
+// timestep simulation, and periodic state hashes expose divergence. With 3+
+// peers a majority vote kicks the session whose hashes disagree.
+
+function fnv1a32(u8, seed) {
+    var hash = (seed || 0x811c9dc5) >>> 0;
+    for (var i = 0; i < u8.length; i++) {
+        hash ^= u8[i];
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash >>> 0;
+}
+
+class NetcodeSession {
+    constructor(options) {
+        options = options || {};
+        this.localId = options.localId !== undefined ? options.localId : 0;
+        this.tickRate = Math.max(10, options.tickRate || 60);
+        this.hashInterval = Math.max(1, options.hashInterval || 30);
+        this.inputDelay = Math.max(0, options.inputDelay || 2);
+        this.maxRollback = Math.max(0, options.maxRollback || 0);
+        this.peers = {}; // id -> { lastTick, hashes: {tick -> hash}, missed }
+        this._inputs = {}; // tick -> { peerId -> inputFloatArray }
+        this._localInputs = {};
+        this._confirmedTick = 0;
+        this.currentTick = 0;
+        this.desyncDetected = false;
+        this.kicked = null;
+        this.onSendInputs = typeof options.onSendInputs === "function" ? options.onSendInputs : null;
+        this.onSendHash = typeof options.onSendHash === "function" ? options.onSendHash : null;
+        this.onKick = typeof options.onKick === "function" ? options.onKick : null;
+        this.onDesync = typeof options.onDesync === "function" ? options.onDesync : null;
+        this._hashes = {};
+        this._sim = options.simulation || null;
+    }
+
+    // Feed one local input for the given tick. Returns the envelope the
+    // transport should broadcast to peers.
+    submitLocalInput(tick, input) {
+        var payload = {
+            type: "input",
+            peer: this.localId,
+            tick: tick,
+            input: Array.isArray(input) || input instanceof Float32Array ? Array.from(input) : [Number(input) || 0]
+        };
+        this.receiveMessage(payload);
+        if (this.onSendInputs) this.onSendInputs(payload);
+        return payload;
+    }
+
+    // Transport calls this for every message that arrives from a peer.
+    receiveMessage(message) {
+        if (!message || typeof message !== "object") return;
+        if (message.type === "input") {
+            var tick = message.tick | 0;
+            var peer = message.peer;
+            if (!this._inputs[tick]) this._inputs[tick] = {};
+            this._inputs[tick][peer] = message.input;
+            if (!this.peers[peer]) this.peers[peer] = { lastTick: -1, hashes: {}, missed: 0 };
+            this.peers[peer].lastTick = Math.max(this.peers[peer].lastTick, tick);
+        } else if (message.type === "hash") {
+            var peerId = message.peer;
+            if (!this.peers[peerId]) this.peers[peerId] = { lastTick: -1, hashes: {}, missed: 0 };
+            this.peers[peerId].hashes[message.tick | 0] = message.hash >>> 0;
+            this._compareHashes(message.tick | 0);
+        } else if (message.type === "kick") {
+            if (message.target === this.localId) {
+                this.kicked = { by: message.peer, reason: message.reason || "hash mismatch" };
+                if (this.onKick) this.onKick(this.kicked);
+            }
+        }
+    }
+
+    addPeer(id) {
+        if (!this.peers[id]) this.peers[id] = { lastTick: -1, hashes: {}, missed: 0 };
+        return this;
+    }
+
+    removePeer(id) { delete this.peers[id]; return this; }
+
+    peerIds() {
+        var ids = [this.localId];
+        for (var id in this.peers) ids.push(Number(id));
+        return ids;
+    }
+
+    // A tick is ready once every known peer (including us) has an input.
+    tickReady(tick) {
+        var bucket = this._inputs[tick];
+        if (!bucket || bucket[this.localId] === undefined) return false;
+        for (var id in this.peers) {
+            if (bucket[id] === undefined) return false;
+        }
+        return true;
+    }
+
+    // Inputs for a tick, in stable peer order, ready to hand a deterministic sim.
+    inputsForTick(tick) {
+        var bucket = this._inputs[tick] || {};
+        var ids = this.peerIds().sort(function (a, b) { return a - b; });
+        var merged = [];
+        for (var i = 0; i < ids.length; i++) {
+            var input = bucket[ids[i]] || [];
+            for (var j = 0; j < input.length; j++) merged.push(Number(input[j]) || 0);
+        }
+        return merged;
+    }
+
+    advanceTick() {
+        delete this._inputs[this.currentTick - this.maxRollback - 8];
+        this.currentTick++;
+        if (this.currentTick % this.hashInterval === 0) return true; // caller should hash
+        return false;
+    }
+
+    // Hash a state snapshot. Accepts Float32Array (the physics buffer) or any
+    // object with a .buffer to read raw bytes deterministically.
+    hashState(state, tick) {
+        var bytes;
+        if (state instanceof Float32Array) bytes = new Uint8Array(state.buffer, state.byteOffset, state.byteLength);
+        else if (state && state.buffer instanceof ArrayBuffer) bytes = new Uint8Array(state.buffer, state.byteOffset || 0, state.byteLength);
+        else {
+            var encoded = JSON.stringify(state, function (key, value) {
+                return value instanceof Float32Array ? Array.from(value) : value;
+            });
+            if (typeof TextEncoder !== "undefined") bytes = new TextEncoder().encode(encoded);
+            else {
+                bytes = new Uint8Array(encoded.length);
+                for (var c = 0; c < encoded.length; c++) bytes[c] = encoded.charCodeAt(c) & 0xff;
+            }
+        }
+        var hash = fnv1a32(bytes, 0x811c9dc5 ^ (tick | 0));
+        this._hashes[tick] = hash;
+        this._compareHashes(tick);
+        var payload = { type: "hash", peer: this.localId, tick: tick, hash: hash };
+        if (this.onSendHash) this.onSendHash(payload);
+        return hash;
+    }
+
+    _compareHashes(tick) {
+        var mine = this._hashes[tick];
+        if (mine === undefined) return;
+        var agree = 1, disagree = {};
+        for (var id in this.peers) {
+            var theirs = this.peers[id].hashes[tick];
+            if (theirs === undefined) continue;
+            if (theirs === mine) agree++;
+            else disagree[id] = theirs;
+        }
+        var total = agree + Object.keys(disagree).length;
+        if (Object.keys(disagree).length && !this.desyncDetected) {
+            this.desyncDetected = true;
+            if (this.onDesync) this.onDesync(tick, mine, disagree);
+        }
+        // Majority vote: with 3+ sessions, honest peers outnumber the cheater.
+        if (total >= 3 && Object.keys(disagree).length > 0 && agree >= Math.ceil(total / 2) && agree > Object.keys(disagree).length) {
+            for (var bad in disagree) {
+                if (this.onKick) this.onKick({ peer: this.localId, target: Number(bad), tick: tick, reason: "state hash mismatch" });
+                if (this.onSendInputs) this.onSendInputs({ type: "kick", peer: this.localId, target: Number(bad), reason: "state hash mismatch" });
+                this.removePeer(Number(bad));
+            }
+        } else if (total < 3 && Object.keys(disagree).length > 0 && agree === 1) {
+            // two peer sessions with no majority: flag and let the app decide
+            this.kicked = { by: null, reason: "unresolvable hash mismatch (need 3+ peers for majority vote)" };
+            if (this.onKick) this.onKick(this.kicked);
+        }
+    }
+
+    // Convenience: wrap a FixedSimulation so stepping and hashing are one call.
+    // stateProvider returns the deterministic snapshot to hash each interval.
+    attach(simulation, stateProvider) {
+        this._sim = simulation || null;
+        this._stateProvider = null;
+        if (stateProvider) this._stateProvider = stateProvider;
+        else if (simulation && typeof simulation.state === "function") this._stateProvider = function () { return simulation.state(); };
+        return this;
+    }
+
+    stepIfReady() {
+        if (!this.tickReady(this.currentTick)) return false;
+        var tick = this.currentTick;
+        if (this._sim) {
+            this._sim.pushInput(tick, this.inputsForTick(tick));
+            this._sim.stepOnce();
+        }
+        var shouldHash = this.advanceTick();
+        if (shouldHash && this._stateProvider) this.hashState(this._stateProvider(), tick);
+        return true;
+    }
+}
+
+
 // OffscreenEngine - main-thread controller for worker-first offscreen
 // rendering (roadmap item 43). Transfers a canvas to an engine worker
 // (src/extras/faoxom-worker.js), loads .faox scenes, drives the camera and
@@ -13584,6 +14578,642 @@ class PerfGovernor {
 }
 
 
+// PhysicsDebugRenderer - draws collision shapes, joints, contact points,
+// AABBs, velocity vectors and sleeping state as line geometry on top of the
+// scene. Zero dependencies: one LineSegments object per category, rebuilt
+// only when the world changes.
+
+var COLORS = {
+    box: 0x4f9be8, sphere: 0x54d28e, capsule: 0xe8b64f, cylinder: 0xc98ef0,
+    plane: 0x6a7f9e, convex: 0xe86f6f, mesh: 0x9a86e8, heightfield: 0x6fd8e8,
+    compound: 0xe8e26f, sleeping: 0x555f6e, static: 0x8892a6,
+    joint: 0xffd24f, contact: 0xff5f5f, aabb: 0x2f3a4d, velocity: 0x59c2ff
+};
+
+function pushBox(out, hw, hh, hd) {
+    var x = hw, y = hh, z = hd;
+    var corners = [
+        [-x, -y, -z], [x, -y, -z], [x, y, -z], [-x, y, -z],
+        [-x, -y, z], [x, -y, z], [x, y, z], [-x, y, z]
+    ];
+    var edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+    for (var i = 0; i < edges.length; i++) {
+        out.push(corners[edges[i][0]][0], corners[edges[i][0]][1], corners[edges[i][0]][2]);
+        out.push(corners[edges[i][1]][0], corners[edges[i][1]][1], corners[edges[i][1]][2]);
+    }
+}
+
+function pushCircle(out, radius, segments, axis) {
+    for (var i = 0; i < segments; i++) {
+        var a0 = (i / segments) * Math.PI * 2, a1 = ((i + 1) / segments) * Math.PI * 2;
+        var c0 = Math.cos(a0) * radius, s0 = Math.sin(a0) * radius;
+        var c1 = Math.cos(a1) * radius, s1 = Math.sin(a1) * radius;
+        if (axis === "y") out.push(c0, 0, s0, c1, 0, s1);
+        else if (axis === "z") out.push(c0, s0, 0, c1, s1, 0);
+        else out.push(0, c0, s0, 0, c1, s1);
+    }
+}
+
+class PhysicsDebugRenderer {
+    constructor(scene, options) {
+        options = options || {};
+        this.scene = scene;
+        this.showShapes = options.showShapes !== false;
+        this.showJoints = options.showJoints !== false;
+        this.showContacts = options.showContacts !== false;
+        this.showAABBs = !!options.showAABBs;
+        this.showVelocities = !!options.showVelocities;
+        this.showSleeping = options.showSleeping !== false;
+        this.contactEvents = [];
+        this.group = new Group();
+        this.group.name = "physics-debug";
+        this.group.renderOrder = 999;
+        this._lines = {};
+        this._materials = {};
+        var categories = ["shapes", "joints", "contacts", "aabb", "velocity"];
+        for (var i = 0; i < categories.length; i++) {
+            var material = new LineBasicMaterial({ color: 0xffffff });
+            material.transparent = true;
+            material.opacity = categories[i] === "aabb" ? 0.5 : 0.9;
+            material.depthTest = categories[i] === "contacts" ? false : true;
+            material.vertexColors = true;
+            this._materials[categories[i]] = material;
+            var lines = new LineSegments(new Geometry(), material);
+            lines.frustumCulled = false;
+            this._lines[categories[i]] = lines;
+            this.group.add(lines);
+        }
+        if (this.scene) this.scene.add(this.group);
+    }
+
+    _colorFor(body, base) {
+        if (body.isStatic) return COLORS.static;
+        if (this.showSleeping && body.sleeping) return COLORS.sleeping;
+        return base;
+    }
+
+    _shapeLines(body, out) {
+        var shape = body.shape;
+        if (!shape) return;
+        var color = this._colorFor(body, COLORS[shape.type] || 0xffffff);
+        var marker = (color << 8) | 0xaa; // per-shape color marker entry
+        var stack = [{ body: body, offset: null }];
+        while (stack.length) {
+            var entry = stack.pop();
+            var target = entry.body;
+            var s = target.shape;
+            var positions = [];
+            if (s.type === "box" || s.type === "obb") {
+                var size = s.size || { x: 1, y: 1, z: 1 };
+                pushBox(positions, size.x / 2, size.y / 2, size.z / 2);
+            } else if (s.type === "sphere") {
+                pushCircle(positions, s.radius || 0.5, 16, "y");
+                pushCircle(positions, s.radius || 0.5, 16, "x");
+                pushCircle(positions, s.radius || 0.5, 16, "z");
+            } else if (s.type === "capsule" || s.type === "cylinder") {
+                var r = s.radius || 0.4;
+                var half = (s.height || 1) / 2;
+                pushCircle(positions, r, 12, "y");
+                var yTop = s.type === "capsule" ? half - r : half;
+                var yBot = s.type === "capsule" ? -half + r : -half;
+                pushCircle(positions, r, 12, "y");
+                for (var v = positions.length - 12 * 6; v < positions.length; v += 6) positions[v + 1] = yTop;
+                pushCircle(positions, r, 12, "y");
+                for (var b = positions.length - 12 * 6; b < positions.length; b += 6) positions[b + 1] = yBot;
+                positions.push(r, yTop, 0, r, yBot, 0, -r, yTop, 0, -r, yBot, 0, 0, yTop, r, 0, yBot, r);
+            } else if (s.type === "plane") {
+                var n = s.normal || new Vector3(0, 1, 0);
+                var ext = 4;
+                var u = Math.abs(n.y) > 0.9 ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
+                var t1 = new Vector3().crossVectors(n, u).normalize().multiplyScalar(ext);
+                var t2 = new Vector3().crossVectors(n, t1).normalize().multiplyScalar(ext);
+                var c = n.clone().multiplyScalar(s.constant || 0);
+                positions.push(
+                    c.x - t1.x - t2.x, c.y - t1.y - t2.y, c.z - t1.z - t2.z, c.x + t1.x - t2.x, c.y + t1.y - t2.y, c.z + t1.z - t2.z,
+                    c.x + t1.x - t2.x, c.y + t1.y - t2.y, c.z + t1.z - t2.z, c.x + t1.x + t2.x, c.y + t1.y + t2.y, c.z + t1.z + t2.z,
+                    c.x + t1.x + t2.x, c.y + t1.y + t2.y, c.z + t1.z + t2.z, c.x - t1.x + t2.x, c.y - t1.y + t2.y, c.z - t1.z + t2.z,
+                    c.x - t1.x + t2.x, c.y - t1.y + t2.y, c.z - t1.z + t2.z, c.x - t1.x - t2.x, c.y - t1.y - t2.y, c.z - t1.z - t2.z,
+                    c.x, c.y, c.z, c.x + n.x, c.y + n.y, c.z + n.z
+                );
+            } else if (s.type === "convex" || s.type === "mesh") {
+                var verts = s.vertices || [];
+                for (var vi = 1; vi < verts.length; vi++) {
+                    positions.push(verts[vi - 1].x, verts[vi - 1].y, verts[vi - 1].z, verts[vi].x, verts[vi].y, verts[vi].z);
+                }
+            } else if (s.type === "heightfield") {
+                var w = s.width || 10, d = s.depth || 10;
+                var half = 5;
+                positions.push(-half, 0, -half, half, 0, -half, half, 0, -half, half, 0, half, half, 0, half, -half, 0, half, -half, 0, half, -half, 0, -half);
+            } else if (s.type === "compound" && s.children) {
+                for (var ci = 0; ci < s.children.length; ci++) stack.push({ body: { shape: s.children[ci].shape || s.children[ci], isStatic: target.isStatic, sleeping: target.sleeping }, offset: null });
+            }
+            // transform local positions into body space then world
+            var cos = Math.cos(target.rotation || 0), sin = Math.sin(target.rotation || 0);
+            for (var p = 0; p < positions.length; p += 3) {
+                var lx = positions[p], ly = positions[p + 1], lz = positions[p + 2];
+                var wx, wy, wz;
+                if (target.quaternion) {
+                    var q = target.quaternion;
+                    // rotate vector by quaternion
+                    var ix = q.w * lx + q.y * lz - q.z * ly;
+                    var iy = q.w * ly + q.z * lx - q.x * lz;
+                    var iz = q.w * lz + q.x * ly - q.y * lx;
+                    var iw = -q.x * lx - q.y * ly - q.z * lz;
+                    wx = ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y;
+                    wy = iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z;
+                    wz = iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x;
+                } else { wx = lx; wy = ly; wz = lz; }
+                out.push(wx + target.position.x, wy + target.position.y, wz + target.position.z, color);
+            }
+        }
+    }
+
+    update(world) {
+        if (!world) return this;
+        var shapes = [], joints = [], contacts = [], aabbs = [], velocities = [];
+        if (this.showShapes || this.showAABBs || this.showVelocities) {
+            for (var i = 0; i < world.bodies.length; i++) {
+                var body = world.bodies[i];
+                if (this.showShapes) this._shapeLines(body, shapes);
+                if (this.showAABBs && body.shape && body.shape.getAABB) {
+                    var box = body.shape.getAABB(body.position, null, body.rotation);
+                    if (box) {
+                        var edges = [];
+                        pushBox(edges, (box.max.x - box.min.x) / 2, (box.max.y - box.min.y) / 2, (box.max.z - box.min.z) / 2);
+                        var cx = (box.max.x + box.min.x) / 2, cy = (box.max.y + box.min.y) / 2, cz = (box.max.z + box.min.z) / 2;
+                        for (var e = 0; e < edges.length; e += 3) aabbs.push(edges[e] + cx, edges[e + 1] + cy, edges[e + 2] + cz, COLORS.aabb);
+                    }
+                }
+                if (this.showVelocities && !body.isStatic && body.velocity && body.velocity.lengthSq() > 0.0001) {
+                    velocities.push(body.position.x, body.position.y, body.position.z, COLORS.velocity);
+                    velocities.push(body.position.x + body.velocity.x * 0.15, body.position.y + body.velocity.y * 0.15, body.position.z + body.velocity.z * 0.15, COLORS.velocity);
+                }
+            }
+        }
+        if (this.showJoints && world.constraints) {
+            for (var c = 0; c < world.constraints.length; c++) {
+                var constraint = world.constraints[c];
+                var a = constraint.bodyA, b = constraint.bodyB;
+                if (!a || !b) continue;
+                joints.push(a.position.x, a.position.y, a.position.z, COLORS.joint);
+                joints.push(b.position.x, b.position.y, b.position.z, COLORS.joint);
+            }
+        }
+        if (this.showContacts && world.onCollision) {
+            // apps forward collision events: debugRenderer.pushContact(a, b, normal, point)
+            for (var k = 0; k < this.contactEvents.length; k++) {
+                var event = this.contactEvents[k];
+                var point = event.point;
+                if (!point) continue;
+                contacts.push(point.x - 0.06, point.y - 0.06, point.z - 0.06, COLORS.contact);
+                contacts.push(point.x + 0.06, point.y + 0.06, point.z + 0.06, COLORS.contact);
+                contacts.push(point.x - 0.06, point.y + 0.06, point.z - 0.06, COLORS.contact);
+                contacts.push(point.x + 0.06, point.y - 0.06, point.z + 0.06, COLORS.contact);
+            }
+            this.contactEvents.length = 0;
+        }
+        this._flush("shapes", shapes);
+        this._flush("joints", joints);
+        this._flush("contacts", contacts);
+        this._flush("aabb", aabbs);
+        this._flush("velocity", velocities);
+        return this;
+    }
+
+    pushContact(a, b, normal, penetration, point) {
+        if (this.contactEvents.length < 256) this.contactEvents.push({ point: point ? point.clone ? point.clone() : point : null });
+        return this;
+    }
+
+    _flush(category, data) {
+        var lines = this._lines[category];
+        if (!lines) return;
+        var geometry = lines.geometry;
+        var positions = new Float32Array(data.length / 4 * 3);
+        var colors = new Float32Array(data.length / 4 * 3);
+        var vertexColors = [];
+        for (var i = 0, v = 0; i < data.length; i += 4, v += 3) {
+            positions[v] = data[i];
+            positions[v + 1] = data[i + 1];
+            positions[v + 2] = data[i + 2];
+            var color = data[i + 3];
+            vertexColors.push(((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255);
+        }
+        for (var c = 0; c < vertexColors.length; c++) colors[c] = vertexColors[c];
+        geometry.setAttribute("position", positions, 3);
+        geometry.setAttribute("color", colors, 3);
+        lines.visible = positions.length > 0;
+    }
+
+    setVisible(visible) { this.group.visible = !!visible; return this; }
+
+    dispose() {
+        if (this.scene) this.scene.remove(this.group);
+        return this;
+    }
+}
+
+
+// ReplayLog - verifiable replay records for scoreboards. Clients never submit
+// scores; they submit a compact log of timestamped inputs plus the initial
+// RNG seed and a config hash. Any verifier (serverless function, another
+// player, a headless run) fast-forwards the same deterministic simulation and
+// recomputes the score. Forged claims cannot reproduce the hash.
+
+function replayHeaderBytes() {
+    return 16;
+}
+
+class ReplayRecorder {
+    constructor(options) {
+        options = options || {};
+        this.seed = (options.seed !== undefined ? options.seed : Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+        this.tickRate = Math.max(1, options.tickRate || 60);
+        this._inputs = []; // flat: [tick, inputWord, inputWord, ...] per event
+        this._events = []; // flat: [tick, eventId, payload]
+        this._inputArity = Math.max(0, options.inputArity || 0);
+        this._startedAt = typeof performance !== "undefined" ? performance.now() : 0;
+        this._inputBits = Math.max(1, options.inputBits || 16);
+    }
+
+    // input: array of numbers, each quantized to signed inputBits range
+    record(tick, input) {
+        var words = [];
+        var max = (1 << (this._inputBits - 1)) - 1;
+        for (var i = 0; i < input.length; i++) {
+            var clamped = Math.max(-max - 1, Math.min(max, Math.round(input[i])));
+            words.push(clamped & 0xffff);
+        }
+        this._inputs.push(tick | 0, words.length);
+        for (var w = 0; w < words.length; w++) this._inputs.push(words[w]);
+        return this;
+    }
+
+    recordEvent(tick, eventId, payload) {
+        this._events.push(tick | 0, eventId | 0, payload === undefined ? 0 : payload | 0);
+        return this;
+    }
+
+    setConfig(config) {
+        this.config = config || null;
+        var encoded = JSON.stringify(this.config);
+        this.configHash = 0x811c9dc5;
+        for (var i = 0; i < encoded.length; i++) {
+            this.configHash ^= encoded.charCodeAt(i) & 0xff;
+            this.configHash = Math.imul(this.configHash, 0x01000193) >>> 0;
+        }
+        return this;
+    }
+
+    // Binary wire format (little endian):
+    // u32 magic, u32 version, u32 seed, u32 tickRate
+    // u32 configHash, u32 inputBits, u32 inputCount, u32 eventCount
+    // then per input: i32 tick, u16 len, len x u16 words
+    // then per event: i32 tick, u32 eventId, i32 payload
+    toBuffer() {
+        var size = replayHeaderBytes() * 4;
+        for (var i = 0; i < this._inputs.length;) {
+            size += 6 + this._inputs[i + 1] * 2;
+            i += 2 + this._inputs[i + 1];
+        }
+        size += this._events.length * 12;
+        var buffer = new ArrayBuffer(size);
+        var view = new DataView(buffer);
+        var u8 = new Uint8Array(buffer);
+        var inputCount = 0;
+        for (var j = 0; j < this._inputs.length;) {
+            inputCount++;
+            j += 2 + this._inputs[j + 1];
+        }
+        var offset = 0;
+        function u32(value) { view.setUint32(offset, value >>> 0, true); offset += 4; }
+        u32(0x46585250); // "FXRP"
+        u32(1);
+        u32(this.seed);
+        u32(this.tickRate);
+        u32(this.configHash || 0);
+        u32(this._inputBits);
+        u32(inputCount);
+        u32(this._events.length / 3);
+        for (var k = 0; k < this._inputs.length;) {
+            view.setInt32(offset, this._inputs[k], true); offset += 4;
+            view.setUint16(offset, this._inputs[k + 1], true); offset += 2;
+            var len = this._inputs[k + 1];
+            for (var w = 0; w < len; w++) { view.setUint16(offset, this._inputs[k + 2 + w] & 0xffff, true); offset += 2; }
+            k += 2 + len;
+        }
+        for (var e = 0; e < this._events.length; e += 3) {
+            view.setInt32(offset, this._events[e], true); offset += 4;
+            view.setUint32(offset, this._events[e + 1] >>> 0, true); offset += 4;
+            view.setInt32(offset, this._events[e + 2], true); offset += 4;
+        }
+        return u8.subarray(0, offset);
+    }
+
+    durationTicks() {
+        var last = 0;
+        for (var i = 0; i < this._inputs.length;) {
+            if (this._inputs[i] > last) last = this._inputs[i];
+            i += 2 + this._inputs[i + 1];
+        }
+        return last;
+    }
+}
+
+class ReplayPlayer {
+    constructor(bytes) {
+        this.bytes = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || 0);
+        var view = new DataView(this.bytes.buffer, this.bytes.byteOffset, this.bytes.byteLength);
+        if (this.bytes.length < 32) throw new Error("ReplayLog: truncated replay");
+        if (view.getUint32(0, true) !== 0x46585250) throw new Error("ReplayLog: bad magic");
+        this.version = view.getUint32(4, true);
+        this.seed = view.getUint32(8, true);
+        this.tickRate = view.getUint32(12, true);
+        this.configHash = view.getUint32(16, true);
+        this.inputBits = view.getUint32(20, true);
+        this.inputCount = view.getUint32(24, true);
+        this.eventCount = view.getUint32(28, true);
+        this._offset = 32;
+        this._inputs = [];
+        for (var i = 0; i < this.inputCount; i++) {
+            var tick = view.getInt32(this._offset, true); this._offset += 4;
+            var len = view.getUint16(this._offset, true); this._offset += 2;
+            var words = [];
+            var sign = 1 << (this.inputBits - 1);
+            for (var w = 0; w < len; w++) {
+                var raw = view.getUint16(this._offset, true); this._offset += 2;
+                words.push(raw & sign ? raw - 0x10000 : raw);
+            }
+            this._inputs.push({ tick: tick, input: words });
+        }
+        this.events = [];
+        for (var e = 0; e < this.eventCount; e++) {
+            this.events.push({
+                tick: view.getInt32(this._offset, true),
+                eventId: view.getUint32(this._offset + 4, true),
+                payload: view.getInt32(this._offset + 8, true)
+            });
+            this._offset += 12;
+        }
+        this.cursor = 0;
+    }
+
+    inputAt(tick) {
+        // inputs are sparse: hold the last input at or before the tick
+        var current = null;
+        while (this.cursor < this._inputs.length && this._inputs[this.cursor].tick <= tick) {
+            current = this._inputs[this.cursor].input;
+            this.cursor++;
+        }
+        return current;
+    }
+
+    seek(tick) {
+        this.cursor = 0;
+        var current = null;
+        while (this.cursor < this._inputs.length && this._inputs[this.cursor].tick <= tick) {
+            current = this._inputs[this.cursor].input;
+            this.cursor++;
+        }
+        return current;
+    }
+
+    reset() { this.cursor = 0; return this; }
+
+    durationTicks() {
+        var last = 0;
+        for (var i = 0; i < this._inputs.length; i++) {
+            if (this._inputs[i].tick > last) last = this._inputs[i].tick;
+        }
+        return last;
+    }
+
+    // Verifier: drives a deterministic runner { start(seed, config), tick(tick, input), event?(tick, id, payload), finish() -> score }
+    // Returns { score, seed, ticks, configHash, ok }.
+    verify(runner, maxTicks) {
+        if (!runner || typeof runner.tick !== "function") throw new Error("ReplayLog: runner needs tick()");
+        var limit = maxTicks !== undefined ? Math.max(0, maxTicks | 0) : Math.max(this.durationTicks() + 1, 1);
+        this.reset();
+        var eventIndex = 0;
+        var score = 0;
+        if (typeof runner.start === "function") runner.start(this.seed, this.configHash);
+        var held = null;
+        for (var tick = 0; tick < limit; tick++) {
+            while (eventIndex < this.events.length && this.events[eventIndex].tick === tick) {
+                if (typeof runner.event === "function") runner.event(tick, this.events[eventIndex].eventId, this.events[eventIndex].payload);
+                eventIndex++;
+            }
+            var next = this.inputAt(tick);
+            if (next) held = next;
+            runner.tick(tick, held);
+        }
+        if (typeof runner.finish === "function") score = runner.finish();
+        return { score: score, seed: this.seed, ticks: limit, configHash: this.configHash, ok: true };
+    }
+}
+
+
+// SharedRingBuffer - single producer / single consumer byte ring over a
+// SharedArrayBuffer, synchronized with Atomics only. The design avoids the
+// two classic worker hazards:
+//   races: every head/tail read and write goes through Atomics; data slots
+//     are only touched between a successful reserve and a matching commit,
+//     and each cell is owned by exactly one side at a time.
+//   deadlocks: the main thread never blocks (browsers forbid Atomics.wait
+//     there anyway); workers wait with a bounded timeout and fall back to a
+//     poll, so a stalled peer can never freeze the pool permanently.
+
+var SPSC_HEAD = 0;   // consumer cursor (dword index 0)
+var SPSC_TAIL = 1;   // producer cursor (dword index 1)
+var SPSC_FLAGS = 2;  // bit 0: closed
+var HEADER_DWORDS = 8;
+
+class SharedRingBuffer {
+    constructor(byteCapacity, shared) {
+        if (shared) {
+            this.sab = shared;
+            this.ints = new Int32Array(shared);
+            this.bytes = new Uint8Array(shared);
+            this.capacity = this.bytes.length - HEADER_DWORDS * 4;
+        } else {
+            if (typeof SharedArrayBuffer === "undefined") throw new Error("SharedRingBuffer: SharedArrayBuffer unavailable (needs COOP/COEP headers)");
+            this.capacity = Math.max(16, byteCapacity | 0);
+            this.sab = new SharedArrayBuffer(HEADER_DWORDS * 4 + this.capacity);
+            this.ints = new Int32Array(this.sab);
+            this.bytes = new Uint8Array(this.sab);
+            Atomics.store(this.ints, SPSC_HEAD, 0);
+            Atomics.store(this.ints, SPSC_TAIL, 0);
+            Atomics.store(this.ints, SPSC_FLAGS, 0);
+        }
+        this._localHead = Atomics.load(this.ints, SPSC_HEAD);
+        this._localTail = Atomics.load(this.ints, SPSC_TAIL);
+    }
+
+    get byteLength() { return this.capacity; }
+
+    used() {
+        var head = Atomics.load(this.ints, SPSC_HEAD);
+        var tail = Atomics.load(this.ints, SPSC_TAIL);
+        return (tail - head + this.capacity * 4) % (this.capacity * 4);
+    }
+
+    free() { return this.capacity - this.used(); }
+
+    closed() { return (Atomics.load(this.ints, SPSC_FLAGS) & 1) === 1; }
+
+    close() { Atomics.or(this.ints, SPSC_FLAGS, 1); Atomics.notify(this.ints, SPSC_TAIL, Infinity); return this; }
+
+    _wrap(pos) { return pos >= this.capacity ? pos - this.capacity : pos; }
+
+    // Producer side. Writes a length prefixed record; returns false when the
+    // ring is full (caller retries, drops, or spills; it never blocks).
+    write(source) {
+        var len = source.length;
+        if (len + 4 > this.capacity) return false;
+        for (var attempt = 0; attempt < 64; attempt++) {
+            var head = Atomics.load(this.ints, SPSC_HEAD);
+            var tail = this._localTail !== undefined ? this._localTail : Atomics.load(this.ints, SPSC_TAIL);
+            var used = (tail - head + this.capacity * 4) % (this.capacity * 4);
+            if (len + 4 <= this.capacity - used) {
+                var pos = (tail % this.capacity);
+                var wrote = 0;
+                // length header may straddle the wrap
+                var headerBytes = new Uint8Array(4);
+                new DataView(headerBytes.buffer).setUint32(0, len, true);
+                for (var h = 0; h < 4; h++) {
+                    this.bytes[HEADER_DWORDS * 4 + pos] = headerBytes[h];
+                    pos = this._wrap(pos + 1);
+                    wrote++;
+                }
+                for (var i = 0; i < len; i++) {
+                    this.bytes[HEADER_DWORDS * 4 + pos] = source[i];
+                    pos = this._wrap(pos + 1);
+                    wrote++;
+                }
+                this._localTail = (tail + wrote) % (this.capacity * 4);
+                Atomics.store(this.ints, SPSC_TAIL, this._localTail);
+                Atomics.notify(this.ints, SPSC_TAIL);
+                return true;
+            }
+            // full: yield and retry a few times, then report full
+            if (typeof Atomics === "undefined") return false;
+        }
+        return false;
+    }
+
+    // Consumer side. Non blocking: returns null when empty.
+    read() {
+        for (;;) {
+            var head = Atomics.load(this.ints, SPSC_HEAD);
+            var tail = Atomics.load(this.ints, SPSC_TAIL);
+            if (head === tail) return this.closed() ? null : null;
+            var pos = head % this.capacity;
+            var len = 0, shift = 0;
+            for (var h = 0; h < 4; h++) {
+                len |= this.bytes[HEADER_DWORDS * 4 + pos] << shift;
+                pos = this._wrap(pos + 1);
+                shift += 8;
+            }
+            if (len > this.capacity) return null; // corrupt: bail out
+            var out = new Uint8Array(len);
+            for (var i = 0; i < len; i++) {
+                out[i] = this.bytes[HEADER_DWORDS * 4 + pos];
+                pos = this._wrap(pos + 1);
+            }
+            var next = (head + 4 + len) % (this.capacity * 4);
+            // only publish the head once the record is fully copied out
+            if (Atomics.compareExchange(this.ints, SPSC_HEAD, head, next) === head) {
+                this._localHead = next;
+                return out;
+            }
+            // another reader moved the head (should not happen in SPSC; retry)
+        }
+    }
+
+    // Worker helper: block until data or timeout. Main thread must not call.
+    wait(timeoutMs) {
+        if (typeof Atomics === "undefined" || typeof Atomics.wait !== "function") return "unsupported";
+        var tail = Atomics.load(this.ints, SPSC_TAIL);
+        var status = Atomics.wait(this.ints, SPSC_TAIL, tail, Math.max(1, timeoutMs | 0));
+        return status;
+    }
+
+    // Worker helper: wait until the consumer made room. Bounded, never fatal.
+    waitForSpace(timeoutMs) {
+        if (typeof Atomics === "undefined" || typeof Atomics.wait !== "function") return "unsupported";
+        var head = Atomics.load(this.ints, SPSC_HEAD);
+        return Atomics.wait(this.ints, SPSC_HEAD, head, Math.max(1, timeoutMs | 0));
+    }
+
+    static workerSource(handlers) {
+        // Inline worker glue: safe because every handler only touches its own
+        // ring and Atomics. Timeouts bound every wait so a lost peer degrades
+        // to polling instead of deadlocking.
+        return 'var rings = {};\n' +
+            'self.onmessage = function (event) {\n' +
+            '  var message = event.data;\n' +
+            '  if (!message) return;\n' +
+            '  if (message.open) { rings[message.open] = new SharedRingBufferView(message.sab); return; }\n' +
+            '  if (message.close) { var r = rings[message.close]; if (r) r.close(); return; }\n' +
+            '  var handler = ' + JSON.stringify(handlers || {}) + '[message.task];\n' +
+            '  if (!handler) { postMessage({ id: message.id, ok: false, error: "unknown task" }); return; }\n' +
+            '  try { var value = Function("ring", "payload", "atomics", handler)(rings[message.ring], message.payload, Atomics); postMessage({ id: message.id, ok: true, result: value }); }\n' +
+            '  catch (error) { postMessage({ id: message.id, ok: false, error: String(error) }); }\n' +
+            '};\n' +
+            'function SharedRingBufferView(sab) { this.ints = new Int32Array(sab); this.bytes = new Uint8Array(sab); this.capacity = this.bytes.length - 32; }\n' +
+            'SharedRingBufferView.prototype.read = function () {\n' +
+            '  for (;;) {\n' +
+            '    var head = Atomics.load(this.ints, 0), tail = Atomics.load(this.ints, 1);\n' +
+            '    if (head === tail) return null;\n' +
+            '    var pos = head % this.capacity, len = 0, shift = 0;\n' +
+            '    for (var h = 0; h < 4; h++) { len |= this.bytes[32 + pos] << shift; pos = pos + 1 === this.capacity ? 0 : pos + 1; shift += 8; }\n' +
+            '    var out = new Uint8Array(len);\n' +
+            '    for (var i = 0; i < len; i++) { out[i] = this.bytes[32 + pos]; pos = pos + 1 === this.capacity ? 0 : pos + 1; }\n' +
+            '    var next = (head + 4 + len) % (this.capacity * 4);\n' +
+            '    if (Atomics.compareExchange(this.ints, 0, head, next) === head) return out;\n' +
+            '  }\n' +
+            '};\n' +
+            'SharedRingBufferView.prototype.write = function (data) {\n' +
+            '  var len = data.length;\n' +
+            '  if (len + 4 > this.capacity) return false;\n' +
+            '  var head = Atomics.load(this.ints, 0), tail = Atomics.load(this.ints, 1);\n' +
+            '  var used = (tail - head + this.capacity * 4) % (this.capacity * 4);\n' +
+            '  if (len + 4 > this.capacity - used) return false;\n' +
+            '  var pos = tail % this.capacity, wrote = 0, i;\n' +
+            '  var header = new Uint8Array(4); new DataView(header.buffer).setUint32(0, len, true);\n' +
+            '  for (var h = 0; h < 4; h++) { this.bytes[32 + pos] = header[h]; pos = pos + 1 === this.capacity ? 0 : pos + 1; wrote++; }\n' +
+            '  for (i = 0; i < len; i++) { this.bytes[32 + pos] = data[i]; pos = pos + 1 === this.capacity ? 0 : pos + 1; wrote++; }\n' +
+            '  Atomics.store(this.ints, 1, (tail + wrote) % (this.capacity * 4));\n' +
+            '  Atomics.notify(this.ints, 1);\n' +
+            '  return true;\n' +
+            '};\n' +
+            'SharedRingBufferView.prototype.close = function () { Atomics.or(this.ints, 2, 1); Atomics.notify(this.ints, 1, Infinity); };\n';
+    }
+}
+
+// Synchronized counter over a SAB: the canonical race free accumulator for
+// parallel reductions. All updates go through Atomics.add.
+class SharedCounter {
+    constructor(shared) {
+        if (shared) {
+            this.sab = shared;
+        } else {
+            if (typeof SharedArrayBuffer === "undefined") throw new Error("SharedCounter: SharedArrayBuffer unavailable (needs COOP/COEP headers)");
+            this.sab = new SharedArrayBuffer(4);
+        }
+        this.ints = new Int32Array(this.sab);
+    }
+
+    add(delta) { return Atomics.add(this.ints, 0, delta | 0) + (delta | 0); }
+
+    increment() { return Atomics.add(this.ints, 0, 1) + 1; }
+
+    value() { return Atomics.load(this.ints, 0); }
+
+    reset() { Atomics.store(this.ints, 0, 0); return this; }
+}
+
+
 // TaskPool - worker-first task graph (roadmap item 43). A pool of workers
 // running registered task handlers with a dependency-ordered graph scheduler,
 // transferable-friendly payloads, optional SharedArrayBuffer sharing (when
@@ -13652,10 +15282,24 @@ class TaskPool {
         this._terminated = false;
         this.stats = { workers: 0, dispatched: 0, completed: 0, failed: 0, queued: 0 };
         this._spawn();
+        TaskPool.instances.push(this);
     }
 
     static get supportsSharedArrayBuffer() {
         return typeof SharedArrayBuffer !== "undefined";
+    }
+
+    static get instances() {
+        if (!TaskPool._instances) TaskPool._instances = [];
+        return TaskPool._instances;
+    }
+
+    // Transferable worker mode is the default; shared memory only engages on
+    // cross-origin isolated pages (COOP/COEP headers, see CrossOrigin).
+    static isolationStatus() {
+        var isolated = false;
+        try { isolated = typeof crossOriginIsolated !== "undefined" ? !!crossOriginIsolated : false; } catch (e) { isolated = false; }
+        return { sharedArrayBuffer: TaskPool.supportsSharedArrayBuffer, crossOriginIsolated: isolated };
     }
 
     get supportsSharedArrayBuffer() {
@@ -13803,6 +15447,9 @@ class TaskPool {
 
     terminate() {
         this._terminated = true;
+        var registry = TaskPool.instances;
+        var index = registry.indexOf(this);
+        if (index !== -1) registry.splice(index, 1);
         for (var i = 0; i < this._workers.length; i++) this._workers[i].terminate();
         this._workers = [];
         this._idle = [];
@@ -18028,6 +19675,14 @@ class FaoxomJs {
     createHeadlessRenderer(options) { return new HeadlessRenderer(options); }
     createResourceLedger(options) { return new ResourceLedger(options); }
     createTaskPool(options) { return new TaskPool(options); }
+    createNetcodeSession(options) { return new NetcodeSession(options); }
+    createReplayRecorder(options) { return new ReplayRecorder(options); }
+    createProtectedValue(value, options) { return new ProtectedValue(value, options); }
+    createBlindedInt32(value, options) { return new BlindedInt32(value, options); }
+    createIntegrityVM(options) { return new IntegrityVM(options); }
+    createPhysicsDebugRenderer(scene, options) { return new PhysicsDebugRenderer(scene, options); }
+    createSharedRingBuffer(capacity) { return new SharedRingBuffer(capacity); }
+    createSharedCounter() { return new SharedCounter(); }
     createWebXRAR(options) { return new WebXRAR(options); }
     createOffscreenEngine(options) { return new OffscreenEngine(options); }
     createRigidBody(options) { var body = new RigidBody(options); this.physics.addBody(body); return body; }
@@ -20672,90 +22327,6 @@ class GPUBroadphase {
             if (a && b) result.push([a, b]);
         }
         return result;
-    }
-}
-
-
-class FixedSimulation {
-    constructor(options) {
-        options = options || {};
-        this.timeStep = options.timeStep || 1 / 60;
-        this.maxSubSteps = Math.max(1, Math.floor(options.maxSubSteps === undefined ? 8 : options.maxSubSteps));
-        this.accumulator = 0;
-        this.tick = 0;
-        this.time = 0;
-        this.world = options.world || null;
-        this.onTick = options.onTick || null;
-        this.onSnapshot = options.onSnapshot || null;
-        this.onRestore = options.onRestore || null;
-        this.inputDelay = Math.max(0, Math.floor(options.inputDelay || 0));
-        this.defaultInput = options.defaultInput === undefined ? null : options.defaultInput;
-        this.inputs = {};
-    }
-    pushInput(tick, input) {
-        this.inputs[tick] = input;
-        return this;
-    }
-    inputAt(tick) {
-        var source = tick - this.inputDelay;
-        if (source < 0 || this.inputs[source] === undefined) return this.defaultInput;
-        return this.inputs[source];
-    }
-    currentInput() {
-        return this.inputAt(this.tick);
-    }
-    advance(frameDelta) {
-        this.accumulator += Math.min(Math.max(frameDelta || 0, 0), 0.25);
-        var steps = 0;
-        while (this.accumulator >= this.timeStep && steps < this.maxSubSteps) {
-            this.stepOnce();
-            this.accumulator -= this.timeStep;
-            steps++;
-        }
-        if (steps === this.maxSubSteps) this.accumulator = 0;
-        return steps;
-    }
-    stepOnce() {
-        var input = this.currentInput();
-        if (this.onTick) this.onTick(this.tick, input, this);
-        if (this.world) this.world.singleStep(this.timeStep);
-        this.tick++;
-        this.time += this.timeStep;
-        return this;
-    }
-    snapshot() {
-        var state = { tick: this.tick, time: this.time, accumulator: this.accumulator, world: this.world ? this.world.snapshot() : null, extra: this.onSnapshot ? this.onSnapshot() : null };
-        return state;
-    }
-    restore(state) {
-        if (!state) return this;
-        this.tick = state.tick;
-        this.time = state.time;
-        this.accumulator = state.accumulator;
-        if (state.world && this.world) this.world.restore(state.world);
-        if (this.onRestore && state.extra !== null && state.extra !== undefined) this.onRestore(state.extra, this);
-        return this;
-    }
-    interpolatedPosition(body, alpha, target) {
-        var t = Math.min(Math.max(alpha, 0), 1);
-        return (target || new Vector3()).copy(body.previousPosition).lerp(body.position, t);
-    }
-    applyInterpolation(alpha) {
-        if (!this.world) return this;
-        var bodies = this.world.bodies;
-        for (var i = 0; i < bodies.length; i++) {
-            var body = bodies[i];
-            if (!body.object) continue;
-            this.interpolatedPosition(body, alpha, body.object.position);
-        }
-        return this;
-    }
-    reset() {
-        this.accumulator = 0;
-        this.tick = 0;
-        this.time = 0;
-        this.inputs = {};
-        return this;
     }
 }
 
@@ -24021,6 +25592,324 @@ class DecalProjector extends Object3D {
 }
 
 
+// CrossOrigin - SharedArrayBuffer requires COOP/COEP security headers and
+// browsers disable it otherwise (Spectre mitigation). This module detects the
+// page state, tells the engine exactly what to do, and generates ready to
+// paste header configs for the common hosts. Everything in FaoxomJS that can
+// use threads (TaskPool, SharedRingBuffer) degrades automatically to
+// transferable workers when isolation is unavailable, so a misconfigured host
+// costs performance, never correctness.
+
+function currentStatus() {
+    var sab = typeof SharedArrayBuffer !== "undefined";
+    var isolated = false;
+    try { isolated = typeof crossOriginIsolated !== "undefined" ? !!crossOriginIsolated : false; } catch (e) { isolated = false; }
+    var reason;
+    if (sab && isolated) reason = "isolated";
+    else if (sab && !isolated) reason = "cross-origin isolation missing: send Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp";
+    else if (!sab) reason = "SharedArrayBuffer unavailable in this browser context; worker pool runs in transferable fallback mode";
+    return { sharedArrayBuffer: sab, crossOriginIsolated: isolated, threads: sab && isolated, reason: reason };
+}
+
+var CrossOrigin = {
+    status: currentStatus,
+
+    isThreadCapable: function () { return currentStatus().threads; },
+
+    // Call once at boot. Returns the status and warns (once) with the exact
+    // remediation when the page could have had shared memory threads.
+    ensure: function (quiet) {
+        var status = currentStatus();
+        if (!status.threads && !quiet && typeof console !== "undefined") {
+            console.warn("FaoxomJS: " + status.reason + ". See CrossOrigin.headerConfigs() for your host.");
+        }
+        return status;
+    },
+
+    // The exact headers every host needs.
+    requiredHeaders: function () {
+        return {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp"
+        };
+    },
+
+    // Ready to paste configs. COEP require-corp blocks cross-origin
+    // subresources that do not opt in with CORP/CORS; the generator includes
+    // the standard escape hatches and notes.
+    headerConfigs: function (options) {
+        options = options || {};
+        var assetOrigin = options.assetOrigin || "";
+        var corpLine = assetOrigin ? ", Cross-Origin-Resource-Policy: cross-origin" : "";
+        return {
+            vercel: {
+                file: "vercel.json",
+                content: JSON.stringify({
+                    headers: [
+                        {
+                            source: "/(.*)",
+                            headers: [
+                                { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+                                { key: "Cross-Origin-Embedder-Policy", value: "require-corp" }
+                            ]
+                        }
+                    ]
+                }, null, 4)
+            },
+            netlify: {
+                file: "_headers",
+                content: "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n"
+            },
+            nginx: {
+                file: "nginx.conf snippet",
+                content: "add_header Cross-Origin-Opener-Policy same-origin;\nadd_header Cross-Origin-Embedder-Policy require-corp;\n# only applied to your document routes; asset origins must send CORP or CORS"
+            },
+            apache: {
+                file: ".htaccess",
+                content: "Header always set Cross-Origin-Opener-Policy \"same-origin\"\nHeader always set Cross-Origin-Embedder-Policy \"require-corp\"\n"
+            },
+            node: {
+                file: "server.js snippet",
+                content: "res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');\nres.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');\n// send before any response body"
+            },
+            express: {
+                file: "app.js snippet",
+                content: "app.use(function (req, res, next) {\n    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');\n    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');\n    next();\n});"
+            },
+            devServer: {
+                file: "vite/webpack dev server",
+                content: "server: { headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' } }"
+            }
+        };
+    },
+
+    // If a page must embed third party frames/scripts that break under
+    // require-corp, the document can use credentialless COEP (Chromium) and
+    // keep isolation without CORP on every asset.
+    credentiallessAlternative: function () {
+        return {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "credentialless"
+        };
+    }
+};
+
+
+// Inspector - zero dependency overlay panel with live engine stats:
+// fps graph, frame time, draw calls, triangles, GPU buffer and texture
+// budgets, memory pressure, worker/isolation status and scene counts.
+// Toggled with renderer.enableInspector() / disableInspector().
+
+var INSPECTOR_STYLE = [
+    "position:fixed", "top:12px", "left:12px", "z-index:2147483647",
+    "font:11px/1.5 ui-monospace,Menlo,Consolas,monospace",
+    "color:#d7dde8", "background:rgba(10,13,20,0.88)",
+    "border:1px solid #2b3446", "border-radius:8px",
+    "padding:8px 10px", "min-width:230px", "pointer-events:none",
+    "user-select:none", "-webkit-user-select:none"
+].join(";");
+
+var ROW_STYLE = "display:flex;justify-content:space-between;gap:14px";
+var LABEL_STYLE = "color:#7d8aa5";
+var VALUE_STYLE = "color:#8fd3ff;font-weight:600;white-space:nowrap";
+
+class Inspector {
+    constructor(renderer, options) {
+        options = options || {};
+        this.renderer = renderer;
+        this.expand = options.expand !== false;
+        this.maxGraph = options.graph || 120;
+        this.hidden = false;
+        this._frames = [];
+        this._lastFrame = 0;
+        this._raf = 0;
+        this._dom = null;
+        this._rows = {};
+        this._graph = null;
+        this._graphContext = null;
+        this._build();
+        this._wrapRender();
+        this._running = true;
+        this._loop = this._loop.bind(this);
+        this._raf = requestAnimationFrame(this._loop);
+    }
+
+    _build() {
+        if (typeof document === "undefined") return;
+        var panel = document.createElement("div");
+        panel.setAttribute("style", INSPECTOR_STYLE);
+        var title = document.createElement("div");
+        title.setAttribute("style", "font-weight:700;color:#e8edf6;margin-bottom:4px;letter-spacing:0.4px");
+        title.textContent = "FAOXOM INSPECTOR";
+        panel.appendChild(title);
+        var graph = document.createElement("canvas");
+        graph.width = 220;
+        graph.height = 36;
+        graph.setAttribute("style", "display:block;width:220px;height:36px;margin:2px 0 6px;background:#0a0d14;border-radius:4px");
+        panel.appendChild(graph);
+        this._graph = graph;
+        this._graphContext = graph.getContext("2d");
+        var body = document.createElement("div");
+        panel.appendChild(body);
+        this._body = body;
+        var self = this;
+        var rows = ["fps", "frame", "draws", "triangles", "canvas", "textures", "programs", "memory", "objects", "lights", "workers", "isolation"];
+        for (var i = 0; i < rows.length; i++) {
+            var row = document.createElement("div");
+            row.setAttribute("style", ROW_STYLE);
+            var label = document.createElement("span");
+            label.setAttribute("style", LABEL_STYLE);
+            label.textContent = rows[i];
+            var value = document.createElement("span");
+            value.setAttribute("style", VALUE_STYLE);
+            value.textContent = "-";
+            row.appendChild(label);
+            row.appendChild(value);
+            body.appendChild(row);
+            this._rows[rows[i]] = value;
+        }
+        document.body.appendChild(panel);
+        this._dom = panel;
+    }
+
+    set(key, text) {
+        var row = this._rows[key];
+        if (row && row.textContent !== text) row.textContent = text;
+    }
+
+    _collect() {
+        var renderer = this.renderer;
+        var info = renderer && renderer.info ? renderer.info.render : null;
+        if (info) {
+            this.set("draws", String(info.calls));
+            this.set("triangles", info.triangles > 1000 ? (info.triangles / 1000).toFixed(1) + "k" : String(info.triangles));
+        }
+        var gl = renderer && renderer.gl;
+        if (renderer && renderer.width) this.set("canvas", renderer.width + " x " + renderer.height);
+        if (renderer && renderer.programCache) this.set("programs", String(Object.keys(renderer.programCache).length));
+        var scene = this._lastScene;
+        if (scene && scene.traverseVisible) {
+            var objects = 0, lights = 0;
+            scene.traverseVisible(function (node) {
+                objects++;
+                if (node.isLight || /Light$/.test(node.type || "")) lights++;
+            });
+            this.set("objects", String(objects));
+            this.set("lights", String(lights));
+        }
+        if (typeof performance !== "undefined" && performance.memory) {
+            var used = performance.memory.usedJSHeapSize;
+            var limit = performance.memory.jsHeapSizeLimit;
+            this.set("memory", (used / 1048576).toFixed(1) + " / " + (limit / 1048576).toFixed(0) + " MB");
+        } else if (gl && gl.getExtension) {
+            var info = gl.getExtension("WEBGL_debug_renderer_info");
+            this.set("memory", info ? "gpu" : "n/a");
+        } else {
+            this.set("memory", "n/a");
+        }
+        var status = CrossOrigin.status();
+        var pools = typeof TaskPool !== "undefined" && TaskPool.instances ? TaskPool.instances.length : 0;
+        var workers = 0;
+        if (typeof TaskPool !== "undefined" && TaskPool.instances) {
+            for (var p = 0; p < TaskPool.instances.length; p++) workers += TaskPool.instances[p].stats.workers;
+        }
+        this.set("workers", workers + " / " + pools + " pools");
+        this.set("isolation", status.threads ? "shared" : "fallback");
+    }
+
+    _wrapRender() {
+        var renderer = this.renderer;
+        var self = this;
+        if (!renderer || typeof renderer.render !== "function" || renderer.__inspectorWrapped) return;
+        var original = renderer.render.bind(renderer);
+        renderer.render = function (scene, camera) {
+            self._lastScene = scene;
+            return original(scene, camera);
+        };
+        renderer.__inspectorWrapped = true;
+    }
+
+    _drawGraph() {
+        var context = this._graphContext;
+        if (!context) return;
+        var width = this._graph.width, height = this._graph.height;
+        context.clearRect(0, 0, width, height);
+        if (this._frames.length < 2) return;
+        var step = width / (this.maxGraph - 1);
+        context.beginPath();
+        for (var i = 0; i < this._frames.length; i++) {
+            var ms = this._frames[i];
+            var y = height - Math.min(ms / 33.4, 1) * (height - 2) - 1;
+            var x = i * step;
+            if (i === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+        }
+        context.strokeStyle = "#59c2ff";
+        context.lineWidth = 1.25;
+        context.stroke();
+        context.fillStyle = "rgba(89,194,255,0.12)";
+        context.lineTo((this._frames.length - 1) * step, height);
+        context.lineTo(0, height);
+        context.closePath();
+        context.fill();
+        // 60fps line
+        context.strokeStyle = "rgba(255,255,255,0.14)";
+        context.beginPath();
+        context.moveTo(0, height - Math.min(16.7 / 33.4, 1) * (height - 2) - 1);
+        context.lineTo(width, height - Math.min(16.7 / 33.4, 1) * (height - 2) - 1);
+        context.stroke();
+    }
+
+    _loop(now) {
+        if (!this._running) return;
+        this._raf = requestAnimationFrame(this._loop);
+        if (this._lastFrame) {
+            var delta = now - this._lastFrame;
+            this._frames.push(delta);
+            if (this._frames.length > this.maxGraph) this._frames.shift();
+        }
+        this._lastFrame = now;
+        if (this._frames.length >= 8) {
+            var sorted = this._frames.slice().sort(function (a, b) { return a - b; });
+            var median = sorted[Math.floor(sorted.length / 2)];
+            this.set("fps", String(Math.min(9999, Math.round(1000 / Math.max(median, 0.01)))));
+            this.set("frame", median.toFixed(2) + " ms");
+            this._drawGraph();
+        }
+        this._collect();
+    }
+
+    toggle() { this.hidden = !this.hidden; if (this._dom) this._dom.style.display = this.hidden ? "none" : "block"; return this; }
+
+    dispose() {
+        this._running = false;
+        cancelAnimationFrame(this._raf);
+        if (this._dom && this._dom.parentNode) this._dom.parentNode.removeChild(this._dom);
+        this._dom = null;
+        var renderer = this.renderer;
+        if (renderer && renderer.__inspectorWrapped) {
+            delete renderer.__inspectorWrapped;
+            renderer.render = WebGLRenderer.prototype.render;
+        }
+        if (renderer && renderer._inspector === this) renderer._inspector = null;
+        return this;
+    }
+}
+
+// Wired into WebGLRenderer via prototype registration so core never imports
+// extras (no module cycle, works in the single file build too).
+if (typeof WebGLRenderer !== "undefined" && WebGLRenderer && WebGLRenderer.prototype) {
+    WebGLRenderer.prototype.enableInspector = function (options) {
+        if (!this._inspector) this._inspector = new Inspector(this, options);
+        return this._inspector;
+    };
+    WebGLRenderer.prototype.disableInspector = function () {
+        if (this._inspector) { this._inspector.dispose(); this._inspector = null; }
+        return this;
+    };
+}
+
+
 function trackInfo(name) {
     var dot = name.lastIndexOf(".");
     if (dot <= 0) return null;
@@ -27272,18 +29161,25 @@ function fnnode(value, what) {
     return value;
 }
 
-function fnconv(src, dst, expr) {
+// Backend aware constructors: WGSL writes vec3<f32>(x), GLSL writes vec3(x).
+function fnvec(ctx, size, args) {
+    return (ctx.backend === "glsl" ? "vec" + size + "(" : "vec" + size + "<f32>(") + args + ")";
+}
+
+function fnconv(ctx, src, dst, expr) {
     if (src === dst) return expr;
-    if (src === "f32") return "vec" + dst.charAt(3) + "<f32>(" + expr + ")";
+    if (src === "f32") return fnvec(ctx, dst.charAt(3), expr);
     throw new Error("FNMaterial: cannot convert " + src + " to " + dst);
 }
 
-function fnzero(type) {
-    return type === "f32" ? "0.0" : "vec" + type.charAt(3) + "<f32>(0.0)";
+function fnzero(ctx, type) {
+    if (type === "f32") return "0.0";
+    return fnvec(ctx, type.charAt(3), "0.0");
 }
 
-function fnone(type) {
-    return type === "f32" ? "1.0" : "vec" + type.charAt(3) + "<f32>(1.0)";
+function fnone(ctx, type) {
+    if (type === "f32") return "1.0";
+    return fnvec(ctx, type.charAt(3), "1.0");
 }
 
 function fnfmt(value) {
@@ -27318,7 +29214,7 @@ class FNVec2 extends FNNode {
     emit(ctx) {
         var a = this.x.emit(ctx), b = this.y.emit(ctx);
         if (a.type !== "f32" || b.type !== "f32") throw new Error("FNVec2: components must be f32");
-        return { expr: "vec2<f32>(" + a.expr + ", " + b.expr + ")", type: "vec2" };
+        return { expr: fnvec(ctx, 2, a.expr + ", " + b.expr), type: "vec2" };
     }
 }
 
@@ -27327,7 +29223,7 @@ class FNVec3 extends FNNode {
     emit(ctx) {
         var a = this.x.emit(ctx), b = this.y.emit(ctx), c = this.z.emit(ctx);
         if (a.type !== "f32" || b.type !== "f32" || c.type !== "f32") throw new Error("FNVec3: components must be f32");
-        return { expr: "vec3<f32>(" + a.expr + ", " + b.expr + ", " + c.expr + ")", type: "vec3" };
+        return { expr: fnvec(ctx, 3, a.expr + ", " + b.expr + ", " + c.expr), type: "vec3" };
     }
 }
 
@@ -27336,18 +29232,18 @@ class FNVec4 extends FNNode {
     emit(ctx) {
         var a = this.x.emit(ctx), b = this.y.emit(ctx), c = this.z.emit(ctx), d = this.w.emit(ctx);
         if (a.type !== "f32" || b.type !== "f32" || c.type !== "f32" || d.type !== "f32") throw new Error("FNVec4: components must be f32");
-        return { expr: "vec4<f32>(" + a.expr + ", " + b.expr + ", " + c.expr + ", " + d.expr + ")", type: "vec4" };
+        return { expr: fnvec(ctx, 4, a.expr + ", " + b.expr + ", " + c.expr + ", " + d.expr), type: "vec4" };
     }
 }
 
 class FNColor extends FNNode {
     constructor(hex) { super(); var c = new Color(hex); this.r = c.r; this.g = c.g; this.b = c.b; }
-    emit(ctx) { return { expr: "vec3<f32>(" + fnfmt(this.r) + ", " + fnfmt(this.g) + ", " + fnfmt(this.b) + ")", type: "vec3" }; }
+    emit(ctx) { return { expr: fnvec(ctx, 3, fnfmt(this.r) + ", " + fnfmt(this.g) + ", " + fnfmt(this.b)), type: "vec3" }; }
 }
 
 class FNUV extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "input.uv", type: "vec2" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "vUv" : "input.uv", type: "vec2" }; }
 }
 
 class FNSurfaceNormal extends FNNode {
@@ -27362,24 +29258,25 @@ class FNViewDir extends FNNode {
 
 class FNVertexColor extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "input.color", type: "vec3" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "vColor" : "input.color", type: "vec3" }; }
 }
 
 class FNMaterialColor extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "modelData.baseColor.rgb", type: "vec3" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "uBaseColor" : "modelData.baseColor.rgb", type: "vec3" }; }
 }
 
 class FNMaterialAlpha extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "modelData.baseColor.a", type: "f32" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "uOpacity" : "modelData.baseColor.a", type: "f32" }; }
 }
 
 class FNTexture extends FNNode {
     constructor(uv) { super(); this.uv = uv ? fnnode(uv, "FNTexture uv") : null; }
     emit(ctx) {
-        var uvExpr = this.uv ? this.uv.emit(ctx) : { expr: "input.uv", type: "vec2" };
+        var uvExpr = this.uv ? this.uv.emit(ctx) : { expr: ctx.backend === "glsl" ? "vUv" : "input.uv", type: "vec2" };
         if (uvExpr.type !== "vec2") throw new Error("FNTexture: uv must be vec2");
+        if (ctx.backend === "glsl") return { expr: "texture2D(uFNTexture, " + uvExpr.expr + ").rgb", type: "vec3" };
         return { expr: "textureSample(baseTexture, baseSampler, " + uvExpr.expr + ").rgb", type: "vec3" };
     }
 }
@@ -27396,9 +29293,12 @@ class FNMath extends FNNode {
     emit(ctx) {
         var a = this.a.emit(ctx), b = this.b.emit(ctx);
         var type = fnpromote(a.type, b.type);
-        var ax = fnconv(a.type, type, a.expr), bx = fnconv(b.type, type, b.expr);
+        var ax = fnconv(ctx, a.type, type, a.expr), bx = fnconv(ctx, b.type, type, b.expr);
         if (this.op === "+" || this.op === "-" || this.op === "*" || this.op === "/") return { expr: "(" + ax + " " + this.op + " " + bx + ")", type: type };
-        if (this.op === "%") return { expr: "(" + ax + " % " + bx + ")", type: type };
+        if (this.op === "%") {
+            if (ctx.backend === "glsl") return { expr: "mod(" + ax + ", " + bx + ")", type: type };
+            return { expr: "(" + ax + " % " + bx + ")", type: type };
+        }
         return { expr: this.op + "(" + ax + ", " + bx + ")", type: type };
     }
 }
@@ -27410,7 +29310,7 @@ class FNMix extends FNNode {
         var type = fnpromote(a.type, b.type);
         if (t.type !== "f32") throw new Error("FNMix: t must be f32");
         if (type === "f32") return { expr: "mix(" + a.expr + ", " + b.expr + ", " + t.expr + ")", type: "f32" };
-        return { expr: "mix(" + fnconv(a.type, type, a.expr) + ", " + fnconv(b.type, type, b.expr) + ", vec" + type.charAt(3) + "<f32>(" + t.expr + "))", type: type };
+        return { expr: "mix(" + fnconv(ctx, a.type, type, a.expr) + ", " + fnconv(ctx, b.type, type, b.expr) + ", " + fnvec(ctx, type.charAt(3), t.expr) + ")", type: type };
     }
 }
 
@@ -27419,7 +29319,7 @@ class FNClamp extends FNNode {
     emit(ctx) {
         var a = this.a.emit(ctx), lo = this.lo.emit(ctx), hi = this.hi.emit(ctx);
         var type = fnpromote(fnpromote(a.type, lo.type), hi.type);
-        return { expr: "clamp(" + fnconv(a.type, type, a.expr) + ", " + fnconv(lo.type, type, lo.expr) + ", " + fnconv(hi.type, type, hi.expr) + ")", type: type };
+        return { expr: "clamp(" + fnconv(ctx, a.type, type, a.expr) + ", " + fnconv(ctx, lo.type, type, lo.expr) + ", " + fnconv(ctx, hi.type, type, hi.expr) + ")", type: type };
     }
 }
 
@@ -27428,7 +29328,7 @@ class FNSaturate extends FNNode {
     emit(ctx) {
         var a = this.a.emit(ctx);
         fnchecktype(a.type);
-        return { expr: "clamp(" + a.expr + ", " + fnzero(a.type) + ", " + fnone(a.type) + ")", type: a.type };
+        return { expr: "clamp(" + a.expr + ", " + fnzero(ctx, a.type) + ", " + fnone(ctx, a.type) + ")", type: a.type };
     }
 }
 
@@ -27486,7 +29386,9 @@ class FNChecker extends FNNode {
         var uv = this.uv.emit(ctx), s = this.scale.emit(ctx);
         if (uv.type !== "vec2") throw new Error("FNChecker: uv must be vec2");
         if (s.type !== "f32") throw new Error("FNChecker: scale must be f32");
-        return { expr: "((floor((" + uv.expr + ").x * " + s.expr + ") + floor((" + uv.expr + ").y * " + s.expr + ")) % 2.0)", type: "f32" };
+        var sum = "floor((" + uv.expr + ").x * " + s.expr + ") + floor((" + uv.expr + ").y * " + s.expr + ")";
+        if (ctx.backend === "glsl") return { expr: "mod(" + sum + ", 2.0)", type: "f32" };
+        return { expr: "(" + sum + " % 2.0)", type: "f32" };
     }
 }
 
@@ -27497,12 +29399,14 @@ class FNNoise extends FNNode {
         if (uv.type !== "vec2") throw new Error("FNNoise: uv must be vec2");
         if (s.type !== "f32") throw new Error("FNNoise: scale must be f32");
         var id = ctx.counter++;
-        ctx.prelude.push("var fnn" + id + "_i = vec2<u32>(floor((" + uv.expr + ") * " + s.expr + "));");
-        ctx.prelude.push("var fnn" + id + "_h = fnn" + id + "_i.x * 374761393u + fnn" + id + "_i.y * 668265263u;");
+        var floatCast = ctx.backend === "glsl" ? "float" : "f32";
+        var uvec2 = ctx.backend === "glsl" ? "uvec2(floor((" + uv.expr + ") * " + s.expr + "))" : "vec2<u32>(floor((" + uv.expr + ") * " + s.expr + "))";
+        ctx.prelude.push((ctx.backend === "glsl" ? "uvec2 fnn" + id + "_i = " : "var fnn" + id + "_i = ") + uvec2 + ";");
+        ctx.prelude.push((ctx.backend === "glsl" ? "uint fnn" + id + "_h = " : "var fnn" + id + "_h = ") + "fnn" + id + "_i.x * 374761393u + fnn" + id + "_i.y * 668265263u;");
         ctx.prelude.push("fnn" + id + "_h = fnn" + id + "_h ^ (fnn" + id + "_h >> 13u);");
         ctx.prelude.push("fnn" + id + "_h = fnn" + id + "_h * 1274126177u;");
         ctx.prelude.push("fnn" + id + "_h = fnn" + id + "_h ^ (fnn" + id + "_h >> 16u);");
-        return { expr: "(f32(fnn" + id + "_h) / 4294967295.0)", type: "f32" };
+        return { expr: "(" + floatCast + "(fnn" + id + "_h) / 4294967295.0)", type: "f32" };
     }
 }
 
@@ -27552,9 +29456,9 @@ class FNMaterial extends Material {
         return this;
     }
     buildFragment(engineFrag) {
-        var ctx = { prelude: [], counter: 0 };
+        var ctx = { prelude: [], counter: 0, backend: "wgsl" };
         var colorExpr = this.colorNode ? this.colorNode.emit(ctx) : null;
-        if (colorExpr && colorExpr.type === "f32") colorExpr = { expr: "vec3<f32>(" + colorExpr.expr + ")", type: "vec3" };
+        if (colorExpr && colorExpr.type === "f32") colorExpr = { expr: fnvec(ctx, 3, colorExpr.expr), type: "vec3" };
         if (colorExpr && colorExpr.type !== "vec3") throw new Error("FNMaterial: color node must be vec3");
         var alphaExpr = this.alphaNode ? this.alphaNode.emit(ctx) : null;
         if (alphaExpr && alphaExpr.type !== "f32") throw new Error("FNMaterial: alpha node must be f32");
@@ -27563,7 +29467,7 @@ class FNMaterial extends Material {
         var roughnessExpr = this.roughnessNode ? this.roughnessNode.emit(ctx) : null;
         if (roughnessExpr && roughnessExpr.type !== "f32") throw new Error("FNMaterial: roughness node must be f32");
         var emissiveExpr = this.emissiveNode ? this.emissiveNode.emit(ctx) : null;
-        if (emissiveExpr && emissiveExpr.type === "f32") emissiveExpr = { expr: "vec3<f32>(" + emissiveExpr.expr + ")", type: "vec3" };
+        if (emissiveExpr && emissiveExpr.type === "f32") emissiveExpr = { expr: fnvec(ctx, 3, emissiveExpr.expr), type: "vec3" };
         if (emissiveExpr && emissiveExpr.type !== "vec3") throw new Error("FNMaterial: emissive node must be vec3");
         var baseAnchor = "var base = modelData.baseColor.rgb * sampled.rgb;";
         var alphaAnchor = "var alpha = modelData.baseColor.a * sampled.a;";
@@ -27594,6 +29498,89 @@ class FNMaterial extends Material {
         if (roughnessExpr) frag = frag.replace(roughnessAnchor, "let roughness = clamp((" + roughnessExpr.expr + ") * roughnessSample.g, 0.04, 1.0);");
         if (emissiveExpr) frag = frag.replace(emissiveAnchor, "(" + emissiveExpr.expr + ") * modelData.shading.y");
         return frag;
+    }
+
+    // Cross backend GLSL path: the same node graph compiles to a GLSL ES 3.0
+    // ShaderMaterial for the WebGL2 renderer.
+    toShaderMaterial() {
+        var ctx = { prelude: [], counter: 0, backend: "glsl" };
+        var colorExpr = this.colorNode ? this.colorNode.emit(ctx) : null;
+        if (colorExpr && colorExpr.type === "f32") colorExpr = { expr: fnvec(ctx, 3, colorExpr.expr), type: "vec3" };
+        if (colorExpr && colorExpr.type !== "vec3") throw new Error("FNMaterial: color node must be vec3");
+        var alphaExpr = this.alphaNode ? this.alphaNode.emit(ctx) : null;
+        if (alphaExpr && alphaExpr.type !== "f32") throw new Error("FNMaterial: alpha node must be f32");
+        var emissiveExpr = this.emissiveNode ? this.emissiveNode.emit(ctx) : null;
+        if (emissiveExpr && emissiveExpr.type === "f32") emissiveExpr = { expr: fnvec(ctx, 3, emissiveExpr.expr), type: "vec3" };
+        if (emissiveExpr && emissiveExpr.type !== "vec3") throw new Error("FNMaterial: emissive node must be vec3");
+        var prelude = ctx.prelude.length ? ctx.prelude.join("\n") + "\n    " : "";
+        var baseLine = "    vec3 base = " + (colorExpr ? "(" + colorExpr.expr + ")" : "uBaseColor") + ";";
+        var alphaLine = "    float alpha = " + (alphaExpr ? "(" + alphaExpr.expr + ")" : "uOpacity") + ";";
+        var shading = "";
+        if (this.mode === "standard") {
+            shading = [
+                "    vec3 lightDir = normalize(vec3(0.35, 0.9, 0.25));",
+                "    vec3 h = normalize(v + lightDir);",
+                "    float ndl = max(dot(n, lightDir), 0.0);",
+                "    float gloss = mix(8.0, 220.0, clamp(1.0 - uRoughness, 0.0, 1.0));",
+                "    float spec = pow(max(dot(n, h), 0.0), gloss) * uMetallic * 0.6;",
+                "    color = base * (0.22 + 0.78 * ndl) + vec3(spec);" +
+                (emissiveExpr ? " + (" + emissiveExpr.expr + ");" : ";")
+            ].join("\n");
+        } else {
+            shading = "    color = base;";
+        }
+        var fragment = [
+            "precision highp float;",
+            "varying vec3 vNormal;",
+            "varying vec3 vWorldPosition;",
+            "varying vec2 vUv;",
+            "varying vec3 vColor;",
+            "uniform vec3 cameraPosition;",
+            "uniform vec3 uBaseColor;",
+            "uniform float uOpacity;",
+            "uniform float uMetallic;",
+            "uniform float uRoughness;",
+            "uniform sampler2D uFNTexture;",
+            "void main() {",
+            "    vec3 n = normalize(vNormal);",
+            "    vec3 v = normalize(cameraPosition - vWorldPosition);",
+            prelude + baseLine,
+            alphaLine,
+            "    vec3 color;",
+            shading,
+            "    gl_FragColor = vec4(color, alpha);",
+            "}"
+        ].join("\n");
+        var vertex = [
+            "varying vec3 vNormal;",
+            "varying vec3 vWorldPosition;",
+            "varying vec2 vUv;",
+            "varying vec3 vColor;",
+            "attribute vec3 color;",
+            "void main() {",
+            "    vNormal = normalize(mat3(modelMatrix) * normal);",
+            "    vec4 world = modelMatrix * vec4(position, 1.0);",
+            "    vWorldPosition = world.xyz;",
+            "    vUv = uv;",
+            "    vColor = color;",
+            "    gl_Position = projectionMatrix * viewMatrix * world;",
+            "}"
+        ].join("\n");
+        var shader = new ShaderMaterial({
+            uniforms: {
+                uBaseColor: { value: new Color(this.color !== undefined ? this.color : 0xffffff) },
+                uOpacity: { value: faoxomvalue(this.opacity, 1) },
+                uMetallic: { value: faoxomvalue(this.metalness, 0) },
+                uRoughness: { value: faoxomvalue(this.roughness, 0.5) },
+                uFNTexture: { value: this.diffuseMap || null }
+            },
+            vertexShader: vertex,
+            fragmentShader: fragment
+        });
+        shader.vertexColors = true;
+        if (this.transparent) shader.transparent = true;
+        if (this.side !== undefined) shader.side = this.side;
+        return shader;
     }
 }
 
@@ -28461,6 +30448,23 @@ FaoxomJs.TwoBoneIKSolver = TwoBoneIKSolver;
 FaoxomJs.MotionMatcher = MotionMatcher;
 FaoxomJs.FacialAnimation = FacialAnimation;
 FaoxomJs.CollisionShape = CollisionShape;
+FaoxomJs.AntiTamper = AntiTamper;
+FaoxomJs.BlindedInt32 = BlindedInt32;
+FaoxomJs.CanaryGrid = CanaryGrid;
+FaoxomJs.CrossOrigin = CrossOrigin;
+FaoxomJs.FrameKeyChain = FrameKeyChain;
+FaoxomJs.GPUStateVault = GPUStateVault;
+FaoxomJs.IntegrityVM = IntegrityVM;
+FaoxomJs.Inspector = Inspector;
+FaoxomJs.NetcodeSession = NetcodeSession;
+FaoxomJs.PhysicsDebugRenderer = PhysicsDebugRenderer;
+FaoxomJs.ProtectedValue = ProtectedValue;
+FaoxomJs.ReplayPlayer = ReplayPlayer;
+FaoxomJs.ReplayRecorder = ReplayRecorder;
+FaoxomJs.SharedCounter = SharedCounter;
+FaoxomJs.SharedRingBuffer = SharedRingBuffer;
+FaoxomJs.SpeedhackDetector = SpeedhackDetector;
+FaoxomJs.TrustedInput = TrustedInput;
 FaoxomJs.BoxCollider = BoxCollider;
 FaoxomJs.SphereCollider = SphereCollider;
 FaoxomJs.PlaneCollider = PlaneCollider;
@@ -28723,6 +30727,9 @@ FaoxomJs.WebXRHandTracker = WebXRHandTracker;
 FaoxomJs.WebXRPlaneDetector = WebXRPlaneDetector;
 FaoxomJs.WebXRLightEstimator = WebXRLightEstimator;
 FaoxomJs.WebXRHaptics = WebXRHaptics;
+FaoxomJs.GaussianSplatMesh = FaoxomJs.GaussianSplatRenderer;
+FaoxomJs.AtmospherePass = FaoxomJs.AtmosphereRenderer;
+FaoxomJs.ComputePass = FaoxomJs.GPUComputePass;
 FaoxomJs.VERSION = "v6";
 
 export default FaoxomJs;

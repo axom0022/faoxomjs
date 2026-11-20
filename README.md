@@ -1,6 +1,6 @@
 # FaoxomJS
 
-[![NPM Version](https://img.shields.io/badge/version-v6-green.svg)](package.json)
+[![NPM Version](https://img.shields.io/badge/version-v7-green.svg)](package.json)
 [![Zero Dependencies](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen.svg)](FaoxomJs.js)
 [![jsDelivr](https://data.jsdelivr.com/v1/package/gh/axom0022/faoxomjs/badge)](https://www.jsdelivr.com/package/gh/axom0022/faoxomjs)
 

@@ -1,3 +1,7 @@
+import { AtmosphereRenderer, GaussianSplatRenderer, GPUComputePass } from "../renderers/index.js";
+
+export { GaussianSplatRenderer as GaussianSplatMesh, AtmosphereRenderer as AtmospherePass, GPUComputePass as ComputePass };
+
 export * from "./faoxomtrianglebody.js";
 export * from "./faoxommeshcontact.js";
 export * from "./faoxomcollisioncontact.js";
@@ -83,3 +87,13 @@ export * from "./OffscreenEngine.js";
 export * from "./FaoxomSceneElement.js";
 export * from "./FurShells.js";
 export * from "./DecalProjector.js";
+export * from "./CrossOrigin.js";
+export * from "./SharedRingBuffer.js";
+export * from "./NetcodeSession.js";
+export * from "./ReplayLog.js";
+export * from "./ProtectedValue.js";
+export * from "./AntiTamper.js";
+export * from "./IntegrityVM.js";
+export * from "./GPUStateVault.js";
+export * from "./Inspector.js";
+export * from "./PhysicsDebugRenderer.js";

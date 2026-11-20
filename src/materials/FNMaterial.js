@@ -1,4 +1,5 @@
 import { Material } from "./Material.js";
+import { ShaderMaterial } from "./ShaderMaterial.js";
 import { Color, faoxomvalue } from "../math/index.js";
 
 var FNTYPES = ["f32", "vec2", "vec3", "vec4"];
@@ -13,18 +14,25 @@ function fnnode(value, what) {
     return value;
 }
 
-function fnconv(src, dst, expr) {
+// Backend aware constructors: WGSL writes vec3<f32>(x), GLSL writes vec3(x).
+function fnvec(ctx, size, args) {
+    return (ctx.backend === "glsl" ? "vec" + size + "(" : "vec" + size + "<f32>(") + args + ")";
+}
+
+function fnconv(ctx, src, dst, expr) {
     if (src === dst) return expr;
-    if (src === "f32") return "vec" + dst.charAt(3) + "<f32>(" + expr + ")";
+    if (src === "f32") return fnvec(ctx, dst.charAt(3), expr);
     throw new Error("FNMaterial: cannot convert " + src + " to " + dst);
 }
 
-function fnzero(type) {
-    return type === "f32" ? "0.0" : "vec" + type.charAt(3) + "<f32>(0.0)";
+function fnzero(ctx, type) {
+    if (type === "f32") return "0.0";
+    return fnvec(ctx, type.charAt(3), "0.0");
 }
 
-function fnone(type) {
-    return type === "f32" ? "1.0" : "vec" + type.charAt(3) + "<f32>(1.0)";
+function fnone(ctx, type) {
+    if (type === "f32") return "1.0";
+    return fnvec(ctx, type.charAt(3), "1.0");
 }
 
 function fnfmt(value) {
@@ -59,7 +67,7 @@ class FNVec2 extends FNNode {
     emit(ctx) {
         var a = this.x.emit(ctx), b = this.y.emit(ctx);
         if (a.type !== "f32" || b.type !== "f32") throw new Error("FNVec2: components must be f32");
-        return { expr: "vec2<f32>(" + a.expr + ", " + b.expr + ")", type: "vec2" };
+        return { expr: fnvec(ctx, 2, a.expr + ", " + b.expr), type: "vec2" };
     }
 }
 
@@ -68,7 +76,7 @@ class FNVec3 extends FNNode {
     emit(ctx) {
         var a = this.x.emit(ctx), b = this.y.emit(ctx), c = this.z.emit(ctx);
         if (a.type !== "f32" || b.type !== "f32" || c.type !== "f32") throw new Error("FNVec3: components must be f32");
-        return { expr: "vec3<f32>(" + a.expr + ", " + b.expr + ", " + c.expr + ")", type: "vec3" };
+        return { expr: fnvec(ctx, 3, a.expr + ", " + b.expr + ", " + c.expr), type: "vec3" };
     }
 }
 
@@ -77,18 +85,18 @@ class FNVec4 extends FNNode {
     emit(ctx) {
         var a = this.x.emit(ctx), b = this.y.emit(ctx), c = this.z.emit(ctx), d = this.w.emit(ctx);
         if (a.type !== "f32" || b.type !== "f32" || c.type !== "f32" || d.type !== "f32") throw new Error("FNVec4: components must be f32");
-        return { expr: "vec4<f32>(" + a.expr + ", " + b.expr + ", " + c.expr + ", " + d.expr + ")", type: "vec4" };
+        return { expr: fnvec(ctx, 4, a.expr + ", " + b.expr + ", " + c.expr + ", " + d.expr), type: "vec4" };
     }
 }
 
 class FNColor extends FNNode {
     constructor(hex) { super(); var c = new Color(hex); this.r = c.r; this.g = c.g; this.b = c.b; }
-    emit(ctx) { return { expr: "vec3<f32>(" + fnfmt(this.r) + ", " + fnfmt(this.g) + ", " + fnfmt(this.b) + ")", type: "vec3" }; }
+    emit(ctx) { return { expr: fnvec(ctx, 3, fnfmt(this.r) + ", " + fnfmt(this.g) + ", " + fnfmt(this.b)), type: "vec3" }; }
 }
 
 class FNUV extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "input.uv", type: "vec2" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "vUv" : "input.uv", type: "vec2" }; }
 }
 
 class FNSurfaceNormal extends FNNode {
@@ -103,24 +111,25 @@ class FNViewDir extends FNNode {
 
 class FNVertexColor extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "input.color", type: "vec3" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "vColor" : "input.color", type: "vec3" }; }
 }
 
 class FNMaterialColor extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "modelData.baseColor.rgb", type: "vec3" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "uBaseColor" : "modelData.baseColor.rgb", type: "vec3" }; }
 }
 
 class FNMaterialAlpha extends FNNode {
     constructor() { super(); }
-    emit(ctx) { return { expr: "modelData.baseColor.a", type: "f32" }; }
+    emit(ctx) { return { expr: ctx.backend === "glsl" ? "uOpacity" : "modelData.baseColor.a", type: "f32" }; }
 }
 
 class FNTexture extends FNNode {
     constructor(uv) { super(); this.uv = uv ? fnnode(uv, "FNTexture uv") : null; }
     emit(ctx) {
-        var uvExpr = this.uv ? this.uv.emit(ctx) : { expr: "input.uv", type: "vec2" };
+        var uvExpr = this.uv ? this.uv.emit(ctx) : { expr: ctx.backend === "glsl" ? "vUv" : "input.uv", type: "vec2" };
         if (uvExpr.type !== "vec2") throw new Error("FNTexture: uv must be vec2");
+        if (ctx.backend === "glsl") return { expr: "texture2D(uFNTexture, " + uvExpr.expr + ").rgb", type: "vec3" };
         return { expr: "textureSample(baseTexture, baseSampler, " + uvExpr.expr + ").rgb", type: "vec3" };
     }
 }
@@ -137,9 +146,12 @@ class FNMath extends FNNode {
     emit(ctx) {
         var a = this.a.emit(ctx), b = this.b.emit(ctx);
         var type = fnpromote(a.type, b.type);
-        var ax = fnconv(a.type, type, a.expr), bx = fnconv(b.type, type, b.expr);
+        var ax = fnconv(ctx, a.type, type, a.expr), bx = fnconv(ctx, b.type, type, b.expr);
         if (this.op === "+" || this.op === "-" || this.op === "*" || this.op === "/") return { expr: "(" + ax + " " + this.op + " " + bx + ")", type: type };
-        if (this.op === "%") return { expr: "(" + ax + " % " + bx + ")", type: type };
+        if (this.op === "%") {
+            if (ctx.backend === "glsl") return { expr: "mod(" + ax + ", " + bx + ")", type: type };
+            return { expr: "(" + ax + " % " + bx + ")", type: type };
+        }
         return { expr: this.op + "(" + ax + ", " + bx + ")", type: type };
     }
 }
@@ -151,7 +163,7 @@ class FNMix extends FNNode {
         var type = fnpromote(a.type, b.type);
         if (t.type !== "f32") throw new Error("FNMix: t must be f32");
         if (type === "f32") return { expr: "mix(" + a.expr + ", " + b.expr + ", " + t.expr + ")", type: "f32" };
-        return { expr: "mix(" + fnconv(a.type, type, a.expr) + ", " + fnconv(b.type, type, b.expr) + ", vec" + type.charAt(3) + "<f32>(" + t.expr + "))", type: type };
+        return { expr: "mix(" + fnconv(ctx, a.type, type, a.expr) + ", " + fnconv(ctx, b.type, type, b.expr) + ", " + fnvec(ctx, type.charAt(3), t.expr) + ")", type: type };
     }
 }
 
@@ -160,7 +172,7 @@ class FNClamp extends FNNode {
     emit(ctx) {
         var a = this.a.emit(ctx), lo = this.lo.emit(ctx), hi = this.hi.emit(ctx);
         var type = fnpromote(fnpromote(a.type, lo.type), hi.type);
-        return { expr: "clamp(" + fnconv(a.type, type, a.expr) + ", " + fnconv(lo.type, type, lo.expr) + ", " + fnconv(hi.type, type, hi.expr) + ")", type: type };
+        return { expr: "clamp(" + fnconv(ctx, a.type, type, a.expr) + ", " + fnconv(ctx, lo.type, type, lo.expr) + ", " + fnconv(ctx, hi.type, type, hi.expr) + ")", type: type };
     }
 }
 
@@ -169,7 +181,7 @@ class FNSaturate extends FNNode {
     emit(ctx) {
         var a = this.a.emit(ctx);
         fnchecktype(a.type);
-        return { expr: "clamp(" + a.expr + ", " + fnzero(a.type) + ", " + fnone(a.type) + ")", type: a.type };
+        return { expr: "clamp(" + a.expr + ", " + fnzero(ctx, a.type) + ", " + fnone(ctx, a.type) + ")", type: a.type };
     }
 }
 
@@ -227,7 +239,9 @@ class FNChecker extends FNNode {
         var uv = this.uv.emit(ctx), s = this.scale.emit(ctx);
         if (uv.type !== "vec2") throw new Error("FNChecker: uv must be vec2");
         if (s.type !== "f32") throw new Error("FNChecker: scale must be f32");
-        return { expr: "((floor((" + uv.expr + ").x * " + s.expr + ") + floor((" + uv.expr + ").y * " + s.expr + ")) % 2.0)", type: "f32" };
+        var sum = "floor((" + uv.expr + ").x * " + s.expr + ") + floor((" + uv.expr + ").y * " + s.expr + ")";
+        if (ctx.backend === "glsl") return { expr: "mod(" + sum + ", 2.0)", type: "f32" };
+        return { expr: "(" + sum + " % 2.0)", type: "f32" };
     }
 }
 
@@ -238,12 +252,14 @@ class FNNoise extends FNNode {
         if (uv.type !== "vec2") throw new Error("FNNoise: uv must be vec2");
         if (s.type !== "f32") throw new Error("FNNoise: scale must be f32");
         var id = ctx.counter++;
-        ctx.prelude.push("var fnn" + id + "_i = vec2<u32>(floor((" + uv.expr + ") * " + s.expr + "));");
-        ctx.prelude.push("var fnn" + id + "_h = fnn" + id + "_i.x * 374761393u + fnn" + id + "_i.y * 668265263u;");
+        var floatCast = ctx.backend === "glsl" ? "float" : "f32";
+        var uvec2 = ctx.backend === "glsl" ? "uvec2(floor((" + uv.expr + ") * " + s.expr + "))" : "vec2<u32>(floor((" + uv.expr + ") * " + s.expr + "))";
+        ctx.prelude.push((ctx.backend === "glsl" ? "uvec2 fnn" + id + "_i = " : "var fnn" + id + "_i = ") + uvec2 + ";");
+        ctx.prelude.push((ctx.backend === "glsl" ? "uint fnn" + id + "_h = " : "var fnn" + id + "_h = ") + "fnn" + id + "_i.x * 374761393u + fnn" + id + "_i.y * 668265263u;");
         ctx.prelude.push("fnn" + id + "_h = fnn" + id + "_h ^ (fnn" + id + "_h >> 13u);");
         ctx.prelude.push("fnn" + id + "_h = fnn" + id + "_h * 1274126177u;");
         ctx.prelude.push("fnn" + id + "_h = fnn" + id + "_h ^ (fnn" + id + "_h >> 16u);");
-        return { expr: "(f32(fnn" + id + "_h) / 4294967295.0)", type: "f32" };
+        return { expr: "(" + floatCast + "(fnn" + id + "_h) / 4294967295.0)", type: "f32" };
     }
 }
 
@@ -293,9 +309,9 @@ class FNMaterial extends Material {
         return this;
     }
     buildFragment(engineFrag) {
-        var ctx = { prelude: [], counter: 0 };
+        var ctx = { prelude: [], counter: 0, backend: "wgsl" };
         var colorExpr = this.colorNode ? this.colorNode.emit(ctx) : null;
-        if (colorExpr && colorExpr.type === "f32") colorExpr = { expr: "vec3<f32>(" + colorExpr.expr + ")", type: "vec3" };
+        if (colorExpr && colorExpr.type === "f32") colorExpr = { expr: fnvec(ctx, 3, colorExpr.expr), type: "vec3" };
         if (colorExpr && colorExpr.type !== "vec3") throw new Error("FNMaterial: color node must be vec3");
         var alphaExpr = this.alphaNode ? this.alphaNode.emit(ctx) : null;
         if (alphaExpr && alphaExpr.type !== "f32") throw new Error("FNMaterial: alpha node must be f32");
@@ -304,7 +320,7 @@ class FNMaterial extends Material {
         var roughnessExpr = this.roughnessNode ? this.roughnessNode.emit(ctx) : null;
         if (roughnessExpr && roughnessExpr.type !== "f32") throw new Error("FNMaterial: roughness node must be f32");
         var emissiveExpr = this.emissiveNode ? this.emissiveNode.emit(ctx) : null;
-        if (emissiveExpr && emissiveExpr.type === "f32") emissiveExpr = { expr: "vec3<f32>(" + emissiveExpr.expr + ")", type: "vec3" };
+        if (emissiveExpr && emissiveExpr.type === "f32") emissiveExpr = { expr: fnvec(ctx, 3, emissiveExpr.expr), type: "vec3" };
         if (emissiveExpr && emissiveExpr.type !== "vec3") throw new Error("FNMaterial: emissive node must be vec3");
         var baseAnchor = "var base = modelData.baseColor.rgb * sampled.rgb;";
         var alphaAnchor = "var alpha = modelData.baseColor.a * sampled.a;";
@@ -335,6 +351,89 @@ class FNMaterial extends Material {
         if (roughnessExpr) frag = frag.replace(roughnessAnchor, "let roughness = clamp((" + roughnessExpr.expr + ") * roughnessSample.g, 0.04, 1.0);");
         if (emissiveExpr) frag = frag.replace(emissiveAnchor, "(" + emissiveExpr.expr + ") * modelData.shading.y");
         return frag;
+    }
+
+    // Cross backend GLSL path: the same node graph compiles to a GLSL ES 3.0
+    // ShaderMaterial for the WebGL2 renderer.
+    toShaderMaterial() {
+        var ctx = { prelude: [], counter: 0, backend: "glsl" };
+        var colorExpr = this.colorNode ? this.colorNode.emit(ctx) : null;
+        if (colorExpr && colorExpr.type === "f32") colorExpr = { expr: fnvec(ctx, 3, colorExpr.expr), type: "vec3" };
+        if (colorExpr && colorExpr.type !== "vec3") throw new Error("FNMaterial: color node must be vec3");
+        var alphaExpr = this.alphaNode ? this.alphaNode.emit(ctx) : null;
+        if (alphaExpr && alphaExpr.type !== "f32") throw new Error("FNMaterial: alpha node must be f32");
+        var emissiveExpr = this.emissiveNode ? this.emissiveNode.emit(ctx) : null;
+        if (emissiveExpr && emissiveExpr.type === "f32") emissiveExpr = { expr: fnvec(ctx, 3, emissiveExpr.expr), type: "vec3" };
+        if (emissiveExpr && emissiveExpr.type !== "vec3") throw new Error("FNMaterial: emissive node must be vec3");
+        var prelude = ctx.prelude.length ? ctx.prelude.join("\n") + "\n    " : "";
+        var baseLine = "    vec3 base = " + (colorExpr ? "(" + colorExpr.expr + ")" : "uBaseColor") + ";";
+        var alphaLine = "    float alpha = " + (alphaExpr ? "(" + alphaExpr.expr + ")" : "uOpacity") + ";";
+        var shading = "";
+        if (this.mode === "standard") {
+            shading = [
+                "    vec3 lightDir = normalize(vec3(0.35, 0.9, 0.25));",
+                "    vec3 h = normalize(v + lightDir);",
+                "    float ndl = max(dot(n, lightDir), 0.0);",
+                "    float gloss = mix(8.0, 220.0, clamp(1.0 - uRoughness, 0.0, 1.0));",
+                "    float spec = pow(max(dot(n, h), 0.0), gloss) * uMetallic * 0.6;",
+                "    color = base * (0.22 + 0.78 * ndl) + vec3(spec);" +
+                (emissiveExpr ? " + (" + emissiveExpr.expr + ");" : ";")
+            ].join("\n");
+        } else {
+            shading = "    color = base;";
+        }
+        var fragment = [
+            "precision highp float;",
+            "varying vec3 vNormal;",
+            "varying vec3 vWorldPosition;",
+            "varying vec2 vUv;",
+            "varying vec3 vColor;",
+            "uniform vec3 cameraPosition;",
+            "uniform vec3 uBaseColor;",
+            "uniform float uOpacity;",
+            "uniform float uMetallic;",
+            "uniform float uRoughness;",
+            "uniform sampler2D uFNTexture;",
+            "void main() {",
+            "    vec3 n = normalize(vNormal);",
+            "    vec3 v = normalize(cameraPosition - vWorldPosition);",
+            prelude + baseLine,
+            alphaLine,
+            "    vec3 color;",
+            shading,
+            "    gl_FragColor = vec4(color, alpha);",
+            "}"
+        ].join("\n");
+        var vertex = [
+            "varying vec3 vNormal;",
+            "varying vec3 vWorldPosition;",
+            "varying vec2 vUv;",
+            "varying vec3 vColor;",
+            "attribute vec3 color;",
+            "void main() {",
+            "    vNormal = normalize(mat3(modelMatrix) * normal);",
+            "    vec4 world = modelMatrix * vec4(position, 1.0);",
+            "    vWorldPosition = world.xyz;",
+            "    vUv = uv;",
+            "    vColor = color;",
+            "    gl_Position = projectionMatrix * viewMatrix * world;",
+            "}"
+        ].join("\n");
+        var shader = new ShaderMaterial({
+            uniforms: {
+                uBaseColor: { value: new Color(this.color !== undefined ? this.color : 0xffffff) },
+                uOpacity: { value: faoxomvalue(this.opacity, 1) },
+                uMetallic: { value: faoxomvalue(this.metalness, 0) },
+                uRoughness: { value: faoxomvalue(this.roughness, 0.5) },
+                uFNTexture: { value: this.diffuseMap || null }
+            },
+            vertexShader: vertex,
+            fragmentShader: fragment
+        });
+        shader.vertexColors = true;
+        if (this.transparent) shader.transparent = true;
+        if (this.side !== undefined) shader.side = this.side;
+        return shader;
     }
 }
 

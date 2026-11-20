@@ -66,10 +66,24 @@ class TaskPool {
         this._terminated = false;
         this.stats = { workers: 0, dispatched: 0, completed: 0, failed: 0, queued: 0 };
         this._spawn();
+        TaskPool.instances.push(this);
     }
 
     static get supportsSharedArrayBuffer() {
         return typeof SharedArrayBuffer !== "undefined";
+    }
+
+    static get instances() {
+        if (!TaskPool._instances) TaskPool._instances = [];
+        return TaskPool._instances;
+    }
+
+    // Transferable worker mode is the default; shared memory only engages on
+    // cross-origin isolated pages (COOP/COEP headers, see CrossOrigin).
+    static isolationStatus() {
+        var isolated = false;
+        try { isolated = typeof crossOriginIsolated !== "undefined" ? !!crossOriginIsolated : false; } catch (e) { isolated = false; }
+        return { sharedArrayBuffer: TaskPool.supportsSharedArrayBuffer, crossOriginIsolated: isolated };
     }
 
     get supportsSharedArrayBuffer() {
@@ -217,6 +231,9 @@ class TaskPool {
 
     terminate() {
         this._terminated = true;
+        var registry = TaskPool.instances;
+        var index = registry.indexOf(this);
+        if (index !== -1) registry.splice(index, 1);
         for (var i = 0; i < this._workers.length; i++) this._workers[i].terminate();
         this._workers = [];
         this._idle = [];

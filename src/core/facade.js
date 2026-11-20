@@ -1,7 +1,7 @@
 import { Scene } from "../scenes/index.js";
 import { BloomPass, ColorGradePass, FXAAPass, GBufferTarget, GPUCompute, PostProcessingComposer, RenderTarget, SSAOPass, SSRPass, VignettePass, WebGLRenderer, WebGPUBloomPass, WebGPUCompute, WebGPUFXAAPass, WebGPUPostProcessingComposer, WebGPURenderer, WebGPUToneMappingPass } from "../renderers/index.js";
 import { CubeTexture, PMREMGenerator, Texture, TextureFormatSelector, TextureStreamer } from "../textures/index.js";
-import { BoxCollider, CapsuleCollider, CharacterController, Cloth, CollisionShape, CompoundCollisionShape, ConvexCollisionShape, CylinderCollisionShape, Decal, DestructionBody, Fluid, HeadlessRenderer, HeightfieldShape, JointLimit, MeshCollisionShape, Navmesh, NavmeshManager, OffscreenEngine, Pathfinder, PerfGovernor, PhysicsWorld, PlaneCollider, PNGCodec, Ragdoll, ReflectionProbe, RigidBody, Rope, SoftBody, SphereCollider, TaskPool, Terrain, TerrainManager, Vehicle, WebXRAR, WebXRManager, WorldStreamer } from "../extras/index.js";
+import { AntiTamper, BlindedInt32, BoxCollider, CapsuleCollider, CharacterController, Cloth, CollisionShape, CompoundCollisionShape, ConvexCollisionShape, CylinderCollisionShape, Decal, DestructionBody, Fluid, GPUStateVault, HeadlessRenderer, HeightfieldShape, IntegrityVM, JointLimit, MeshCollisionShape, Navmesh, NavmeshManager, NetcodeSession, OffscreenEngine, Pathfinder, PerfGovernor, PhysicsDebugRenderer, PhysicsWorld, PlaneCollider, PNGCodec, ProtectedValue, Ragdoll, ReflectionProbe, ReplayRecorder, RigidBody, Rope, SharedCounter, SharedRingBuffer, SoftBody, SphereCollider, TaskPool, Terrain, TerrainManager, Vehicle, WebXRAR, WebXRManager, WorldStreamer } from "../extras/index.js";
 import { DeviceLossManager, FrameProfiler, ResourceLedger } from "../renderers/index.js";
 import { AnimationClip, AnimationCompressor, AnimationController, AnimationManager, AnimationMixer, AnimationRetargeter, AnimationStateMachine, AnimationTrack, BlendTree, FacialAnimation, MotionMatcher, RootMotionExtractor, TwoBoneIKSolver } from "../animation/index.js";
 import { AssetLoader, DRACOLoader, FBXLoader, GLTFLoader, KTX2Loader, SceneExporter } from "../loaders/index.js";
@@ -92,6 +92,14 @@ class FaoxomJs {
     createHeadlessRenderer(options) { return new HeadlessRenderer(options); }
     createResourceLedger(options) { return new ResourceLedger(options); }
     createTaskPool(options) { return new TaskPool(options); }
+    createNetcodeSession(options) { return new NetcodeSession(options); }
+    createReplayRecorder(options) { return new ReplayRecorder(options); }
+    createProtectedValue(value, options) { return new ProtectedValue(value, options); }
+    createBlindedInt32(value, options) { return new BlindedInt32(value, options); }
+    createIntegrityVM(options) { return new IntegrityVM(options); }
+    createPhysicsDebugRenderer(scene, options) { return new PhysicsDebugRenderer(scene, options); }
+    createSharedRingBuffer(capacity) { return new SharedRingBuffer(capacity); }
+    createSharedCounter() { return new SharedCounter(); }
     createWebXRAR(options) { return new WebXRAR(options); }
     createOffscreenEngine(options) { return new OffscreenEngine(options); }
     createRigidBody(options) { var body = new RigidBody(options); this.physics.addBody(body); return body; }
