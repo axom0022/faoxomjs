@@ -1,4 +1,4 @@
-import { Float32BufferAttribute } from "../core/index.js";
+import { Float32BufferAtt } from "../core/index.js";
 
 import { Color } from "../math/index.js";
 
@@ -368,7 +368,7 @@ class FaoxLoader {
             var zahfk = Object.keys(zahfi.attributes);
             for (var zahfl = 0; zahfl < zahfk.length; zahfl++) {
                 var zahfm = zahfi.attributes[zahfk[zahfl]];
-                zahfj.setAttribute(zahfk[zahfl], new Float32BufferAttribute(zahff(zahfm, Float32Array), zahfm.itemSize));
+                zahfj.setAttribute(zahfk[zahfl], new Float32BufferAtt(zahff(zahfm, Float32Array), zahfm.itemSize));
             }
             if (zahfi.index) zahfj.setIndex(zahff(zahfi.index, zahfi.index.array === "u32" ? Uint32Array : Uint16Array));
             zahfg.push(zahfj);

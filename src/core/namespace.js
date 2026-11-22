@@ -2,7 +2,7 @@ import { FaoxomJs } from "./facade.js";
 
 import { Scene } from "../scenes/index.js";
 
-import { MeshletSet, MegaGeometry, FXOMVGS, PCGRandom, PCGNoise, PCGTerrain, PCGScatter, PCGDungeon, PCGGrammar, FaoxWriter, FaoxPacker, FaoxLoader, FAOX_VERSION, FloatingOrigin, GPUBroadphase, FixedSimulation, ResidencyManager, AutomaticLOD, simplifyQuadric, bayer8, ditherThreshold, ditheredOpacity, BVH, TerrainClipmap, ScatterField, GameInput, PerfGovernor, PNGCodec, HeadlessRenderer, WebXRAR, TaskPool, OffscreenEngine, FaoxomSceneElement } from "../extras/index.js";
+import { MeshletSet, MegaGeometry, FXOMVGS, PCGRandom, PCGNoise, PCGTerrain, PCGScatter, PCGDungeon, PCGGrammar, FaoxWriter, FaoxPacker, FaoxLoader, FAOX_VERSION, FloatingOrigin, GPUBroadphase, FixedSimulation, ResidencyManager, AutomaticLOD, simplifyQuadric, bayer8, ditherThreshold, ditheredOpacity, BVH, TerrainClipmap, ScatterField, GameInput, PerfGovernor, AdaptiveFrameBudget, VisibilityBudget, FrameTaskScheduler, RenderBenchmark, PNGCodec, HeadlessRenderer, WebXRAR, TaskPool, OffscreenEngine, FaoxomSceneElement } from "../extras/index.js";
 
 import { BloomPass, BokehDepthOfFieldPass, CascadedShadowMap, ColorGradePass, EffectComposer, FXAAPass, FXOMDGIAR, FrameGraph, GBufferTarget, GPUCompute, GPUComputePass, GPUCullingPipeline, GPUIndirectDrawBuffer, GPURayQuery, GPURTShadows, GPURTReflections, GPUMeshletCuller, ClusteredLighting, GPUDrivenPipeline, GTAOPass, HBAOPass, HiZBuffer, HiZOcclusion, OcclusionCuller, Pass, PostProcessPass, PostProcessingComposer, ProgressiveBloomPass, RenderPass, RenderTarget, SSAOPass, SSGIPass, SSRPass, ScreenSpaceReflectionsPass, SunBeam, TAAPass, VignettePass, VolumetricPass, WebGLRenderTarget, WebGLRenderer, WebGPUBloomPass, WebGPUCompute, WebGPUFXAAPass, WebGPUPostProcessPass, WebGPUPostProcessingComposer, WebGPURenderer, WebGPUResourceManager, WebGPUToneMappingPass, OITRenderer, FroxelLighting, AtmosphereRenderer, GaussianSplatRenderer, FFTOcean, GPUParticles, SkinnedCrowd, ResourceLedger, DeviceLossManager, FrameProfiler } from "../renderers/index.js";
 
@@ -28,7 +28,7 @@ import { Bone, ClipVolume, ClipVolumeArray, DecalGeometry, Group, InstancedMesh,
 
 import { FNMaterial, BasicMaterial, LambertMaterial, LineBasicMaterial, LineMaterial, Material, PhongMaterial, PhysicalMaterial, PointsMaterial, SSSSProfile, ShaderMaterial, StandardMaterial, FNFloat, FNVec2, FNVec3, FNVec4, FNColor, FNUV, FNSurfaceNormal, FNViewDir, FNVertexColor, FNMaterialColor, FNMaterialAlpha, FNTexture, FNMath, FNMix, FNClamp, FNSaturate, FNChannel, FNDot, FNNormalize, FNFresnel, FNChecker, FNNoise, FNNode } from "../materials/index.js";
 
-import { ACESFilmicToneMapping, AdditiveBlending, AgXToneMapping, BackSide, BufferAttribute, CineonToneMapping, ClampToEdgeWrapping, Clock, DepthFormat, DoubleSide, DynamicDrawUsage, EventDispatcher, Float32BufferAttribute, FloatType, Fog, FogExp2, FrontSide, HalfFloatType, InstancedBufferAttribute, LinearFilter, LinearSRGBColorSpace, LinearToneMapping, MirroredRepeatWrapping, MultiplyBlending, NearestFilter, NoToneMapping, Node, NormalBlending, Object3D, RGBA16FFormat, RGBAFormat, Raycaster, ReinhardToneMapping, RenderLayers, RepeatWrapping, SRGBColorSpace, StaticDrawUsage, SubtractiveBlending, UnsignedByteType, faoxombase64text, faoxommodelstore, faoxomregistermodel, faoxomstate } from "./index.js";
+import { ACESFilmicToneMapping, AdditiveBlending, AgXToneMapping, BackSide, BufferAttribute, CineonToneMapping, ClampToEdgeWrapping, Clock, DepthFormat, DoubleSide, DynamicDrawUsage, EventDispatcher, Float32BufferAtt, FloatType, Fog, FogExp2, FrontSide, HalfFloatType, InstancedBufferAtt, LinearFilter, LinearSRGBColorSpace, LinearToneMapping, MirroredRepeatWrapping, MultiplyBlending, NearestFilter, NoToneMapping, Node, NormalBlending, Object3D, RGBA16FFormat, RGBAFormat, Raycaster, ReinhardToneMapping, RenderLayers, RepeatWrapping, SRGBColorSpace, StaticDrawUsage, SubtractiveBlending, UnsignedByteType, faoxombase64text, faoxommodelstore, faoxomregistermodel, faoxomstate } from "./index.js";
 
 import { Box3, CatmullRomCurve3, Color, CubicBezierCurve3, Curve, Euler, LineCurve3, Matrix3, Matrix4, NURBSCurve, NURBSSurface, NURBSUtils, Path, Plane, QuadraticBezierCurve3, Quaternion, Ray, Segment3, Shape, ShapePath, ShapeUtils, Sphere, Tri3, Vector2, Vector3, Vector4, faoxomclamp } from "../math/index.js";
 
@@ -332,11 +332,11 @@ FaoxomJs.FNNoise = FNNoise;
 
 FaoxomJs.ShaderMaterial = ShaderMaterial;
 
-FaoxomJs.InstancedBufferAttribute = InstancedBufferAttribute;
+FaoxomJs.InstancedBufferAtt = InstancedBufferAtt;
 
 FaoxomJs.BufferAttribute = BufferAttribute;
 
-FaoxomJs.Float32BufferAttribute = Float32BufferAttribute;
+FaoxomJs.Float32BufferAtt = Float32BufferAtt;
 
 FaoxomJs.BufferGeometry = Geometry;
 
@@ -621,6 +621,14 @@ FaoxomJs.SpatialAudioSystem = SpatialAudioSystem;
 FaoxomJs.GameInput = GameInput;
 
 FaoxomJs.PerfGovernor = PerfGovernor;
+
+FaoxomJs.AdaptiveFrameBudget = AdaptiveFrameBudget;
+
+FaoxomJs.VisibilityBudget = VisibilityBudget;
+
+FaoxomJs.FrameTaskScheduler = FrameTaskScheduler;
+
+FaoxomJs.RenderBenchmark = RenderBenchmark;
 
 FaoxomJs.PNGCodec = PNGCodec;
 

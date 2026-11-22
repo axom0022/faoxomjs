@@ -96,9 +96,9 @@ export * from "./faoxomworlduvgenerator.js";
 
 export * from "./BufferAttribute.js";
 
-export * from "./Float32BufferAttribute.js";
+export * from "./Float32BufferAtt.js";
 
-export * from "./InstancedBufferAttribute.js";
+export * from "./InstancedBufferAtt.js";
 
 export * from "./faoxomresolve.js";
 

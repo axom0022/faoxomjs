@@ -21,6 +21,9 @@ class GPUDrivenPipeline {
         this.regions = true;
         this.targetPerRegion = 8;
         this.hysteresis = 5e-4;
+        this.triangleBudget = Infinity;
+        this.drawCallBudget = Infinity;
+        this.lodBias = 1;
         this.hiz = null;
         this.occ = null;
         this.cullpipeline = null;
@@ -56,7 +59,10 @@ class GPUDrivenPipeline {
             occluders: -1,
             regions: 0,
             regionsVisible: -1,
-            regionSkipped: -1
+            regionSkipped: -1,
+            budgetTriangles: 0,
+            budgetDrawCalls: 0,
+            budgetRejectedBatches: 0
         };
     }
     iseligible(zasxa) {
@@ -519,8 +525,18 @@ class GPUDrivenPipeline {
             zasxc[zasxg + 64] = zasxf && zasxf.anisotropyRotation !== undefined ? zasxf.anisotropyRotation : 0;
         }
         this.device.queue.writeBuffer(this.modelbuffer, 0, zasxc);
+        var zasxay = 0;
+        var zasxaz = 0;
+        var zasxba = 0;
         for (var zasxm = 0; zasxm < this.batches.length; zasxm++) {
             var zasxn = this.batches[zasxm];
+            var zasxbb = Math.floor(zasxn.indexcount / 3) * zasxn.count;
+            if (zasxaz >= this.drawCallBudget || zasxay + zasxbb > this.triangleBudget && zasxaz > 0) {
+                zasxba++;
+                continue;
+            }
+            zasxay += zasxbb;
+            zasxaz++;
             var zasxo = zasxn.sample;
             var zasxp = zasxn.material;
             var zasxq = zasxb.pipelineFor(zasxp, "triangle-list");
@@ -635,6 +651,9 @@ class GPUDrivenPipeline {
             zasxb.info.render.calls++;
             zasxb.info.render.triangles += Math.floor(zasxn.indexcount / 3) * zasxn.count;
         }
+        this.stats.budgetTriangles = zasxay;
+        this.stats.budgetDrawCalls = zasxaz;
+        this.stats.budgetRejectedBatches = zasxba;
     }
     afterRender(zasxa, zasxb, zasxc) {
         if (!this.enabled || !this.hiz) return;

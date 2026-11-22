@@ -193,3 +193,5 @@ export * from "./Inspector.js";
 export * from "./PhysicsDebugRenderer.js";
 
 export * from "./faoxomplugin.js";
+
+export * from "./AdaptiveFrameBudget.js";

@@ -23,6 +23,10 @@
       "types": "./esm/core.d.ts",
       "default": "./esm/core.js"
     },
+    "./performance": {
+      "types": "./esm/performance.d.ts",
+      "default": "./esm/performance.js"
+    },
     "./geometry": {
       "types": "./esm/geometry.d.ts",
       "default": "./esm/geometry.js"

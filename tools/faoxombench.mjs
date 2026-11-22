@@ -1,6 +1,8 @@
 import { performance } from "node:perf_hooks";
 
 import {
+    AdaptiveFrameBudget,
+    VisibilityBudget,
     BoxGeometry,
     DirectionalLight,
     Group,
@@ -180,6 +182,68 @@ measure("nodes.tslgraph", "shading", 200, function() {
     return 400;
 });
 
+var adaptiveDecisions = [];
+var adaptive = new AdaptiveFrameBudget({
+    targetFps: 60,
+    profile: { memoryGb: 8, cores: 8, mobile: false, className: "benchmark", baseTriangles: 8000000, baseDrawCalls: 1200 },
+    degradeFrames: 4,
+    upgradeFrames: 20,
+    cooldownFrames: 2,
+    onChange: function(quality, previous, level, reason, controller) {
+        adaptiveDecisions.push({
+            frame: controller.stats.frames,
+            from: previous,
+            to: level,
+            reason: reason,
+            fps: Number(controller.stats.fps.toFixed(2)),
+            frameMs: Number(controller.stats.frameMs.toFixed(3)),
+            triangleBudget: quality.triangleBudget,
+            drawCallBudget: quality.drawCallBudget
+        });
+    }
+});
+
+var deterministicFrames = [];
+for (var adaptiveFrame = 0; adaptiveFrame < 420; adaptiveFrame++) {
+    var phase = adaptiveFrame < 60 ? 11.8 : adaptiveFrame < 130 ? 24.5 : adaptiveFrame < 175 ? 17.2 : 9.8;
+    var jitter = ((adaptiveFrame * 17 + 11) % 13 - 6) * .11;
+    var triangleLoad = adaptiveFrame < 60 ? 3600000 : adaptiveFrame < 130 ? 10500000 : adaptiveFrame < 175 ? 6200000 : 600000;
+    var drawLoad = adaptiveFrame < 60 ? 520 : adaptiveFrame < 130 ? 1650 : adaptiveFrame < 175 ? 980 : 100;
+    var frameMs = phase + jitter;
+    adaptive.sample({ frameMs: frameMs, gpuMs: frameMs * .72, triangles: triangleLoad, drawCalls: drawLoad });
+    deterministicFrames.push(frameMs);
+}
+
+var visibilityGeometry = { index: { count: 15000 } };
+var visibilityObjects = [];
+for (var visibilityIndex = 0; visibilityIndex < 5000; visibilityIndex++) {
+    visibilityObjects.push({
+        geometry: visibilityGeometry,
+        position: { x: visibilityIndex % 100, y: 0, z: Math.floor(visibilityIndex / 100) },
+        userData: { importance: 1 + visibilityIndex % 5 * .1 },
+        visible: true
+    });
+}
+var visibility = new VisibilityBudget().applyFrameBudget(adaptive);
+var visibleObjects = visibility.select(visibilityObjects, { position: { x: 50, y: 2, z: 0 } }, false);
+var deterministicTotal = deterministicFrames.reduce(function(total, value) { return total + value; }, 0);
+var deterministicSorted = deterministicFrames.slice().sort(function(a, b) { return a - b; });
+var adaptiveReport = adaptive.report();
+var adaptiveBenchmark = {
+    seed: 1717,
+    frames: deterministicFrames.length,
+    averageFrameMs: Number((deterministicTotal / deterministicFrames.length).toFixed(3)),
+    fps: Number((deterministicFrames.length * 1000 / deterministicTotal).toFixed(2)),
+    p95FrameMs: Number(deterministicSorted[Math.floor(deterministicSorted.length * .95)].toFixed(3)),
+    visibleTriangles: visibility.stats.triangles,
+    drawCalls: visibility.stats.drawCalls,
+    candidates: visibility.stats.candidates,
+    selectedObjects: visibleObjects.length,
+    finalQualityLevel: adaptiveReport.level,
+    finalQuality: adaptiveReport.quality,
+    adaptiveDecisions: adaptiveDecisions
+};
+
 var memory = process.memoryUsage();
 
 var backendReport = {
@@ -203,6 +267,7 @@ var report = {
     ],
     note: "gpu timings need a WebGPU device, run headless via HeadlessRenderer in a browser or Node with Dawn",
     backends: backendReport,
+    adaptive: adaptiveBenchmark,
     memory: {
         rssBytes: memory.rss,
         heapUsedBytes: memory.heapUsed,

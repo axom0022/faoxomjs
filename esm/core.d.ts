@@ -2,6 +2,32 @@ import { Vector2, Vector3, Quaternion, Euler, Matrix4, Box3, Sphere, Ray, Color 
 import { BufferGeometry } from "./geometry.js";
 import { Material } from "./materials.js";
 
+export class BufferAttribute<TArray extends ArrayLike<number> = ArrayLike<number>> {
+  array: TArray;
+  itemSize: number;
+  count: number;
+  normalized: boolean;
+  needsUpdate: boolean;
+  version: number;
+  constructor(array: TArray, itemSize: number, normalized?: boolean);
+  setUsage(value: number): this;
+  setX(index: number, value: number): this;
+  setY(index: number, value: number): this;
+  setZ(index: number, value: number): this;
+  setW(index: number, value: number): this;
+  setXY(index: number, x: number, y: number): this;
+  setXYZ(index: number, x: number, y: number, z: number): this;
+}
+
+export class Float32BufferAtt extends BufferAttribute<Float32Array> {
+  constructor(array: ArrayLike<number> | Float32Array, itemSize: number, normalized?: boolean);
+}
+
+export class InstancedBufferAtt extends BufferAttribute<Float32Array> {
+  isInstancedBufferAtt: boolean;
+  constructor(array: Float32Array, itemSize: number, normalized?: boolean);
+}
+
 export class EventDispatcher {
   addEventListener(type: string, listener: (event: any) => void): void;
   hasEventListener(type: string, listener: (event: any) => void): boolean;

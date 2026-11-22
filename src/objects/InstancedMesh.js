@@ -1,4 +1,4 @@
-import { InstancedBufferAttribute } from "../core/index.js";
+import { InstancedBufferAtt } from "../core/index.js";
 
 import { Matrix4 } from "../math/index.js";
 
@@ -11,7 +11,7 @@ class InstancedMesh extends Mesh {
         this.capacity = Math.max(0, Math.floor(zarpc || 0));
         this.count = this.capacity;
         this.instanceMatrices = new Float32Array(this.capacity * 16);
-        this.instanceMatrix = new InstancedBufferAttribute(this.instanceMatrices, 16);
+        this.instanceMatrix = new InstancedBufferAtt(this.instanceMatrices, 16);
         this.instanceColor = null;
         this.instanceNeedsUpdate = true;
         for (var zarpd = 0; zarpd < this.capacity; zarpd++) (new Matrix4).toArray(this.instanceMatrices, zarpd * 16);
@@ -26,7 +26,7 @@ class InstancedMesh extends Mesh {
     }
     setColorAt(zarpa, zarpb) {
         if (zarpa < 0 || zarpa >= this.capacity) return this;
-        if (!this.instanceColor) this.instanceColor = new InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
+        if (!this.instanceColor) this.instanceColor = new InstancedBufferAtt(new Float32Array(this.capacity * 3), 3);
         this.instanceColor.array[zarpa * 3] = zarpb.r === undefined ? zarpb.x : zarpb.r;
         this.instanceColor.array[zarpa * 3 + 1] = zarpb.g === undefined ? zarpb.y : zarpb.g;
         this.instanceColor.array[zarpa * 3 + 2] = zarpb.b === undefined ? zarpb.z : zarpb.b;

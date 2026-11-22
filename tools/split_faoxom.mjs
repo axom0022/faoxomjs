@@ -14,7 +14,7 @@ const zavtd = [ "animation", "audio", "camera", "core", "extras", "geometries", 
 
 const zavte = {
     math: [ "Vector2", "Vector3", "Vector4", "Matrix3", "Matrix4", "Quaternion", "Euler", "Color", "Box3", "Sphere", "Plane", "Ray", "Segment3", "Tri3", "MathUtils", "Curve", "LineCurve3", "CatmullRomCurve3", "CubicBezierCurve3", "QuadraticBezierCurve3", "NURBSCurve", "NURBSSurface", "NURBSUtils", "Path", "Shape", "ShapePath", "ShapeUtils" ],
-    core: [ "EventDispatcher", "Object3D", "Node", "Clock", "Raycaster", "BufferAttribute", "Float32BufferAttribute", "InstancedBufferAttribute", "BufferGeometry", "Fog", "FogExp2" ],
+    core: [ "EventDispatcher", "Object3D", "Node", "Clock", "Raycaster", "BufferAttribute", "Float32BufferAtt", "InstancedBufferAtt", "BufferGeometry", "Fog", "FogExp2" ],
     objects: [ "Mesh", "Group", "Line", "LineLoop", "LineSegments", "Points", "Sprite", "SkinnedMesh", "Bone", "Skeleton", "InstancedMesh", "MeshPool", "ObjectPool", "LOD", "WideLine", "ClipVolume", "ClipVolumeArray", "ParticleSystem" ],
     scenes: [ "Scene" ],
     camera: [ "PerspectiveCamera", "OrthographicCamera", "Camera", "OrbitControls", "MapControls", "FirstPersonControls", "PointerLockControls", "ArcballControls", "TransformControls", "InputManager" ],

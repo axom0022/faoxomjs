@@ -1,9 +1,9 @@
 import { BufferAttribute } from "./BufferAttribute.js";
 
-class InstancedBufferAttribute extends BufferAttribute {
+class InstancedBufferAtt extends BufferAttribute {
     constructor(zacra, zacrb, zacrc) {
         super(zacra, zacrb, zacrc);
-        this.isInstancedBufferAttribute = true;
+        this.isInstancedBufferAtt = true;
     }
     setUsage(zacra) {
         this.usage = zacra;
@@ -41,4 +41,4 @@ class InstancedBufferAttribute extends BufferAttribute {
     }
 }
 
-export { InstancedBufferAttribute };
+export { InstancedBufferAtt };

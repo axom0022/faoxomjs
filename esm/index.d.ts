@@ -11,6 +11,7 @@ import * as audio from "./audio.js";
 import * as xr from "./xr.js";
 import * as react from "./react.js";
 import * as controls from "./controls.js";
+import * as performance from "./performance.js";
 
 export * from "./math.js";
 export * from "./core.js";
@@ -25,6 +26,7 @@ export * from "./audio.js";
 export * from "./xr.js";
 export * from "./react.js";
 export * from "./controls.js";
+export * from "./performance.js";
 
 declare const FaoxomJs: typeof math &
   typeof core &
@@ -38,6 +40,7 @@ declare const FaoxomJs: typeof math &
   typeof audio &
   typeof xr &
   typeof react &
-  typeof controls;
+  typeof controls &
+  typeof performance;
 
 export default FaoxomJs;
