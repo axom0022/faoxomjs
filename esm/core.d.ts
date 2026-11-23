@@ -1,6 +1,7 @@
 import { Vector2, Vector3, Quaternion, Euler, Matrix4, Box3, Sphere, Ray, Color } from "./math.js";
 import { BufferGeometry } from "./geometry.js";
 import { Material } from "./materials.js";
+import type { AdvancedLightingPipeline } from "./compute.js";
 
 export class BufferAttribute<TArray extends ArrayLike<number> = ArrayLike<number>> {
   array: TArray;
@@ -302,7 +303,20 @@ export class WebGLRenderer {
   dispose(): void;
 }
 
+export interface AdvancedLightingRendererOptions {
+  quality?: number | "minimum" | "low" | "medium" | "high" | "ultra";
+  adaptiveQuality?: boolean;
+  qualityOptions?: any;
+  prefix?: string;
+  rayQuery?: any;
+  rayBridge?: any;
+  /** Recreates device-bound ray-query resources after GPU-device recovery. */
+  rayQueryFactory?: (renderer: WebGPURenderer) => any;
+  [key: string]: any;
+}
+
 export class WebGPURenderer {
+  device: any;
   domElement: HTMLCanvasElement;
   autoClear: boolean;
   shadowMap: { enabled: boolean; type: number };
@@ -317,6 +331,18 @@ export class WebGPURenderer {
   setMegaMaterials(records: any[]): WebGPURenderer;
   megaMaterialCount: number;
   clusteredLighting: any;
+  advancedLighting: any;
+  advancedLightingFrameGraph: any;
+  advancedLightingQuality: any;
+  setAdvancedLighting(options?: AdvancedLightingRendererOptions | AdvancedLightingPipeline | false): WebGPURenderer;
+  renderAdvancedLighting(inputs: any, camera: any, options?: any): any;
+  renderAdvancedLightingFrameGraph(inputs: any, camera: any, options?: any): any;
+  setAdvancedLightingQuality(level: number | "minimum" | "low" | "medium" | "high" | "ultra"): WebGPURenderer;
+  sampleAdvancedLightingPerformance(metrics: any): WebGPURenderer;
+  getAdvancedLightingOutput(): { texture: any; view: any } | null;
+  restoreAdvancedLighting(): WebGPURenderer;
+  disposeAdvancedLighting(preserveForRecovery?: boolean): WebGPURenderer;
+  advancedLightingRecoveryWarning: string | null;
   dispose(): void;
 }
 

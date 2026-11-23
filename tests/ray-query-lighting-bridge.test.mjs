@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { RayQueryLightingBridge, rayQueryLightingWGSL } from "../src/renderers/RayQueryLightingBridge.js";
+globalThis.GPUBufferUsage||={UNIFORM:1,COPY_DST:2,STORAGE:4};globalThis.GPUTextureUsage||={TEXTURE_BINDING:1,COPY_DST:2,STORAGE_BINDING:4,COPY_SRC:8};
+const resources=[],writes=[];const resource=options=>({options,destroyed:false,createView(){return{texture:this};},destroy(){this.destroyed=true;}});const device={queue:{writeTexture(...x){writes.push(x);},writeBuffer(...x){writes.push(x);},submit(){}},createBuffer(o){const r=resource(o);resources.push(r);return r;},createTexture(o){const r=resource(o);resources.push(r);return r;}};
+const rayQuery={nodebuffer:resource({}),trilistbuffer:resource({}),tridatabuffer:resource({}),stats:{triangles:12}};
+const bridge=new RayQueryLightingBridge(device,rayQuery,{maxMaterials:4,maxLights:3,checkerboard:false});
+assert.equal(bridge.uniformBuffer.options.size,144);assert.equal(bridge.materialBuffer.options.size,4*32);assert.equal(bridge.lightBuffer.options.size,3*32);
+bridge.uploadMaterials([{color:[.2,.4,.8],metalness:.3,roughness:.7},{color:{r:1,g:.5,b:.25},emissive:{r:.1,g:.2,b:.3}}]);assert.equal(bridge.materialCount,2);
+bridge.uploadLights([{direction:[0,-1,0],color:[1,1,1],intensity:2}]);assert.equal(bridge.lightCount,1);
+bridge.resize(9,5);assert.equal(bridge.reflectionTexture.options.format,"rgba16float");assert.equal(bridge.giTexture.options.format,"rgba16float");
+assert.match(rayQueryLightingWGSL,/rqtrace/);assert.match(rayQueryLightingWGSL,/reflectionOutput/);assert.match(rayQueryLightingWGSL,/giOutput/);assert.match(rayQueryLightingWGSL,/hemisphere/);assert.match(rayQueryLightingWGSL,/qualityMap/);
+bridge.reset();assert.equal(bridge.report().stats.resets,1);bridge.dispose();assert.ok(resources.some(r=>r.destroyed));assert.ok(writes.length>0);console.log("Ray-query lighting bridge foundations passed");

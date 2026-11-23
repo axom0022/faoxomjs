@@ -14,6 +14,12 @@ import { GPUDrivenPipeline } from "./GPUDrivenPipeline.js";
 
 import { WebGPUResourceManager } from "./WebGPUResourceManager.js";
 
+import { AdvancedLightingPipeline } from "./AdvancedLightingPipeline.js";
+
+import { AdvancedLightingFrameGraph } from "./AdvancedLightingFrameGraph.js";
+
+import { AdvancedLightingQualityController } from "./AdvancedLightingQualityController.js";
+
 class WebGPURenderer {
     constructor(zauma) {
         zauma = zauma || {};
@@ -37,6 +43,13 @@ class WebGPURenderer {
         this.resourceManager = null;
         this.pipelineCache = {};
         this.postProcessing = null;
+        this.advancedLighting = null;
+        this.advancedLightingFrameGraph = null;
+        this.advancedLightingQuality = null;
+        this._ownsAdvancedLighting = false;
+        this._advancedLightingOptions = null;
+        this._advancedLightingRecoveryOptions = null;
+        this.advancedLightingRecoveryWarning = null;
         this._postLock = false;
         this.gpudriven = null;
         this.gpudrivenEnabled = false;
@@ -96,6 +109,7 @@ class WebGPURenderer {
         });
         this.initialized = true;
         this.resize(this.canvas.clientWidth || this.canvas.width || 1, this.canvas.clientHeight || this.canvas.height || 1);
+        this.restoreAdvancedLighting();
         return this;
     }
     resize(zauma, zaumb) {
@@ -1140,7 +1154,75 @@ class WebGPURenderer {
         this._targetFormat = null;
         return this;
     }
+    setAdvancedLighting(options) {
+        if (options === false || options === null) { this.disposeAdvancedLighting(); return this; }
+        if (!this.device) throw new Error("WebGPURenderer.setAdvancedLighting requires an initialized renderer");
+        options = options || {};
+        this.disposeAdvancedLighting();
+        this._advancedLightingOptions = options instanceof AdvancedLightingPipeline ? null : Object.assign({}, options);
+        if (options instanceof AdvancedLightingPipeline) { this.advancedLighting = options; this._ownsAdvancedLighting = false; }
+        else { this.advancedLighting = new AdvancedLightingPipeline(this, options); this._ownsAdvancedLighting = true; }
+        this.advancedLightingFrameGraph = new AdvancedLightingFrameGraph(this, { pipeline: this.advancedLighting, prefix: options.prefix });
+        if (!(options instanceof AdvancedLightingPipeline) && options.adaptiveQuality !== false) {
+            var levels = { minimum: 0, low: 1, medium: 2, high: 3, ultra: 4 };
+            var requested = options.quality === undefined ? 3 : typeof options.quality === "string" ? levels[options.quality] : options.quality;
+            if (requested === undefined || !(requested >= 0 && requested <= 4)) { this.disposeAdvancedLighting(); throw new Error("Unknown advanced-lighting quality level: " + options.quality); }
+            this.advancedLightingQuality = new AdvancedLightingQualityController(this.advancedLighting, Object.assign({}, options.qualityOptions, { level: requested }));
+            this.advancedLighting.setQualityController(this.advancedLightingQuality);
+        }
+        return this;
+    }
+    renderAdvancedLighting(inputs, camera, options) {
+        if (!this.advancedLighting) this.setAdvancedLighting({});
+        this.advancedLighting.execute(inputs, camera, options);
+        return this.advancedLighting.outputView;
+    }
+    renderAdvancedLightingFrameGraph(inputs, camera, options) {
+        if (!this.advancedLighting) this.setAdvancedLighting({});
+        this.advancedLightingFrameGraph.execute(inputs, camera, options);
+        return this.advancedLightingFrameGraph.outputView;
+    }
+    setAdvancedLightingQuality(level) {
+        if (!this.advancedLighting) this.setAdvancedLighting({ quality: level });
+        else if (!this.advancedLightingQuality) { this.advancedLightingQuality = new AdvancedLightingQualityController(this.advancedLighting, { level: typeof level === "number" ? level : 3 }); this.advancedLighting.setQualityController(this.advancedLightingQuality); }
+        var levels = { minimum: 0, low: 1, medium: 2, high: 3, ultra: 4 };
+        var requested = typeof level === "string" ? levels[level] : level;
+        if (requested === undefined || !(requested >= 0 && requested <= 4)) throw new Error("Unknown advanced-lighting quality level: " + level);
+        this.advancedLightingQuality.forceLevel(requested);
+        return this;
+    }
+    sampleAdvancedLightingPerformance(metrics) { if (this.advancedLighting) this.advancedLighting.samplePerformance(metrics); return this; }
+    getAdvancedLightingOutput() { return this.advancedLighting && this.advancedLighting.outputTexture ? { texture: this.advancedLighting.outputTexture, view: this.advancedLighting.outputView } : null; }
+    restoreAdvancedLighting() {
+        if (!this.device || !this._advancedLightingRecoveryOptions) return this;
+        var recoveryOptions = Object.assign({}, this._advancedLightingRecoveryOptions);
+        var options = Object.assign({}, recoveryOptions);
+        this.advancedLightingRecoveryWarning = null;
+        try {
+            if (typeof options.rayQueryFactory === "function") options.rayQuery = options.rayQueryFactory(this);
+            else if (options.rayQuery || options.rayBridge) {
+                delete options.rayQuery; delete options.rayBridge;
+                this.advancedLightingRecoveryWarning = "Ray-query resources require rayQueryFactory after device recovery";
+            }
+            this.setAdvancedLighting(options);
+            this._advancedLightingRecoveryOptions = null;
+        } catch (error) {
+            this._advancedLightingRecoveryOptions = recoveryOptions;
+            throw error;
+        }
+        return this;
+    }
+    disposeAdvancedLighting(preserveForRecovery) {
+        if (this.advancedLightingFrameGraph) this.advancedLightingFrameGraph.dispose();
+        if (this.advancedLightingQuality) this.advancedLightingQuality.dispose();
+        if (this.advancedLighting && this._ownsAdvancedLighting) this.advancedLighting.dispose();
+        this.advancedLighting = this.advancedLightingFrameGraph = this.advancedLightingQuality = null; this._ownsAdvancedLighting = false;
+        if (preserveForRecovery && this._advancedLightingOptions) this._advancedLightingRecoveryOptions = Object.assign({}, this._advancedLightingOptions);
+        else if (!preserveForRecovery) { this._advancedLightingOptions = null; this._advancedLightingRecoveryOptions = null; }
+        return this;
+    }
     dispose() {
+        this.disposeAdvancedLighting();
         if (this.postProcessing) this.postProcessing.dispose();
         if (this.depthTexture) this.depthTexture.destroy();
         if (this.shadowTexture) this.shadowTexture.destroy();
@@ -1190,6 +1272,7 @@ class WebGPURenderer {
         this._skinPackCache = typeof WeakMap !== "undefined" ? new WeakMap : null;
         this._morphZeroWrappers = {};
         this._instanceData = typeof WeakMap !== "undefined" ? new WeakMap : null;
+        this.disposeAdvancedLighting(true);
         if (this.postProcessing && typeof this.postProcessing.dispose === "function") {
             try {
                 this.postProcessing.dispose();

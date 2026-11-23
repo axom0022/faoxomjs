@@ -127,3 +127,29 @@ export * from "./faoxombexturerfeatures.js";
 export * from "./faoxomwgslpasses.js";
 
 export * from "./faoxompassparity.js";
+
+export * from "./PersistentGPUScene.js";
+
+export * from "./BindlessMaterialTable.js";
+
+export * from "./CausalFrameGraph.js";
+
+export * from "./VirtualGeometryVisibilityPipeline.js";
+
+export * from "./VirtualGeometryGPUHierarchy.js";
+
+export * from "./VirtualShadowMap.js";
+
+export * from "./TemporalSuperResolution.js";
+
+export * from "./AdvancedLighting.js";
+
+export * from "./AdvancedGlobalIllumination.js";
+
+export * from "./AdvancedLightingPipeline.js";
+
+export * from "./RayQueryLightingBridge.js";
+
+export * from "./AdvancedLightingQualityController.js";
+
+export * from "./AdvancedLightingFrameGraph.js";

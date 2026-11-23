@@ -2,9 +2,9 @@ import { FaoxomJs } from "./facade.js";
 
 import { Scene } from "../scenes/index.js";
 
-import { MeshletSet, MegaGeometry, FXOMVGS, PCGRandom, PCGNoise, PCGTerrain, PCGScatter, PCGDungeon, PCGGrammar, FaoxWriter, FaoxPacker, FaoxLoader, FAOX_VERSION, FloatingOrigin, GPUBroadphase, FixedSimulation, ResidencyManager, AutomaticLOD, simplifyQuadric, bayer8, ditherThreshold, ditheredOpacity, BVH, TerrainClipmap, ScatterField, GameInput, PerfGovernor, AdaptiveFrameBudget, VisibilityBudget, FrameTaskScheduler, RenderBenchmark, PNGCodec, HeadlessRenderer, WebXRAR, TaskPool, OffscreenEngine, FaoxomSceneElement } from "../extras/index.js";
+import { MeshletSet, MegaGeometry, FXOMVGS, PCGRandom, PCGNoise, PCGTerrain, PCGScatter, PCGDungeon, PCGGrammar, FaoxWriter, FaoxPacker, FaoxLoader, FAOX_VERSION, FloatingOrigin, GPUBroadphase, FixedSimulation, ResidencyManager, AutomaticLOD, simplifyQuadric, bayer8, ditherThreshold, ditheredOpacity, BVH, TerrainClipmap, ScatterField, GameInput, PerfGovernor, AdaptiveFrameBudget, VisibilityBudget, FrameTaskScheduler, RenderBenchmark, Engine, EngineWorld, FrameContext, CapabilityProfile, FeatureManifest, ArchetypeWorld, ArchetypeQuery, ArchetypeTable, ArchetypeJobScheduler, ComponentSchema, ApplicationLifecycle, GPUResidencyManager2, RuntimeQualityContract, CounterfactualRenderer, UnifiedSpatialDatabase, WorldPartition, WorldCell, PredictiveStreamer, OriginHierarchy, OriginNode, GeometryPageCodec, RuntimeGeometryCache, VirtualGeometryAsset, GeometryPageResidency, VirtualGeometrySelector, VertexPullingStore, IndirectCommandStream, VirtualGeometryRuntime, PNGCodec, HeadlessRenderer, WebXRAR, TaskPool, OffscreenEngine, FaoxomSceneElement } from "../extras/index.js";
 
-import { BloomPass, BokehDepthOfFieldPass, CascadedShadowMap, ColorGradePass, EffectComposer, FXAAPass, FXOMDGIAR, FrameGraph, GBufferTarget, GPUCompute, GPUComputePass, GPUCullingPipeline, GPUIndirectDrawBuffer, GPURayQuery, GPURTShadows, GPURTReflections, GPUMeshletCuller, ClusteredLighting, GPUDrivenPipeline, GTAOPass, HBAOPass, HiZBuffer, HiZOcclusion, OcclusionCuller, Pass, PostProcessPass, PostProcessingComposer, ProgressiveBloomPass, RenderPass, RenderTarget, SSAOPass, SSGIPass, SSRPass, ScreenSpaceReflectionsPass, SunBeam, TAAPass, VignettePass, VolumetricPass, WebGLRenderTarget, WebGLRenderer, WebGPUBloomPass, WebGPUCompute, WebGPUFXAAPass, WebGPUPostProcessPass, WebGPUPostProcessingComposer, WebGPURenderer, WebGPUResourceManager, WebGPUToneMappingPass, OITRenderer, FroxelLighting, AtmosphereRenderer, GaussianSplatRenderer, FFTOcean, GPUParticles, SkinnedCrowd, ResourceLedger, DeviceLossManager, FrameProfiler } from "../renderers/index.js";
+import { BloomPass, BokehDepthOfFieldPass, CascadedShadowMap, ColorGradePass, EffectComposer, FXAAPass, FXOMDGIAR, FrameGraph, GBufferTarget, GPUCompute, GPUComputePass, GPUCullingPipeline, GPUIndirectDrawBuffer, GPURayQuery, GPURTShadows, GPURTReflections, GPUMeshletCuller, VirtualGeometryVisibilityPipeline, VirtualGeometryGPUHierarchy, VirtualShadowMap, TemporalSuperResolution, FoveatedQualityRegions, AdaptiveHybridReflections, ReSTIRDirectLighting, HybridDiffuseGI, SpatiotemporalGIDenoiser, AdvancedLightingPipeline, RayQueryLightingBridge, AdvancedLightingQualityController, AdvancedLightingFrameGraph, ClusteredLighting, GPUDrivenPipeline, GTAOPass, HBAOPass, HiZBuffer, HiZOcclusion, OcclusionCuller, Pass, PostProcessPass, PostProcessingComposer, ProgressiveBloomPass, RenderPass, RenderTarget, SSAOPass, SSGIPass, SSRPass, ScreenSpaceReflectionsPass, SunBeam, TAAPass, VignettePass, VolumetricPass, WebGLRenderTarget, WebGLRenderer, WebGPUBloomPass, WebGPUCompute, WebGPUFXAAPass, WebGPUPostProcessPass, WebGPUPostProcessingComposer, WebGPURenderer, WebGPUResourceManager, WebGPUToneMappingPass, OITRenderer, FroxelLighting, AtmosphereRenderer, GaussianSplatRenderer, FFTOcean, GPUParticles, SkinnedCrowd, ResourceLedger, DeviceLossManager, FrameProfiler, PersistentGPUScene, BindlessMaterialTable, TextureHandleHeap, CausalFrameGraph } from "../renderers/index.js";
 
 import { CompressedCubeTexture, CompressedTexture3D, CompressedTextureArray, CubeTexture, Data3DTexture, DataArrayTexture, DataTexture, DepthTexture, HDRTexture, PREMEnv, PMREMGenerator, Texture, TextureFormatSelector, TextureStreamer, VideoTexture, VirtualTexture, VTStreamer, VTSurface, VTShadowBaker } from "../textures/index.js";
 
@@ -630,6 +630,70 @@ FaoxomJs.FrameTaskScheduler = FrameTaskScheduler;
 
 FaoxomJs.RenderBenchmark = RenderBenchmark;
 
+FaoxomJs.Engine = Engine;
+
+FaoxomJs.EngineWorld = EngineWorld;
+
+FaoxomJs.FrameContext = FrameContext;
+
+FaoxomJs.CapabilityProfile = CapabilityProfile;
+
+FaoxomJs.FeatureManifest = FeatureManifest;
+
+FaoxomJs.ArchetypeWorld = ArchetypeWorld;
+
+FaoxomJs.ArchetypeQuery = ArchetypeQuery;
+
+FaoxomJs.ArchetypeTable = ArchetypeTable;
+
+FaoxomJs.ArchetypeJobScheduler = ArchetypeJobScheduler;
+
+FaoxomJs.ComponentSchema = ComponentSchema;
+
+FaoxomJs.ApplicationLifecycle = ApplicationLifecycle;
+
+FaoxomJs.GPUResidencyManager2 = GPUResidencyManager2;
+
+FaoxomJs.RuntimeQualityContract = RuntimeQualityContract;
+
+FaoxomJs.CounterfactualRenderer = CounterfactualRenderer;
+
+FaoxomJs.PersistentGPUScene = PersistentGPUScene;
+
+FaoxomJs.BindlessMaterialTable = BindlessMaterialTable;
+
+FaoxomJs.TextureHandleHeap = TextureHandleHeap;
+
+FaoxomJs.CausalFrameGraph = CausalFrameGraph;
+
+FaoxomJs.UnifiedSpatialDatabase = UnifiedSpatialDatabase;
+
+FaoxomJs.WorldPartition = WorldPartition;
+
+FaoxomJs.WorldCell = WorldCell;
+
+FaoxomJs.PredictiveStreamer = PredictiveStreamer;
+
+FaoxomJs.OriginHierarchy = OriginHierarchy;
+
+FaoxomJs.OriginNode = OriginNode;
+
+FaoxomJs.GeometryPageCodec = GeometryPageCodec;
+
+FaoxomJs.RuntimeGeometryCache = RuntimeGeometryCache;
+
+FaoxomJs.VirtualGeometryAsset = VirtualGeometryAsset;
+
+FaoxomJs.GeometryPageResidency = GeometryPageResidency;
+
+FaoxomJs.VirtualGeometrySelector = VirtualGeometrySelector;
+
+FaoxomJs.VertexPullingStore = VertexPullingStore;
+
+FaoxomJs.IndirectCommandStream = IndirectCommandStream;
+
+FaoxomJs.VirtualGeometryRuntime = VirtualGeometryRuntime;
+
 FaoxomJs.PNGCodec = PNGCodec;
 
 FaoxomJs.HeadlessRenderer = HeadlessRenderer;
@@ -1036,6 +1100,32 @@ FaoxomJs.MegaGeometry = MegaGeometry;
 
 FaoxomJs.GPUMeshletCuller = GPUMeshletCuller;
 
+FaoxomJs.VirtualGeometryVisibilityPipeline = VirtualGeometryVisibilityPipeline;
+
+FaoxomJs.VirtualGeometryGPUHierarchy = VirtualGeometryGPUHierarchy;
+
+FaoxomJs.VirtualShadowMap = VirtualShadowMap;
+
+FaoxomJs.TemporalSuperResolution = TemporalSuperResolution;
+
+FaoxomJs.FoveatedQualityRegions = FoveatedQualityRegions;
+
+FaoxomJs.AdaptiveHybridReflections = AdaptiveHybridReflections;
+
+FaoxomJs.ReSTIRDirectLighting = ReSTIRDirectLighting;
+
+FaoxomJs.HybridDiffuseGI = HybridDiffuseGI;
+
+FaoxomJs.SpatiotemporalGIDenoiser = SpatiotemporalGIDenoiser;
+
+FaoxomJs.AdvancedLightingPipeline = AdvancedLightingPipeline;
+
+FaoxomJs.RayQueryLightingBridge = RayQueryLightingBridge;
+
+FaoxomJs.AdvancedLightingQualityController = AdvancedLightingQualityController;
+
+FaoxomJs.AdvancedLightingFrameGraph = AdvancedLightingFrameGraph;
+
 FaoxomJs.ClusteredLighting = ClusteredLighting;
 
 FaoxomJs.GPUIndirectDrawBuffer = GPUIndirectDrawBuffer;
@@ -1104,4 +1194,4 @@ FaoxomJs.AtmospherePass = FaoxomJs.AtmosphereRenderer;
 
 FaoxomJs.ComputePass = FaoxomJs.GPUComputePass;
 
-FaoxomJs.VERSION = "v6";
+FaoxomJs.VERSION = "v8";

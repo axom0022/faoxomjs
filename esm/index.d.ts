@@ -12,6 +12,8 @@ import * as xr from "./xr.js";
 import * as react from "./react.js";
 import * as controls from "./controls.js";
 import * as performance from "./performance.js";
+import * as runtime from "./runtime.js";
+import * as world from "./world.js";
 
 export * from "./math.js";
 export * from "./core.js";
@@ -27,6 +29,13 @@ export * from "./xr.js";
 export * from "./react.js";
 export * from "./controls.js";
 export * from "./performance.js";
+export * from "./runtime.js";
+export * from "./world.js";
+
+// Resolve names intentionally exposed by more than one compatibility module.
+export { BufferAttribute } from "./core.js";
+export { GPUDrivenPipeline } from "./compute.js";
+export { MegaGeometry } from "./geometry.js";
 
 declare const FaoxomJs: typeof math &
   typeof core &
@@ -41,6 +50,8 @@ declare const FaoxomJs: typeof math &
   typeof xr &
   typeof react &
   typeof controls &
-  typeof performance;
+  typeof performance &
+  typeof runtime &
+  typeof world;
 
 export default FaoxomJs;
