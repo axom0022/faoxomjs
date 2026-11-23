@@ -156,20 +156,28 @@ class Matrix4 {
         return this.set(1 - (zaogl + zaogn), zaogj - zaogq, zaogk + zaogp, 0, zaogj + zaogq, 1 - (zaogi + zaogn), zaogm - zaogo, 0, zaogk - zaogp, zaogm + zaogo, 1 - (zaogi + zaogl), 0, 0, 0, 0, 1);
     }
     compose(zaoga, zaogb, zaogc) {
-        var zaogd = this.elements;
-        this.makeRotationFromQuaternion(zaogb);
-        zaogd[0] *= zaogc.x;
-        zaogd[1] *= zaogc.x;
-        zaogd[2] *= zaogc.x;
-        zaogd[4] *= zaogc.y;
-        zaogd[5] *= zaogc.y;
-        zaogd[6] *= zaogc.y;
-        zaogd[8] *= zaogc.z;
-        zaogd[9] *= zaogc.z;
-        zaogd[10] *= zaogc.z;
+        var zaogd = this.elements, zaoge = zaogb.x, zaogf = zaogb.y, zaogg = zaogb.z, zaogh = zaogb.w;
+        var zaogi = zaoge + zaoge, zaogj = zaogf + zaogf, zaogk = zaogg + zaogg;
+        var zaogl = zaoge * zaogi, zaogm = zaoge * zaogj, zaogn = zaoge * zaogk;
+        var zaogo = zaogf * zaogj, zaogp = zaogf * zaogk, zaogq = zaogg * zaogk;
+        var zaogr = zaogh * zaogi, zaogs = zaogh * zaogj, zaogt = zaogh * zaogk;
+        var zaogu = zaogc.x, zaogv = zaogc.y, zaogw = zaogc.z;
+        zaogd[0] = (1 - (zaogo + zaogq)) * zaogu;
+        zaogd[1] = (zaogm + zaogt) * zaogu;
+        zaogd[2] = (zaogn - zaogs) * zaogu;
+        zaogd[3] = 0;
+        zaogd[4] = (zaogm - zaogt) * zaogv;
+        zaogd[5] = (1 - (zaogl + zaogq)) * zaogv;
+        zaogd[6] = (zaogp + zaogr) * zaogv;
+        zaogd[7] = 0;
+        zaogd[8] = (zaogn + zaogs) * zaogw;
+        zaogd[9] = (zaogp - zaogr) * zaogw;
+        zaogd[10] = (1 - (zaogl + zaogo)) * zaogw;
+        zaogd[11] = 0;
         zaogd[12] = zaoga.x;
         zaogd[13] = zaoga.y;
         zaogd[14] = zaoga.z;
+        zaogd[15] = 1;
         return this;
     }
     decompose(zaoga, zaogb, zaogc) {

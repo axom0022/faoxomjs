@@ -41,10 +41,10 @@ class Quaternion {
         this.onChange();
     }
     set(zaona, zaonb, zaonc, zaond) {
-        this.x = zaona;
-        this.y = zaonb;
-        this.z = zaonc;
-        this.w = zaond;
+        this._x = zaona;
+        this._y = zaonb;
+        this._z = zaonc;
+        this._w = zaond;
         this.onChange();
         return this;
     }
@@ -54,12 +54,7 @@ class Quaternion {
         return zaona;
     }
     copy(zaona) {
-        this.x = zaona.x;
-        this.y = zaona.y;
-        this.z = zaona.z;
-        this.w = zaona.w;
-        this.onChange();
-        return this;
+        return this.set(zaona.x, zaona.y, zaona.z, zaona.w);
     }
     fromArray(zaona, zaonb) {
         zaonb = zaonb || 0;
@@ -86,9 +81,9 @@ class Quaternion {
         return this.conjugate().normalize();
     }
     conjugate() {
-        this.x = -this.x;
-        this.y = -this.y;
-        this.z = -this.z;
+        this._x = -this._x;
+        this._y = -this._y;
+        this._z = -this._z;
         this.onChange();
         return this;
     }

@@ -240,7 +240,9 @@ class Object3D {
     updateMatrix() {
         var zadba = this.rotation.x !== this._rotationSnapshot.x || this.rotation.y !== this._rotationSnapshot.y || this.rotation.z !== this._rotationSnapshot.z || this.rotation.order !== this._rotationSnapshot.order;
         if (zadba) {
+            this._syncingRotation = true;
             this.quaternion.setFromEuler(this.rotation);
+            this._syncingRotation = false;
             this._rotationSnapshot.x = this.rotation.x;
             this._rotationSnapshot.y = this.rotation.y;
             this._rotationSnapshot.z = this.rotation.z;

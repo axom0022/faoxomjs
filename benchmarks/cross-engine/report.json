@@ -30,29 +30,29 @@
       "pass": true,
       "trials": 3,
       "importMs": {
-        "min": 88.70000000018626,
-        "max": 123.90000000037253,
-        "mean": 109.36666666685294
+        "min": 91.79999999981374,
+        "max": 124.30000000074506,
+        "mean": 102.86666666685294
       },
       "setupMs": {
-        "min": 53.10000000055879,
-        "max": 78.3999999994412,
-        "mean": 66.73333333308499
+        "min": 50,
+        "max": 61.59999999962747,
+        "mean": 57.333333333333336
       },
       "frameMeanMs": {
-        "min": 1.0083333333410944,
-        "max": 1.6708333332790062,
-        "mean": 1.3916666666563187
+        "min": 1.150000000023283,
+        "max": 1.300000000007761,
+        "mean": 1.2458333333488554
       },
       "frameP95Ms": {
-        "min": 3.400000000372529,
-        "max": 10.5,
-        "mean": 6.966666666790843
+        "min": 4.300000000745058,
+        "max": 8.200000000186265,
+        "mean": 6.4000000000620885
       },
       "transformMeanMs": {
-        "min": 1.8600000000558794,
-        "max": 6.240000000037253,
-        "mean": 3.3733333333705864
+        "min": 1.4200000000186264,
+        "max": 1.709999999962747,
+        "mean": 1.5666666666356226
       },
       "drawCalls": [
         1
@@ -70,29 +70,29 @@
       "pass": true,
       "trials": 3,
       "importMs": {
-        "min": 63.5,
-        "max": 82.80000000074506,
-        "mean": 74.66666666697711
+        "min": 58.90000000037253,
+        "max": 62,
+        "mean": 60.26666666691502
       },
       "setupMs": {
-        "min": 74.29999999981374,
-        "max": 77.59999999962747,
-        "mean": 76.36666666654249
+        "min": 59.799999999813735,
+        "max": 64.59999999962747,
+        "mean": 61.63333333314707
       },
       "frameMeanMs": {
-        "min": 1.1833333333488554,
-        "max": 1.9208333333566163,
-        "mean": 1.5902777777907129
+        "min": 1.1333333333022892,
+        "max": 2.6916666666899496,
+        "mean": 1.6694444444470313
       },
       "frameP95Ms": {
-        "min": 2.7000000001862645,
-        "max": 4.400000000372529,
-        "mean": 3.3000000001241765
+        "min": 2.5,
+        "max": 11.200000000186265,
+        "mean": 5.63333333345751
       },
       "transformMeanMs": {
-        "min": 1.4200000000186264,
-        "max": 1.9100000000558794,
-        "mean": 1.6300000000124175
+        "min": 0.9700000000186264,
+        "max": 1.05,
+        "mean": 1
       },
       "drawCalls": [
         400
@@ -110,29 +110,29 @@
       "pass": true,
       "trials": 3,
       "importMs": {
-        "min": 5845.9000000003725,
-        "max": 6039.4000000003725,
-        "mean": 5973.966666667101
+        "min": 5141.9000000003725,
+        "max": 5543.699999999255,
+        "mean": 5381.799999999814
       },
       "setupMs": {
-        "min": 766.7000000001863,
-        "max": 802.4000000003725,
-        "mean": 788.8666666668529
+        "min": 770.9000000003725,
+        "max": 841.0999999996275,
+        "mean": 795.0333333335196
       },
       "frameMeanMs": {
-        "min": 3.429166666658906,
-        "max": 4.224999999976717,
-        "mean": 3.9388888888837155
+        "min": 2.6458333333333335,
+        "max": 2.800000000007761,
+        "mean": 2.7194444444418573
       },
       "frameP95Ms": {
-        "min": 6.3999999994412065,
-        "max": 7.5,
-        "mean": 6.933333332960804
+        "min": 5.3999999994412065,
+        "max": 6,
+        "mean": 5.6333333331470685
       },
       "transformMeanMs": {
-        "min": 4.759999999962747,
-        "max": 7.719999999925494,
-        "mean": 6.236666666654249
+        "min": 5.309999999962747,
+        "max": 7.2700000000186265,
+        "mean": 6.563333333314707
       },
       "drawCalls": [
         400
@@ -158,144 +158,21 @@
         "height": 256,
         "synchronization": "WebGL finish"
       },
-      "importMs": 123.90000000037253,
-      "setupMs": 53.10000000055879,
-      "transform": {
-        "mean": 2.0200000000186265,
-        "median": 1.7000000001862645,
-        "p95": 3.599999999627471,
-        "min": 1.5,
-        "max": 3.599999999627471
-      },
-      "frame": {
-        "mean": 1.0083333333410944,
-        "median": 0.39999999944120646,
-        "p95": 3.400000000372529,
-        "min": 0.19999999925494194,
-        "max": 7.2000000001862645
-      },
-      "drawCalls": 1,
-      "image": {
-        "coveredPixels": 8082,
-        "meanLuminance": 34.15813296503985,
-        "hash": "d89bdb79"
-      },
-      "errors": [],
-      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
-      "renderer": "WebKit WebGL",
-      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
-      "pass": true,
-      "trial": 1,
-      "consoleErrors": []
-    },
-    {
-      "engine": "threejs",
-      "protocol": {
-        "objectCount": 400,
-        "transformCount": 10000,
-        "warmup": 8,
-        "frames": 24,
-        "width": 256,
-        "height": 256,
-        "synchronization": "WebGL finish"
-      },
-      "importMs": 82.80000000074506,
-      "setupMs": 74.29999999981374,
+      "importMs": 91.79999999981374,
+      "setupMs": 50,
       "transform": {
         "mean": 1.4200000000186264,
-        "median": 1.2999999998137355,
-        "p95": 2.300000000745058,
-        "min": 0.900000000372529,
-        "max": 2.300000000745058
+        "median": 1.300000000745058,
+        "p95": 2,
+        "min": 1.099999999627471,
+        "max": 2
       },
       "frame": {
-        "mean": 1.6666666666666667,
-        "median": 1.400000000372529,
-        "p95": 2.7000000001862645,
-        "min": 0.7999999998137355,
-        "max": 3.1000000005587935
-      },
-      "drawCalls": 400,
-      "image": {
-        "coveredPixels": 8082,
-        "meanLuminance": 17.5924746643222,
-        "hash": "e577489b"
-      },
-      "errors": [],
-      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
-      "renderer": "WebKit WebGL",
-      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
-      "pass": true,
-      "trial": 1,
-      "consoleErrors": []
-    },
-    {
-      "engine": "babylonjs",
-      "protocol": {
-        "objectCount": 400,
-        "transformCount": 10000,
-        "warmup": 8,
-        "frames": 24,
-        "width": 256,
-        "height": 256,
-        "synchronization": "WebGL finish"
-      },
-      "importMs": 5845.9000000003725,
-      "setupMs": 802.4000000003725,
-      "transform": {
-        "mean": 7.719999999925494,
-        "median": 4.5,
-        "p95": 12.599999999627471,
-        "min": 4.2000000001862645,
-        "max": 12.599999999627471
-      },
-      "frame": {
-        "mean": 4.224999999976717,
-        "median": 4.400000000372529,
-        "p95": 6.8999999994412065,
-        "min": 1.7999999998137355,
-        "max": 8.099999999627471
-      },
-      "drawCalls": 400,
-      "image": {
-        "coveredPixels": 8082,
-        "meanLuminance": 32.08764451906411,
-        "hash": "d2358993"
-      },
-      "errors": [],
-      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
-      "renderer": "WebKit WebGL",
-      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
-      "pass": true,
-      "trial": 1,
-      "consoleErrors": []
-    },
-    {
-      "engine": "faoxomjs",
-      "protocol": {
-        "objectCount": 400,
-        "transformCount": 10000,
-        "warmup": 8,
-        "frames": 24,
-        "width": 256,
-        "height": 256,
-        "synchronization": "WebGL finish"
-      },
-      "importMs": 88.70000000018626,
-      "setupMs": 68.69999999925494,
-      "transform": {
-        "mean": 1.8600000000558794,
-        "median": 1.5,
-        "p95": 2.900000000372529,
-        "min": 1.3999999994412065,
-        "max": 2.900000000372529
-      },
-      "frame": {
-        "mean": 1.4958333333488554,
-        "median": 0.599999999627471,
-        "p95": 7,
-        "min": 0.2999999998137355,
-        "max": 9.399999999441206
+        "mean": 1.2875000000155221,
+        "median": 0.40000000037252903,
+        "p95": 8.200000000186265,
+        "min": 0.19999999925494194,
+        "max": 8.400000000372529
       },
       "drawCalls": 1,
       "image": {
@@ -308,7 +185,7 @@
       "renderer": "WebKit WebGL",
       "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
       "pass": true,
-      "trial": 2,
+      "trial": 1,
       "consoleErrors": []
     },
     {
@@ -322,21 +199,144 @@
         "height": 256,
         "synchronization": "WebGL finish"
       },
-      "importMs": 77.70000000018626,
-      "setupMs": 77.59999999962747,
+      "importMs": 62,
+      "setupMs": 64.59999999962747,
       "transform": {
-        "mean": 1.5599999999627472,
-        "median": 1.5,
-        "p95": 2.2000000001862645,
-        "min": 1.099999999627471,
-        "max": 2.2000000001862645
+        "mean": 0.9799999999813735,
+        "median": 0.900000000372529,
+        "p95": 1.2999999998137355,
+        "min": 0.7999999998137355,
+        "max": 1.2999999998137355
       },
       "frame": {
         "mean": 1.1833333333488554,
-        "median": 0.7999999998137355,
-        "p95": 2.7999999998137355,
-        "min": 0.6999999992549419,
-        "max": 4.5
+        "median": 0.7000000001862645,
+        "p95": 2.5,
+        "min": 0.599999999627471,
+        "max": 6.7999999998137355
+      },
+      "drawCalls": 400,
+      "image": {
+        "coveredPixels": 8082,
+        "meanLuminance": 17.5924746643222,
+        "hash": "e577489b"
+      },
+      "errors": [],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+      "renderer": "WebKit WebGL",
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "pass": true,
+      "trial": 1,
+      "consoleErrors": []
+    },
+    {
+      "engine": "babylonjs",
+      "protocol": {
+        "objectCount": 400,
+        "transformCount": 10000,
+        "warmup": 8,
+        "frames": 24,
+        "width": 256,
+        "height": 256,
+        "synchronization": "WebGL finish"
+      },
+      "importMs": 5459.799999999814,
+      "setupMs": 773.1000000005588,
+      "transform": {
+        "mean": 5.309999999962747,
+        "median": 4.699999999254942,
+        "p95": 7,
+        "min": 3.800000000745058,
+        "max": 7
+      },
+      "frame": {
+        "mean": 2.712499999984478,
+        "median": 2.2999999998137355,
+        "p95": 5.3999999994412065,
+        "min": 1.400000000372529,
+        "max": 5.599999999627471
+      },
+      "drawCalls": 400,
+      "image": {
+        "coveredPixels": 8082,
+        "meanLuminance": 32.08764451906411,
+        "hash": "d2358993"
+      },
+      "errors": [],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+      "renderer": "WebKit WebGL",
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "pass": true,
+      "trial": 1,
+      "consoleErrors": []
+    },
+    {
+      "engine": "faoxomjs",
+      "protocol": {
+        "objectCount": 400,
+        "transformCount": 10000,
+        "warmup": 8,
+        "frames": 24,
+        "width": 256,
+        "height": 256,
+        "synchronization": "WebGL finish"
+      },
+      "importMs": 92.5,
+      "setupMs": 60.40000000037253,
+      "transform": {
+        "mean": 1.569999999925494,
+        "median": 1.2999999998137355,
+        "p95": 2.6000000005587935,
+        "min": 1.1000000005587935,
+        "max": 2.6000000005587935
+      },
+      "frame": {
+        "mean": 1.300000000007761,
+        "median": 0.6000000005587935,
+        "p95": 4.300000000745058,
+        "min": 0.39999999944120646,
+        "max": 7.7999999998137355
+      },
+      "drawCalls": 1,
+      "image": {
+        "coveredPixels": 8082,
+        "meanLuminance": 34.15813296503985,
+        "hash": "d89bdb79"
+      },
+      "errors": [],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+      "renderer": "WebKit WebGL",
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "pass": true,
+      "trial": 2,
+      "consoleErrors": []
+    },
+    {
+      "engine": "threejs",
+      "protocol": {
+        "objectCount": 400,
+        "transformCount": 10000,
+        "warmup": 8,
+        "frames": 24,
+        "width": 256,
+        "height": 256,
+        "synchronization": "WebGL finish"
+      },
+      "importMs": 58.90000000037253,
+      "setupMs": 59.799999999813735,
+      "transform": {
+        "mean": 0.9700000000186264,
+        "median": 1,
+        "p95": 1.2000000001862645,
+        "min": 0.8000000007450581,
+        "max": 1.2000000001862645
+      },
+      "frame": {
+        "mean": 1.1333333333022892,
+        "median": 0.7000000001862645,
+        "p95": 3.2000000001862645,
+        "min": 0.5,
+        "max": 4.2999999998137355
       },
       "drawCalls": 400,
       "image": {
@@ -363,21 +363,21 @@
         "height": 256,
         "synchronization": "WebGL finish"
       },
-      "importMs": 6036.600000000559,
-      "setupMs": 797.5,
+      "importMs": 5543.699999999255,
+      "setupMs": 770.9000000003725,
       "transform": {
-        "mean": 4.759999999962747,
+        "mean": 7.1099999999627475,
         "median": 4.400000000372529,
-        "p95": 6.3999999994412065,
-        "min": 4.2000000001862645,
-        "max": 6.3999999994412065
+        "p95": 13.5,
+        "min": 4,
+        "max": 13.5
       },
       "frame": {
-        "mean": 4.162500000015522,
-        "median": 4,
-        "p95": 7.5,
-        "min": 1.599999999627471,
-        "max": 10.599999999627471
+        "mean": 2.6458333333333335,
+        "median": 2.199999999254942,
+        "p95": 5.5,
+        "min": 1.5,
+        "max": 6.400000000372529
       },
       "drawCalls": 400,
       "image": {
@@ -404,21 +404,21 @@
         "height": 256,
         "synchronization": "WebGL finish"
       },
-      "importMs": 115.5,
-      "setupMs": 78.3999999994412,
+      "importMs": 124.30000000074506,
+      "setupMs": 61.59999999962747,
       "transform": {
-        "mean": 6.240000000037253,
-        "median": 4.400000000372529,
-        "p95": 16.700000000186265,
-        "min": 3.3999999994412065,
-        "max": 16.700000000186265
+        "mean": 1.709999999962747,
+        "median": 1.599999999627471,
+        "p95": 2.2000000001862645,
+        "min": 1.2999999998137355,
+        "max": 2.2000000001862645
       },
       "frame": {
-        "mean": 1.6708333332790062,
+        "mean": 1.150000000023283,
         "median": 0.39999999944120646,
-        "p95": 10.5,
+        "p95": 6.699999999254942,
         "min": 0.20000000018626451,
-        "max": 14.799999999813735
+        "max": 6.7000000001862645
       },
       "drawCalls": 1,
       "image": {
@@ -445,21 +445,21 @@
         "height": 256,
         "synchronization": "WebGL finish"
       },
-      "importMs": 63.5,
-      "setupMs": 77.20000000018626,
+      "importMs": 59.90000000037253,
+      "setupMs": 60.5,
       "transform": {
-        "mean": 1.9100000000558794,
-        "median": 1.900000000372529,
-        "p95": 2.2000000001862645,
-        "min": 1.5,
-        "max": 2.2000000001862645
+        "mean": 1.05,
+        "median": 1,
+        "p95": 1.3999999994412065,
+        "min": 0.8999999994412065,
+        "max": 1.3999999994412065
       },
       "frame": {
-        "mean": 1.9208333333566163,
-        "median": 1.300000000745058,
-        "p95": 4.400000000372529,
-        "min": 0.599999999627471,
-        "max": 10.299999999813735
+        "mean": 2.6916666666899496,
+        "median": 1.400000000372529,
+        "p95": 11.200000000186265,
+        "min": 0.7999999998137355,
+        "max": 18.5
       },
       "drawCalls": 400,
       "image": {
@@ -486,21 +486,21 @@
         "height": 256,
         "synchronization": "WebGL finish"
       },
-      "importMs": 6039.4000000003725,
-      "setupMs": 766.7000000001863,
+      "importMs": 5141.9000000003725,
+      "setupMs": 841.0999999996275,
       "transform": {
-        "mean": 6.230000000074506,
-        "median": 4.8999999994412065,
-        "p95": 12.100000000558794,
-        "min": 4.2999999998137355,
-        "max": 12.100000000558794
+        "mean": 7.2700000000186265,
+        "median": 6.300000000745058,
+        "p95": 10.599999999627471,
+        "min": 3.900000000372529,
+        "max": 10.599999999627471
       },
       "frame": {
-        "mean": 3.429166666658906,
-        "median": 2.7999999998137355,
-        "p95": 6.3999999994412065,
-        "min": 1.8999999994412065,
-        "max": 8.700000000186265
+        "mean": 2.800000000007761,
+        "median": 2.199999999254942,
+        "p95": 6,
+        "min": 1.5,
+        "max": 7
       },
       "drawCalls": 400,
       "image": {
