@@ -22,6 +22,8 @@ temp/
 
 # Build & Test Execution Artifacts (Generated at runtime)
 tests/*-report.json
+# The deterministic advanced-lighting baseline is validated by a committed test.
+!tests/advanced-lighting-benchmark-report.json
 tests/doodleshooter-faoxom.png
 tests/faoxom-reference-runtime.png
 tests/game-validation-report.json

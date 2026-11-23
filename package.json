@@ -1,6 +1,6 @@
 {
   "name": "faoxomjs",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "description": "Zero-dependency, high-performance, single-file and modular 3D engine for WebGL2 and WebGPU",
   "type": "module",
   "main": "./FaoxomJs.js",
@@ -26,6 +26,14 @@
     "./performance": {
       "types": "./esm/performance.d.ts",
       "default": "./esm/performance.js"
+    },
+    "./runtime": {
+      "types": "./esm/runtime.d.ts",
+      "default": "./esm/runtime.js"
+    },
+    "./world": {
+      "types": "./esm/world.d.ts",
+      "default": "./esm/world.js"
     },
     "./geometry": {
       "types": "./esm/geometry.d.ts",
@@ -94,6 +102,7 @@
     "codemods",
     "bin",
     "tools",
+    "docs",
     "examples",
     "LICENSE",
     "README.md",
@@ -124,6 +133,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "bench": "node tools/faoxombench.mjs",
+    "bench:lighting": "node tests/run_advanced_lighting_benchmark.mjs",
     "build": "node tools/build_from_src.mjs",
     "test": "npm run typecheck && npm run bench"
   },

@@ -1,0 +1,777 @@
+{
+  "suite": "FaoxomJS advanced lighting benchmark aggregate",
+  "schemaVersion": 1,
+  "date": "2026-11-22T21:58:40.873Z",
+  "trialCount": 3,
+  "frames": 8,
+  "warmup": 3,
+  "aggregate": [
+    {
+      "name": "balanced-32-lights",
+      "encodeSubmitMeanMs": [
+        0.425,
+        0.412,
+        0.463
+      ],
+      "queueCompletionMeanMs": [
+        20.713,
+        21.188,
+        20.2
+      ],
+      "queueCompletionP95Ms": [
+        31.7,
+        30.9,
+        29.3
+      ],
+      "hashes": [
+        "40612006",
+        "40612006",
+        "40612006"
+      ],
+      "crossTrialDeterministic": true,
+      "estimatedLightingBytes": 1425408,
+      "workload": {
+        "passes": 5,
+        "candidateTests": 24576,
+        "spatialReuseTests": 12288,
+        "giRays": 12288,
+        "giTraceSteps": 147456,
+        "reflectionTraceSteps": 147456,
+        "filterTaps": 98304,
+        "rayBridgeRays": 0
+      }
+    },
+    {
+      "name": "hybrid-bvh-16-lights",
+      "encodeSubmitMeanMs": [
+        0.488,
+        0.4,
+        0.363
+      ],
+      "queueCompletionMeanMs": [
+        27.975,
+        27.45,
+        25.875
+      ],
+      "queueCompletionP95Ms": [
+        32.3,
+        29,
+        27.1
+      ],
+      "hashes": [
+        "c898bdbf",
+        "c898bdbf",
+        "c898bdbf"
+      ],
+      "crossTrialDeterministic": true,
+      "estimatedLightingBytes": 1523712,
+      "workload": {
+        "passes": 6,
+        "candidateTests": 24576,
+        "spatialReuseTests": 12288,
+        "giRays": 12288,
+        "giTraceSteps": 147456,
+        "reflectionTraceSteps": 147456,
+        "filterTaps": 98304,
+        "rayBridgeRays": 12288
+      }
+    },
+    {
+      "name": "foveated-ultra-64-lights",
+      "encodeSubmitMeanMs": [
+        0.375,
+        0.362,
+        0.362
+      ],
+      "queueCompletionMeanMs": [
+        43,
+        43.287,
+        43.05
+      ],
+      "queueCompletionP95Ms": [
+        51.2,
+        51.8,
+        47.5
+      ],
+      "hashes": [
+        "99b89dc5",
+        "99b89dc5",
+        "99b89dc5"
+      ],
+      "crossTrialDeterministic": true,
+      "estimatedLightingBytes": 2140416,
+      "workload": {
+        "passes": 6,
+        "candidateTests": 73728,
+        "spatialReuseTests": 36864,
+        "giRays": 36864,
+        "giTraceSteps": 1032192,
+        "reflectionTraceSteps": 516096,
+        "filterTaps": 294912,
+        "rayBridgeRays": 0
+      }
+    }
+  ],
+  "pass": {
+    "allTrialsPassed": true,
+    "noConsoleErrors": true,
+    "crossTrialDeterministic": true,
+    "goalReached": true
+  },
+  "trials": [
+    {
+      "suite": "FaoxomJS advanced lighting reproducible benchmark",
+      "schemaVersion": 1,
+      "date": "2026-11-22T21:58:30.490Z",
+      "protocol": {
+        "warmupFrames": 3,
+        "measuredFrames": 8,
+        "serialQueueCompletion": true,
+        "seed": 1717,
+        "outputHash": "FNV-1a over padded rgba16float readback",
+        "timing": "performance.now around encode+submit and queue.onSubmittedWorkDone; queueCompletion is not a hardware timestamp"
+      },
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+        "adapter": {
+          "vendor": "google",
+          "architecture": "swiftshader",
+          "device": "",
+          "description": ""
+        },
+        "timestampQuery": true,
+        "limits": {
+          "maxStorageTexturesPerShaderStage": 4,
+          "maxStorageBuffersPerShaderStage": 10
+        }
+      },
+      "errors": [],
+      "results": [
+        {
+          "scenario": {
+            "name": "balanced-32-lights",
+            "width": 96,
+            "height": 64,
+            "lights": 32,
+            "level": 2,
+            "foveation": false,
+            "rayQuery": false
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.425,
+            "medianMs": 0.5,
+            "p95Ms": 0.5,
+            "maxMs": 0.5,
+            "stddevMs": 0.083
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 18.4,
+            "meanMs": 20.713,
+            "medianMs": 19.5,
+            "p95Ms": 31.7,
+            "maxMs": 31.7,
+            "stddevMs": 4.219
+          },
+          "outputHash": "40612006",
+          "replayHash": "40612006",
+          "outputNonzeroBytes": 8010,
+          "deterministic": true,
+          "estimatedLightingBytes": 1425408,
+          "workload": {
+            "passes": 5,
+            "candidateTests": 24576,
+            "spatialReuseTests": 12288,
+            "giRays": 12288,
+            "giTraceSteps": 147456,
+            "reflectionTraceSteps": 147456,
+            "filterTaps": 98304,
+            "rayBridgeRays": 0
+          },
+          "quality": {
+            "name": "medium",
+            "resolutionScale": 0.75,
+            "candidates": 4,
+            "spatialSamples": 2,
+            "maxHistory": 16,
+            "giSamples": 2,
+            "giSteps": 12,
+            "denoiseIterations": 2,
+            "reflectionSteps": 24,
+            "roughnessCutoff": 0.78,
+            "checkerboard": true,
+            "peripheralQuality": 0.35,
+            "qualityMapScale": 0.25
+          }
+        },
+        {
+          "scenario": {
+            "name": "hybrid-bvh-16-lights",
+            "width": 96,
+            "height": 64,
+            "lights": 16,
+            "level": 2,
+            "foveation": false,
+            "rayQuery": true
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.488,
+            "medianMs": 0.5,
+            "p95Ms": 0.8,
+            "maxMs": 0.8,
+            "stddevMs": 0.145
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 26.1,
+            "meanMs": 27.975,
+            "medianMs": 28,
+            "p95Ms": 32.3,
+            "maxMs": 32.3,
+            "stddevMs": 1.961
+          },
+          "outputHash": "c898bdbf",
+          "replayHash": "c898bdbf",
+          "outputNonzeroBytes": 42924,
+          "deterministic": true,
+          "estimatedLightingBytes": 1523712,
+          "workload": {
+            "passes": 6,
+            "candidateTests": 24576,
+            "spatialReuseTests": 12288,
+            "giRays": 12288,
+            "giTraceSteps": 147456,
+            "reflectionTraceSteps": 147456,
+            "filterTaps": 98304,
+            "rayBridgeRays": 12288
+          },
+          "quality": {
+            "name": "medium",
+            "resolutionScale": 0.75,
+            "candidates": 4,
+            "spatialSamples": 2,
+            "maxHistory": 16,
+            "giSamples": 2,
+            "giSteps": 12,
+            "denoiseIterations": 2,
+            "reflectionSteps": 24,
+            "roughnessCutoff": 0.78,
+            "checkerboard": true,
+            "peripheralQuality": 0.35,
+            "qualityMapScale": 0.25
+          }
+        },
+        {
+          "scenario": {
+            "name": "foveated-ultra-64-lights",
+            "width": 128,
+            "height": 72,
+            "lights": 64,
+            "level": 4,
+            "foveation": {
+              "mapScale": 0.25
+            },
+            "rayQuery": false
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.375,
+            "medianMs": 0.4,
+            "p95Ms": 0.6,
+            "maxMs": 0.6,
+            "stddevMs": 0.097
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 41,
+            "meanMs": 43,
+            "medianMs": 41.7,
+            "p95Ms": 51.2,
+            "maxMs": 51.2,
+            "stddevMs": 3.26
+          },
+          "outputHash": "99b89dc5",
+          "replayHash": "99b89dc5",
+          "outputNonzeroBytes": 9216,
+          "deterministic": true,
+          "estimatedLightingBytes": 2140416,
+          "workload": {
+            "passes": 6,
+            "candidateTests": 73728,
+            "spatialReuseTests": 36864,
+            "giRays": 36864,
+            "giTraceSteps": 1032192,
+            "reflectionTraceSteps": 516096,
+            "filterTaps": 294912,
+            "rayBridgeRays": 0
+          },
+          "quality": {
+            "name": "ultra",
+            "resolutionScale": 1,
+            "candidates": 8,
+            "spatialSamples": 4,
+            "maxHistory": 32,
+            "giSamples": 4,
+            "giSteps": 28,
+            "denoiseIterations": 4,
+            "reflectionSteps": 56,
+            "roughnessCutoff": 0.9,
+            "checkerboard": false,
+            "peripheralQuality": 0.55,
+            "qualityMapScale": 0.5
+          }
+        }
+      ],
+      "pass": {
+        "noWebGPUErrors": true,
+        "finiteTimings": true,
+        "nonzeroOutputs": true,
+        "deterministicReplay": true,
+        "goalReached": true
+      },
+      "trial": 1,
+      "consoleErrors": []
+    },
+    {
+      "suite": "FaoxomJS advanced lighting reproducible benchmark",
+      "schemaVersion": 1,
+      "date": "2026-11-22T21:58:35.705Z",
+      "protocol": {
+        "warmupFrames": 3,
+        "measuredFrames": 8,
+        "serialQueueCompletion": true,
+        "seed": 1717,
+        "outputHash": "FNV-1a over padded rgba16float readback",
+        "timing": "performance.now around encode+submit and queue.onSubmittedWorkDone; queueCompletion is not a hardware timestamp"
+      },
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+        "adapter": {
+          "vendor": "google",
+          "architecture": "swiftshader",
+          "device": "",
+          "description": ""
+        },
+        "timestampQuery": true,
+        "limits": {
+          "maxStorageTexturesPerShaderStage": 4,
+          "maxStorageBuffersPerShaderStage": 10
+        }
+      },
+      "errors": [],
+      "results": [
+        {
+          "scenario": {
+            "name": "balanced-32-lights",
+            "width": 96,
+            "height": 64,
+            "lights": 32,
+            "level": 2,
+            "foveation": false,
+            "rayQuery": false
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.412,
+            "medianMs": 0.4,
+            "p95Ms": 0.6,
+            "maxMs": 0.6,
+            "stddevMs": 0.117
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 18.2,
+            "meanMs": 21.188,
+            "medianMs": 18.4,
+            "p95Ms": 30.9,
+            "maxMs": 30.9,
+            "stddevMs": 4.762
+          },
+          "outputHash": "40612006",
+          "replayHash": "40612006",
+          "outputNonzeroBytes": 8010,
+          "deterministic": true,
+          "estimatedLightingBytes": 1425408,
+          "workload": {
+            "passes": 5,
+            "candidateTests": 24576,
+            "spatialReuseTests": 12288,
+            "giRays": 12288,
+            "giTraceSteps": 147456,
+            "reflectionTraceSteps": 147456,
+            "filterTaps": 98304,
+            "rayBridgeRays": 0
+          },
+          "quality": {
+            "name": "medium",
+            "resolutionScale": 0.75,
+            "candidates": 4,
+            "spatialSamples": 2,
+            "maxHistory": 16,
+            "giSamples": 2,
+            "giSteps": 12,
+            "denoiseIterations": 2,
+            "reflectionSteps": 24,
+            "roughnessCutoff": 0.78,
+            "checkerboard": true,
+            "peripheralQuality": 0.35,
+            "qualityMapScale": 0.25
+          }
+        },
+        {
+          "scenario": {
+            "name": "hybrid-bvh-16-lights",
+            "width": 96,
+            "height": 64,
+            "lights": 16,
+            "level": 2,
+            "foveation": false,
+            "rayQuery": true
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.4,
+            "medianMs": 0.4,
+            "p95Ms": 0.6,
+            "maxMs": 0.6,
+            "stddevMs": 0.087
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 26,
+            "meanMs": 27.45,
+            "medianMs": 27.3,
+            "p95Ms": 29,
+            "maxMs": 29,
+            "stddevMs": 1.004
+          },
+          "outputHash": "c898bdbf",
+          "replayHash": "c898bdbf",
+          "outputNonzeroBytes": 42924,
+          "deterministic": true,
+          "estimatedLightingBytes": 1523712,
+          "workload": {
+            "passes": 6,
+            "candidateTests": 24576,
+            "spatialReuseTests": 12288,
+            "giRays": 12288,
+            "giTraceSteps": 147456,
+            "reflectionTraceSteps": 147456,
+            "filterTaps": 98304,
+            "rayBridgeRays": 12288
+          },
+          "quality": {
+            "name": "medium",
+            "resolutionScale": 0.75,
+            "candidates": 4,
+            "spatialSamples": 2,
+            "maxHistory": 16,
+            "giSamples": 2,
+            "giSteps": 12,
+            "denoiseIterations": 2,
+            "reflectionSteps": 24,
+            "roughnessCutoff": 0.78,
+            "checkerboard": true,
+            "peripheralQuality": 0.35,
+            "qualityMapScale": 0.25
+          }
+        },
+        {
+          "scenario": {
+            "name": "foveated-ultra-64-lights",
+            "width": 128,
+            "height": 72,
+            "lights": 64,
+            "level": 4,
+            "foveation": {
+              "mapScale": 0.25
+            },
+            "rayQuery": false
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.362,
+            "medianMs": 0.4,
+            "p95Ms": 0.4,
+            "maxMs": 0.4,
+            "stddevMs": 0.048
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 41.2,
+            "meanMs": 43.287,
+            "medianMs": 42.3,
+            "p95Ms": 51.8,
+            "maxMs": 51.8,
+            "stddevMs": 3.353
+          },
+          "outputHash": "99b89dc5",
+          "replayHash": "99b89dc5",
+          "outputNonzeroBytes": 9216,
+          "deterministic": true,
+          "estimatedLightingBytes": 2140416,
+          "workload": {
+            "passes": 6,
+            "candidateTests": 73728,
+            "spatialReuseTests": 36864,
+            "giRays": 36864,
+            "giTraceSteps": 1032192,
+            "reflectionTraceSteps": 516096,
+            "filterTaps": 294912,
+            "rayBridgeRays": 0
+          },
+          "quality": {
+            "name": "ultra",
+            "resolutionScale": 1,
+            "candidates": 8,
+            "spatialSamples": 4,
+            "maxHistory": 32,
+            "giSamples": 4,
+            "giSteps": 28,
+            "denoiseIterations": 4,
+            "reflectionSteps": 56,
+            "roughnessCutoff": 0.9,
+            "checkerboard": false,
+            "peripheralQuality": 0.55,
+            "qualityMapScale": 0.5
+          }
+        }
+      ],
+      "pass": {
+        "noWebGPUErrors": true,
+        "finiteTimings": true,
+        "nonzeroOutputs": true,
+        "deterministicReplay": true,
+        "goalReached": true
+      },
+      "trial": 2,
+      "consoleErrors": []
+    },
+    {
+      "suite": "FaoxomJS advanced lighting reproducible benchmark",
+      "schemaVersion": 1,
+      "date": "2026-11-22T21:58:40.803Z",
+      "protocol": {
+        "warmupFrames": 3,
+        "measuredFrames": 8,
+        "serialQueueCompletion": true,
+        "seed": 1717,
+        "outputHash": "FNV-1a over padded rgba16float readback",
+        "timing": "performance.now around encode+submit and queue.onSubmittedWorkDone; queueCompletion is not a hardware timestamp"
+      },
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+        "adapter": {
+          "vendor": "google",
+          "architecture": "swiftshader",
+          "device": "",
+          "description": ""
+        },
+        "timestampQuery": true,
+        "limits": {
+          "maxStorageTexturesPerShaderStage": 4,
+          "maxStorageBuffersPerShaderStage": 10
+        }
+      },
+      "errors": [],
+      "results": [
+        {
+          "scenario": {
+            "name": "balanced-32-lights",
+            "width": 96,
+            "height": 64,
+            "lights": 32,
+            "level": 2,
+            "foveation": false,
+            "rayQuery": false
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.463,
+            "medianMs": 0.5,
+            "p95Ms": 0.6,
+            "maxMs": 0.6,
+            "stddevMs": 0.099
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 18.3,
+            "meanMs": 20.2,
+            "medianMs": 18.5,
+            "p95Ms": 29.3,
+            "maxMs": 29.3,
+            "stddevMs": 3.514
+          },
+          "outputHash": "40612006",
+          "replayHash": "40612006",
+          "outputNonzeroBytes": 8010,
+          "deterministic": true,
+          "estimatedLightingBytes": 1425408,
+          "workload": {
+            "passes": 5,
+            "candidateTests": 24576,
+            "spatialReuseTests": 12288,
+            "giRays": 12288,
+            "giTraceSteps": 147456,
+            "reflectionTraceSteps": 147456,
+            "filterTaps": 98304,
+            "rayBridgeRays": 0
+          },
+          "quality": {
+            "name": "medium",
+            "resolutionScale": 0.75,
+            "candidates": 4,
+            "spatialSamples": 2,
+            "maxHistory": 16,
+            "giSamples": 2,
+            "giSteps": 12,
+            "denoiseIterations": 2,
+            "reflectionSteps": 24,
+            "roughnessCutoff": 0.78,
+            "checkerboard": true,
+            "peripheralQuality": 0.35,
+            "qualityMapScale": 0.25
+          }
+        },
+        {
+          "scenario": {
+            "name": "hybrid-bvh-16-lights",
+            "width": 96,
+            "height": 64,
+            "lights": 16,
+            "level": 2,
+            "foveation": false,
+            "rayQuery": true
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.363,
+            "medianMs": 0.4,
+            "p95Ms": 0.5,
+            "maxMs": 0.5,
+            "stddevMs": 0.07
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 24.8,
+            "meanMs": 25.875,
+            "medianMs": 26,
+            "p95Ms": 27.1,
+            "maxMs": 27.1,
+            "stddevMs": 0.672
+          },
+          "outputHash": "c898bdbf",
+          "replayHash": "c898bdbf",
+          "outputNonzeroBytes": 42924,
+          "deterministic": true,
+          "estimatedLightingBytes": 1523712,
+          "workload": {
+            "passes": 6,
+            "candidateTests": 24576,
+            "spatialReuseTests": 12288,
+            "giRays": 12288,
+            "giTraceSteps": 147456,
+            "reflectionTraceSteps": 147456,
+            "filterTaps": 98304,
+            "rayBridgeRays": 12288
+          },
+          "quality": {
+            "name": "medium",
+            "resolutionScale": 0.75,
+            "candidates": 4,
+            "spatialSamples": 2,
+            "maxHistory": 16,
+            "giSamples": 2,
+            "giSteps": 12,
+            "denoiseIterations": 2,
+            "reflectionSteps": 24,
+            "roughnessCutoff": 0.78,
+            "checkerboard": true,
+            "peripheralQuality": 0.35,
+            "qualityMapScale": 0.25
+          }
+        },
+        {
+          "scenario": {
+            "name": "foveated-ultra-64-lights",
+            "width": 128,
+            "height": 72,
+            "lights": 64,
+            "level": 4,
+            "foveation": {
+              "mapScale": 0.25
+            },
+            "rayQuery": false
+          },
+          "encodeSubmit": {
+            "samples": 8,
+            "minMs": 0.3,
+            "meanMs": 0.362,
+            "medianMs": 0.4,
+            "p95Ms": 0.5,
+            "maxMs": 0.5,
+            "stddevMs": 0.07
+          },
+          "queueCompletion": {
+            "samples": 8,
+            "minMs": 41.2,
+            "meanMs": 43.05,
+            "medianMs": 42.5,
+            "p95Ms": 47.5,
+            "maxMs": 47.5,
+            "stddevMs": 2.074
+          },
+          "outputHash": "99b89dc5",
+          "replayHash": "99b89dc5",
+          "outputNonzeroBytes": 9216,
+          "deterministic": true,
+          "estimatedLightingBytes": 2140416,
+          "workload": {
+            "passes": 6,
+            "candidateTests": 73728,
+            "spatialReuseTests": 36864,
+            "giRays": 36864,
+            "giTraceSteps": 1032192,
+            "reflectionTraceSteps": 516096,
+            "filterTaps": 294912,
+            "rayBridgeRays": 0
+          },
+          "quality": {
+            "name": "ultra",
+            "resolutionScale": 1,
+            "candidates": 8,
+            "spatialSamples": 4,
+            "maxHistory": 32,
+            "giSamples": 4,
+            "giSteps": 28,
+            "denoiseIterations": 4,
+            "reflectionSteps": 56,
+            "roughnessCutoff": 0.9,
+            "checkerboard": false,
+            "peripheralQuality": 0.55,
+            "qualityMapScale": 0.5
+          }
+        }
+      ],
+      "pass": {
+        "noWebGPUErrors": true,
+        "finiteTimings": true,
+        "nonzeroOutputs": true,
+        "deterministicReplay": true,
+        "goalReached": true
+      },
+      "trial": 3,
+      "consoleErrors": []
+    }
+  ]
+}
