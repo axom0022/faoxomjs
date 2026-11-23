@@ -134,6 +134,7 @@
     "typecheck": "tsc --noEmit",
     "bench": "node tools/faoxombench.mjs",
     "bench:lighting": "node tests/run_advanced_lighting_benchmark.mjs",
+    "bench:compare": "node benchmarks/cross-engine/run.mjs",
     "build": "node tools/build_from_src.mjs",
     "test": "npm run typecheck && npm run bench"
   },
@@ -141,8 +142,10 @@
     "access": "public"
   },
   "devDependencies": {
+    "@babylonjs/core": "9.26.1",
     "playwright": "^1.65.0",
     "terser": "^5.51.2",
+    "three": "0.186.1",
     "typescript": "^5.9.3"
   },
   "bin": {

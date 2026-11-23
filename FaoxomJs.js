@@ -7572,11 +7572,11 @@ class WebGLRenderer {
         if (!zauga || !zaugb) return;
         var zaugd = zauga.matrixAutoUpdate === false && zauga.userData && zauga.userData.static === true, zauge = zaugb.matrixAutoUpdate === false && zaugb.userData && zaugb.userData.static === true;
         if (!zaugd || !zauga._faoxomStaticMatricesReady) {
-            zauga.updateMatrixWorld(true);
+            zauga.updateMatrixWorld(false);
             if (zaugd) zauga._faoxomStaticMatricesReady = true;
         }
         if (!zauge || !zaugb._faoxomStaticMatricesReady) {
-            zaugb.updateMatrixWorld(true);
+            zaugb.updateMatrixWorld(false);
             if (zauge) zaugb._faoxomStaticMatricesReady = true;
         }
         if (!this.gl) return;

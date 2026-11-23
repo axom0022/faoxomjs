@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>FaoxomJS cross-engine benchmark</title>
+<canvas id="canvas" width="256" height="256"></canvas>
+<script type="module">
+const params = new URLSearchParams(location.search);
+const engineName = params.get("engine") || "faoxomjs";
+const objectCount = Number(params.get("objects") || 400);
+const transformCount = Number(params.get("transforms") || 10000);
+const warmup = Number(params.get("warmup") || 8);
+const frames = Number(params.get("frames") || 24);
+const canvas = document.getElementById("canvas");
+const errors = [];
+addEventListener("error", event => errors.push(String(event.error || event.message)));
+addEventListener("unhandledrejection", event => errors.push(String(event.reason)));
+const started = performance.now();
+const moduleUrls = {
+  faoxomjs: "/FaoxomJs.js",
+  threejs: "/node_modules/three/build/three.module.js",
+  babylonjs: "/node_modules/@babylonjs/core/index.js"
+};
+
+function stats(values) {
+  const sorted = [...values].sort((a,b)=>a-b);
+  const mean = values.reduce((a,b)=>a+b,0) / values.length;
+  const percentile = p => sorted[Math.min(sorted.length-1, Math.ceil(sorted.length*p)-1)];
+  return { mean, median: percentile(.5), p95: percentile(.95), min: sorted[0], max: sorted.at(-1) };
+}
+function pixels(gl) {
+  const data = new Uint8Array(256*256*4);
+  gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,data);
+  let covered=0, luminance=0;
+  for(let i=0;i<data.length;i+=4){const l=data[i]*.2126+data[i+1]*.7152+data[i+2]*.0722;luminance+=l;if(l>8)covered++;}
+  return { coveredPixels: covered, meanLuminance: luminance/(data.length/4), hash: hash(data) };
+}
+function hash(data){let h=2166136261;for(const value of data){h^=value;h=Math.imul(h,16777619);}return (h>>>0).toString(16).padStart(8,"0");}
+function positions(index,total){const side=Math.ceil(Math.sqrt(total));return [(index%side-side/2)*.62,(Math.floor(index/side)-side/2)*.62,Math.sin(index*.31)*.35];}
+
+async function faoxomjs(F) {
+  const renderer = new F.WebGLRenderer({canvas,antialias:false,alpha:false,preserveDrawingBuffer:true}); renderer.setSize(256,256,false); renderer.setClearColor(0x05070b,1);
+  const scene=new F.Scene(),camera=new F.PerspectiveCamera(50,1,.1,100);camera.position.set(0,0,28);camera.lookAt(new F.Vector3());scene.add(new F.AmbientLight(0xffffff,1.4));
+  const geometry=new F.BoxGeometry(.42,.42,.42),material=new F.StandardMaterial({color:0x4f9ee8,roughness:.65,metalness:.1});
+  for(let i=0;i<objectCount;i++){const m=new F.Mesh(geometry,material),p=positions(i,objectCount);m.position.set(...p);scene.add(m);}
+  const roots=[];for(let i=0;i<transformCount;i++){const o=new F.Object3D();o.position.set(i%101,(i*7)%97,(i*13)%89);roots.push(o);}
+  return {renderer,scene,camera,gl:renderer.gl,drawCalls:()=>renderer.info.render.calls,render:()=>renderer.render(scene,camera),transform:step=>{for(let i=0;i<roots.length;i++){const o=roots[i];o.rotation.x+=.0001*(step+1);o.updateMatrix();o.updateMatrixWorld(true);}}};
+}
+async function threejs(T) {
+  const renderer=new T.WebGLRenderer({canvas,antialias:false,alpha:false,preserveDrawingBuffer:true});renderer.setSize(256,256,false);renderer.setClearColor(0x05070b,1);
+  const scene=new T.Scene(),camera=new T.PerspectiveCamera(50,1,.1,100);camera.position.set(0,0,28);camera.lookAt(0,0,0);scene.add(new T.AmbientLight(0xffffff,1.4));
+  const geometry=new T.BoxGeometry(.42,.42,.42),material=new T.MeshStandardMaterial({color:0x4f9ee8,roughness:.65,metalness:.1});
+  for(let i=0;i<objectCount;i++){const m=new T.Mesh(geometry,material),p=positions(i,objectCount);m.position.set(...p);scene.add(m);}
+  const roots=[];for(let i=0;i<transformCount;i++){const o=new T.Object3D();o.position.set(i%101,(i*7)%97,(i*13)%89);roots.push(o);}
+  return {renderer,scene,camera,gl:renderer.getContext(),drawCalls:()=>renderer.info.render.calls,render:()=>renderer.render(scene,camera),transform:step=>{for(let i=0;i<roots.length;i++){const o=roots[i];o.rotation.x+=.0001*(step+1);o.updateMatrix();o.updateMatrixWorld(true);}}};
+}
+async function babylonjs(B) {
+  const engine=new B.Engine(canvas,false,{preserveDrawingBuffer:true,stencil:false,antialias:false});engine.setSize(256,256);const scene=new B.Scene(engine);scene.clearColor=new B.Color4(.02,.027,.043,1);
+  const camera=new B.FreeCamera("camera",new B.Vector3(0,0,-28),scene);camera.setTarget(B.Vector3.Zero());camera.minZ=.1;camera.maxZ=100;camera.fov=50*Math.PI/180;scene.activeCamera=camera;new B.HemisphericLight("light",new B.Vector3(0,0,-1),scene).intensity=1.4;
+  const source=B.MeshBuilder.CreateBox("box",{size:.42},scene);const material=new B.PBRMaterial("material",scene);material.albedoColor=B.Color3.FromHexString("#4f9ee8");material.roughness=.65;material.metallic=.1;source.material=material;
+  for(let i=0;i<objectCount;i++){const m=i===0?source:source.clone("box"+i),p=positions(i,objectCount);m.position.set(p[0],p[1],-p[2]);}
+  const roots=[];for(let i=0;i<transformCount;i++){const o=new B.TransformNode("t"+i,scene);o.position.set(i%101,(i*7)%97,(i*13)%89);roots.push(o);}await scene.whenReadyAsync();
+  return {renderer:engine,scene,camera,gl:engine._gl,drawCalls:()=>scene.getActiveMeshes().length,render:()=>scene.render(),transform:step=>{for(let i=0;i<roots.length;i++){const o=roots[i];o.rotation.x+=.0001*(step+1);o.computeWorldMatrix(true);}}};
+}
+
+try {
+  const imported = await import(moduleUrls[engineName]);
+  const importMs = performance.now()-started;
+  const setupStart=performance.now();
+  const adapter=await ({faoxomjs,threejs,babylonjs}[engineName])(engineName==="faoxomjs"?imported.default:imported);
+  const setupMs=performance.now()-setupStart;
+  const transformTimes=[];for(let i=0;i<12;i++){const t=performance.now();adapter.transform(i);transformTimes.push(performance.now()-t);}
+  for(let i=0;i<warmup;i++){adapter.render();adapter.gl.finish();}
+  const frameTimes=[];for(let i=0;i<frames;i++){const t=performance.now();adapter.render();adapter.gl.finish();frameTimes.push(performance.now()-t);}
+  const image=pixels(adapter.gl);
+  window.__BENCHMARK_RESULT__={engine:engineName,protocol:{objectCount,transformCount,warmup,frames,width:256,height:256,synchronization:"WebGL finish"},importMs,setupMs,transform:stats(transformTimes.slice(2)),frame:stats(frameTimes),drawCalls:adapter.drawCalls(),image,errors,userAgent:navigator.userAgent,renderer:adapter.gl.getParameter(adapter.gl.RENDERER),version:adapter.gl.getParameter(adapter.gl.VERSION),pass:errors.length===0&&image.coveredPixels>100};
+} catch(error) {
+  errors.push(error.stack||String(error));window.__BENCHMARK_RESULT__={engine:engineName,errors,pass:false};
+}
+</script>
