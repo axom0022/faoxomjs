@@ -195,3 +195,23 @@ export * from "./PhysicsDebugRenderer.js";
 export * from "./faoxomplugin.js";
 
 export * from "./AdaptiveFrameBudget.js";
+
+export * from "./EngineRuntime.js";
+
+export * from "./ArchetypeECS.js";
+
+export * from "./ApplicationLifecycle.js";
+
+export * from "./GPUResidencyManager2.js";
+
+export * from "./RuntimeQualityContract.js";
+
+export * from "./UnifiedSpatialDatabase.js";
+
+export * from "./WorldPartition.js";
+
+export * from "./OriginHierarchy.js";
+
+export * from "./CompressedGeometryPage.js";
+
+export * from "./VirtualGeometrySystem.js";

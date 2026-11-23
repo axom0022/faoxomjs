@@ -60,3 +60,47 @@ export class PerfGovernor {
 export class AutomaticLOD { constructor(options?: any); }
 export class MegaGeometry { constructor(options?: any); }
 export class GPUDrivenPipeline { constructor(renderer?: any, options?: any); }
+
+export class GPUResidencyManager2 {
+  budget: number;
+  residentBytes: number;
+  frame: number;
+  stats: Record<string, number>;
+  constructor(options?: any);
+  register(id: string | number, options?: any): this;
+  unregister(id: string | number): boolean;
+  setBudget(bytes: number, category?: string): this;
+  touch(id: string | number, values?: any): boolean;
+  score(resource: any): number;
+  makeResident(id: string | number, context?: any): Promise<any>;
+  evict(id: string | number, reason?: string): boolean;
+  categoryBytes(category: string): number;
+  enforce(): this;
+  predict(entries: any[]): this;
+  update(): this;
+  report(): any;
+}
+
+export class RuntimeQualityContract {
+  rules: Record<string, number>;
+  violations: any[];
+  stats: Record<string, number>;
+  constructor(rules?: any);
+  policy(metric: string, callback: (violation: any, metrics: any, contract: RuntimeQualityContract) => void): this;
+  sample(metrics: any): { ok: boolean; violations: any[] };
+  percentile(name: string, value: number): number;
+  evaluate(metrics: any): { ok: boolean; violations: any[] };
+  report(): any;
+  reset(): this;
+}
+
+export class CounterfactualRenderer {
+  history: any[];
+  stats: Record<string, number>;
+  constructor(options?: any);
+  observe(state: any, frameMs: number): this;
+  estimate(base: any, candidate: any): number;
+  averageFrameMs(): number;
+  choose(base: any, candidates: any[], targetMs?: number, visualCost?: (candidate: any, base: any) => number): any;
+  report(): any;
+}
