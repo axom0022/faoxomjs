@@ -1,6 +1,6 @@
 # Cross-engine benchmark
 
-This benchmark compares pinned FaoxomJS, Three.js, and Babylon.js builds with equivalent deterministic workloads. It is designed to guide optimization, not to manufacture universal winner claims.
+This benchmark compares pinned FaoxomJS, Three.js, and Babylon.js builds with equivalent deterministic workloads. It is designed to guide optimization, not to manufacture universal winner claims
 
 ## Current workload
 
@@ -41,3 +41,6 @@ Set `TRIALS=1` for a smoke run.
 ## Interpretation limits
 
 SwiftShader is a deterministic software renderer. It does not predict relative performance on a physical integrated, discrete, mobile, or XR GPU. No result should be generalized beyond the exact versioned protocol. Physical GPU reports must name the hardware, driver, browser, operating system, power mode, resolution, and trial distribution.
+
+benchmark recommended to be reran due to updates.
+thanks for reading buddy
