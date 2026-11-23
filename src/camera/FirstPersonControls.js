@@ -6,6 +6,8 @@ class FirstPersonControls {
         this.domElement = zabqb || (typeof document !== "undefined" ? document.body : null);
         this.movementSpeed = 10;
         this.lookSpeed = .005;
+        this.invertX = false;
+        this.invertY = false;
         this.keys = {};
         this.pitch = 0;
         this.yaw = 0;
@@ -22,8 +24,10 @@ class FirstPersonControls {
         };
         var zabqd = function(zabqb) {
             if (zabqb.buttons === 1) {
-                zabqa.yaw -= zabqb.movementX * zabqa.lookSpeed;
-                zabqa.pitch = faoxomclamp(zabqa.pitch - zabqb.movementY * zabqa.lookSpeed, -Math.PI * .48, Math.PI * .48);
+                var zabqc = zabqa.invertX ? 1 : -1;
+                var zabqd = zabqa.invertY ? 1 : -1;
+                zabqa.yaw += zabqb.movementX * zabqa.lookSpeed * zabqc;
+                zabqa.pitch = faoxomclamp(zabqa.pitch + zabqb.movementY * zabqa.lookSpeed * zabqd, -Math.PI * .48, Math.PI * .48);
             }
         };
         window.addEventListener("keydown", zabqb);

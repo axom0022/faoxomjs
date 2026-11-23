@@ -12,6 +12,9 @@ class OrbitControls {
         this.zoomSpeed = 1;
         this.enableRotate = true;
         this.rotateSpeed = 1;
+        this.invertX = false;
+        this.invertY = false;
+        this.invertZoom = false;
         this.enablePan = true;
         this.panSpeed = 1;
         this.autoRotate = false;
@@ -57,14 +60,16 @@ class OrbitControls {
             var zabtd = zabtb.clientY - zabta.pointerStart.y;
             zabta.pointerStart.set(zabtb.clientX, zabtb.clientY);
             if (zabta.pointerButton === 0 && zabta.enableRotate) {
-                zabta.targetSpherical.theta -= zabtc * .005 * zabta.rotateSpeed;
-                zabta.targetSpherical.phi = faoxomclamp(zabta.targetSpherical.phi + zabtd * .005 * zabta.rotateSpeed, zabta.minPolarAngle, zabta.maxPolarAngle);
+                var zabte = zabta.invertX ? -1 : 1;
+                var zabtf = zabta.invertY ? -1 : 1;
+                zabta.targetSpherical.theta += zabtc * .005 * zabta.rotateSpeed * zabte;
+                zabta.targetSpherical.phi = faoxomclamp(zabta.targetSpherical.phi + zabtd * .005 * zabta.rotateSpeed * zabtf, zabta.minPolarAngle, zabta.maxPolarAngle);
             } else if ((zabta.pointerButton === 2 || zabta.pointerButton === 1) && zabta.enablePan) {
-                var zabte = zabta.spherical.radius * .001 * zabta.panSpeed;
-                var zabtf = new Vector3(1, 0, 0).applyQuaternion(zabta.camera.quaternion);
-                var zabtg = new Vector3(0, 1, 0).applyQuaternion(zabta.camera.quaternion);
-                zabta.target.addScaledVector(zabtf, -zabtc * zabte);
-                zabta.target.addScaledVector(zabtg, zabtd * zabte);
+                var zabtg = zabta.spherical.radius * .001 * zabta.panSpeed;
+                var zabeth = new Vector3(1, 0, 0).applyQuaternion(zabta.camera.quaternion);
+                var zabti = new Vector3(0, 1, 0).applyQuaternion(zabta.camera.quaternion);
+                zabta.target.addScaledVector(zabeth, zabtc * zabtg * (zabta.invertX ? -1 : 1));
+                zabta.target.addScaledVector(zabti, -zabtd * zabtg * (zabta.invertY ? -1 : 1));
             }
         };
         var zabtd = function(zabtb) {
@@ -79,8 +84,9 @@ class OrbitControls {
             if (!zabta.enabled || !zabta.enableZoom) return;
             zabtb.preventDefault();
             var zabtc = faoxomclamp(zabtb.deltaY, -100, 100);
-            var zabtd = Math.pow(.998, zabtc * zabta.zoomSpeed);
-            zabta.targetSpherical.radius = faoxomclamp(zabta.targetSpherical.radius * zabtd, zabta.minDistance, zabta.maxDistance);
+            var zabtd = zabta.invertZoom ? -1 : 1;
+            var zabte = Math.pow(.998, -zabtc * zabta.zoomSpeed * zabtd);
+            zabta.targetSpherical.radius = faoxomclamp(zabta.targetSpherical.radius * zabte, zabta.minDistance, zabta.maxDistance);
         };
         var zabtf = function(zabta) {
             zabta.preventDefault();

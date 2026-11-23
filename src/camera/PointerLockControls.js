@@ -7,6 +7,8 @@ class PointerLockControls {
         this.isLocked = false;
         this.pitch = 0;
         this.yaw = 0;
+        this.invertX = false;
+        this.invertY = false;
         this.initEvents();
     }
     initEvents() {
@@ -14,10 +16,12 @@ class PointerLockControls {
         var zabwa = this;
         var zabwb = function(zabwb) {
             if (!zabwa.isLocked) return;
-            zabwa.yaw -= (zabwb.movementX || 0) * .002;
-            zabwa.pitch = faoxomclamp(zabwa.pitch - (zabwb.movementY || 0) * .002, -Math.PI * .48, Math.PI * .48);
-            var zabwc = new Euler(zabwa.pitch, zabwa.yaw, 0, "YXZ");
-            zabwa.camera.quaternion.setFromEuler(zabwc);
+            var zabwc = zabwa.invertX ? 1 : -1;
+            var zabwd = zabwa.invertY ? 1 : -1;
+            zabwa.yaw += (zabwb.movementX || 0) * .002 * zabwc;
+            zabwa.pitch = faoxomclamp(zabwa.pitch + (zabwb.movementY || 0) * .002 * zabwd, -Math.PI * .48, Math.PI * .48);
+            var zabwe = new Euler(zabwa.pitch, zabwa.yaw, 0, "YXZ");
+            zabwa.camera.quaternion.setFromEuler(zabwe);
         };
         var zabwc = function() {
             zabwa.isLocked = document.pointerLockElement === zabwa.domElement;

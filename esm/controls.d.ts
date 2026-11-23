@@ -21,6 +21,9 @@ export class OrbitControls extends EventDispatcher {
   zoomSpeed: number;
   enableRotate: boolean;
   rotateSpeed: number;
+  invertX: boolean;
+  invertY: boolean;
+  invertZoom: boolean;
   enablePan: boolean;
   panSpeed: number;
   screenSpacePanning: boolean;
@@ -47,6 +50,8 @@ export class FirstPersonControls {
   enabled: boolean;
   movementSpeed: number;
   lookSpeed: number;
+  invertX: boolean;
+  invertY: boolean;
   lookVertical: boolean;
   autoForward: boolean;
   activeLook: boolean;
@@ -72,6 +77,8 @@ export class PointerLockControls extends EventDispatcher {
   minPolarAngle: number;
   maxPolarAngle: number;
   pointerSpeed: number;
+  invertX: boolean;
+  invertY: boolean;
   constructor(camera: Camera, domElement?: HTMLElement);
   connect(): void;
   disconnect(): void;
