@@ -266,16 +266,35 @@ export class MeshletSet {
 }
 
 export class FXOMVGS {
+  id: string;
   clusters: any[];
   levelRanges: { start: number; count: number }[];
+  pages: Map<string, any>;
+  pageRecords: Map<string, any>;
+  instances: Array<{ id: string | number; position: { x: number; y: number; z: number }; importance: number; visible: boolean }>;
   stats: any;
-  constructor(geometry: any, options?: { maxVertices?: number; maxTriangles?: number; groupSize?: number; maxLevels?: number; renderer?: any });
+  runtimeStats: any;
+  store: any;
+  commandStream: any;
+  constructor(geometry: any, options?: { id?: string; material?: number; maxVertices?: number; maxTriangles?: number; groupSize?: number; maxLevels?: number; renderer?: any; pixelError?: number; hysteresis?: number; budgetBytes?: number; cacheBytes?: number; vertexCapacity?: number; indexCapacity?: number; maxCommands?: number; residency?: any; cache?: any; visibilityPipeline?: any });
   select(camera: any, options?: { threshold?: number; viewportHeight?: number; useCone?: boolean }): FXOMVGS;
   readback(): Promise<Uint32Array>;
   selectedIndices(selection?: Uint32Array): Uint32Array;
   selectionGeometry(selection?: Uint32Array): any;
+  resident(pageId: string): boolean;
+  requestPage(pageId: string, context?: any): Promise<any>;
+  prepare(): Promise<FXOMVGS>;
+  syncPages(): FXOMVGS;
+  addInstance(options?: { id?: string | number; position?: { x: number; y: number; z: number }; importance?: number; visible?: boolean }): { id: string | number; position: { x: number; y: number; z: number }; importance: number; visible: boolean };
+  removeInstance(id: string | number): boolean;
+  update(camera: any, options?: { backend?: "cpu" | "gpu"; pixelError?: number; threshold?: number; viewportHeight?: number; useCone?: boolean; maxClusters?: number; maxTriangles?: number; triangleBudget?: number; drawCallBudget?: number }): Promise<{ selected: any[]; requests: string[]; commands: { commands: Uint32Array; metadata: Uint32Array; count: number; stats: any }; buffers: Record<string, any>; layout: any; stats: any }>;
+  updateGPUResident(camera: any, options?: { pixelError?: number; viewportWidth?: number; viewportHeight?: number; useCone?: boolean; occlusion?: boolean; occlusionBias?: number; reverseDepth?: boolean; triangleBudget?: number; drawCallBudget?: number; hysteresis?: number; feedbackInterval?: number }): Promise<{ pipeline: any; hierarchy: any; feedback: Promise<string[]> | null; stats: any }>;
   setMemoryBudget(clusterBudget: number): FXOMVGS;
+  setByteBudget(bytes: number): FXOMVGS;
+  setVisibilityPipeline(pipeline: any): FXOMVGS;
   updateResidency(selection?: Uint32Array, frame?: number): FXOMVGS;
+  compact(): FXOMVGS;
+  report(): any;
   dispose(): void;
 }
 

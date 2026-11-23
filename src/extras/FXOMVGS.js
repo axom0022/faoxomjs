@@ -4,6 +4,10 @@ import { Geometry } from "../geometries/Geometry.js";
 
 import { MeshletSet } from "./MeshletSet.js";
 
+import { GeometryPageCodec, RuntimeGeometryCache } from "./CompressedGeometryPage.js";
+
+import { GPUResidencyManager2 } from "./GPUResidencyManager2.js";
+
 const zahea = `struct fxparams {\n    viewpos: vec4<f32>,\n    planes: array<vec4<f32>, 6>,\n    misc: vec4<f32>,\n    misc2: vec4<f32>,\n};\nstruct fxcluster {\n    a: vec4<f32>,\n    b: vec4<f32>,\n    c: vec4<f32>,\n};\n@group(0) @binding(0) var<uniform> params: fxparams;\n@group(0) @binding(1) var<storage, read> clusters: array<fxcluster>;\n@group(0) @binding(2) var<storage, read_write> sel: array<u32>;\n@group(0) @binding(3) var<storage, read_write> flags: array<atomic<u32>>;\n@group(0) @binding(4) var<storage, read> resident: array<u32>;\nfn fxscreenerr(i: u32) -> f32 {\n    let c = clusters[i];\n    var d = length(params.viewpos.xyz - c.a.xyz) - c.a.w;\n    if (d < 0.001) { d = 0.001; }\n    return c.c.x * params.viewpos.w / d;\n}\nfn fxvisible(i: u32) -> u32 {\n    let c = clusters[i];\n    var vis = 1u;\n    if (params.misc.y > 0.5 && c.c.w > 0.5) {\n        var u = params.viewpos.xyz - c.a.xyz;\n        var r = length(u);\n        if (r < 0.000001) {\n            u = vec3<f32>(0.0, 1.0, 0.0);\n            r = 1.0;\n        } else {\n            u = u / r;\n        }\n        let cosb = dot(u, c.b.xyz);\n        let sinb = sqrt(max(0.0, 1.0 - cosb * cosb));\n        let sintheta = sqrt(max(0.0, 1.0 - c.b.w * c.b.w));\n        let bbound = cosb * c.b.w + sinb * sintheta;\n        if (cosb < c.b.w && bbound < -1.0e-6 && r * (-bbound) >= c.a.w) {\n            vis = 0u;\n        }\n    }\n    if (vis == 1u) {\n        var p = 0;\n        loop {\n            if (p >= 6) {\n                break;\n            }\n            var dist = dot(params.planes[p].xyz, c.a.xyz) + params.planes[p].w;\n            if (dist < -c.a.w) {\n                vis = 0u;\n            }\n            p = p + 1;\n        }\n    }\n    return vis;\n}\n@compute @workgroup_size(64)\nfn fxmain(@builtin(global_invocation_id) gid: vec3<u32>) {\n    if (gid.x >= u32(params.misc.x)) {\n        return;\n    }\n    let i = u32(params.misc.w) + gid.x;\n    let c = clusters[i];\n    let want = fxscreenerr(i) <= params.misc.z;\n    var parentwanted = false;\n    if (c.c.y >= 0.0) {\n        parentwanted = fxscreenerr(u32(c.c.y)) <= params.misc.z;\n    }\n    let desired = fxvisible(i) == 1u && want && (c.c.y < 0.0 || !parentwanted);\n    let fb = atomicLoad(&flags[i]);\n    var res = 1u;\n    if (params.misc2.x > 0.5) {\n        res = resident[i];\n    }\n    if (res == 1u) {\n        var outv = 0u;\n        if (desired || fb > 0u) {\n            outv = 1u;\n        }\n        sel[i] = outv;\n    } else {\n        sel[i] = 0u;\n        if (desired || fb > 0u) {\n            if (c.c.y >= 0.0) {\n                atomicOr(&flags[u32(c.c.y)], 1u);\n            }\n        }\n    }\n}`;
 
 function zaheb(zahea, zaheb, zahec, zahed, zahee, zahef, zaheg) {
@@ -322,6 +326,97 @@ function zahed(zahea, zaheb) {
     };
 }
 
+class FXOMVertexPullingStore {
+    constructor(device, options) {
+        options = options || {};
+        this.device = device || null;
+        this.vertexCapacity = Math.max(1024, options.vertexCapacity || 65536);
+        this.indexCapacity = Math.max(1024, options.indexCapacity || 196608);
+        this.positions = new Float32Array(this.vertexCapacity * 3);
+        this.normals = new Float32Array(this.vertexCapacity * 3);
+        this.uvs = new Float32Array(this.vertexCapacity * 2);
+        this.indices = new Uint32Array(this.indexCapacity);
+        this.vertexCount = 0;
+        this.indexCount = 0;
+        this.pages = new Map;
+        this.buffers = Object.create(null);
+        this.dirty = false;
+        this.stats = { pages: 0, vertices: 0, indices: 0, uploads: 0, uploadedBytes: 0, resizes: 0, compactions: 0 };
+    }
+    ensure(vertices, indices) {
+        var resized = false;
+        if (vertices > this.vertexCapacity) {
+            var vertexCapacity = this.vertexCapacity;
+            while (vertexCapacity < vertices) vertexCapacity *= 2;
+            var positions = new Float32Array(vertexCapacity * 3), normals = new Float32Array(vertexCapacity * 3), uvs = new Float32Array(vertexCapacity * 2);
+            positions.set(this.positions); normals.set(this.normals); uvs.set(this.uvs);
+            this.positions = positions; this.normals = normals; this.uvs = uvs; this.vertexCapacity = vertexCapacity; resized = true;
+        }
+        if (indices > this.indexCapacity) {
+            var indexCapacity = this.indexCapacity;
+            while (indexCapacity < indices) indexCapacity *= 2;
+            var indexArray = new Uint32Array(indexCapacity); indexArray.set(this.indices);
+            this.indices = indexArray; this.indexCapacity = indexCapacity; resized = true;
+        }
+        if (resized) { this.destroyBuffers(); this.stats.resizes++; }
+    }
+    addPage(id, decoded) {
+        if (this.pages.has(id)) return this.pages.get(id);
+        var positions = decoded.attributes.position, normals = decoded.attributes.normal, uvs = decoded.attributes.uv, indices = decoded.index;
+        this.ensure(this.vertexCount + decoded.vertexCount, this.indexCount + indices.length);
+        var record = { id: id, vertexOffset: this.vertexCount, vertexCount: decoded.vertexCount, indexOffset: this.indexCount, indexCount: indices.length, active: true };
+        this.positions.set(positions, record.vertexOffset * 3);
+        if (normals) this.normals.set(normals, record.vertexOffset * 3);
+        if (uvs) this.uvs.set(uvs, record.vertexOffset * 2);
+        for (var index = 0; index < indices.length; index++) this.indices[record.indexOffset + index] = indices[index] + record.vertexOffset;
+        this.vertexCount += decoded.vertexCount; this.indexCount += indices.length; this.pages.set(id, record); this.dirty = true;
+        this.stats.pages = this.pages.size; this.stats.vertices = this.vertexCount; this.stats.indices = this.indexCount;
+        return record;
+    }
+    removePage(id) { var record = this.pages.get(id); if (!record) return false; record.active = false; this.pages.delete(id); this.stats.pages = this.pages.size; return true; }
+    compact(decodedPages) {
+        var ids = Array.from(this.pages.keys()).sort(); this.vertexCount = 0; this.indexCount = 0; this.pages.clear();
+        for (var index = 0; index < ids.length; index++) { var decoded = decodedPages.get(ids[index]); if (decoded) this.addPage(ids[index], decoded); }
+        this.stats.compactions++; return this;
+    }
+    usage() { var usage = typeof GPUBufferUsage !== "undefined" ? GPUBufferUsage : null; return usage ? usage.STORAGE | usage.VERTEX | usage.INDEX | usage.COPY_DST : 172; }
+    ensureBuffers() {
+        if (!this.device || !this.device.createBuffer) return;
+        var arrays = { positions: this.positions, normals: this.normals, uvs: this.uvs, indices: this.indices }, names = Object.keys(arrays);
+        for (var index = 0; index < names.length; index++) { var name = names[index]; if (!this.buffers[name] || this.buffers[name].size < arrays[name].byteLength) { if (this.buffers[name] && this.buffers[name].destroy) this.buffers[name].destroy(); this.buffers[name] = this.device.createBuffer({ size: arrays[name].byteLength, usage: this.usage() }); } }
+    }
+    upload() {
+        if (!this.dirty || !this.device || !this.device.queue) return 0;
+        this.ensureBuffers();
+        var views = { positions: this.positions.subarray(0, this.vertexCount * 3), normals: this.normals.subarray(0, this.vertexCount * 3), uvs: this.uvs.subarray(0, this.vertexCount * 2), indices: this.indices.subarray(0, this.indexCount) };
+        var names = Object.keys(views), bytes = 0;
+        for (var index = 0; index < names.length; index++) { this.device.queue.writeBuffer(this.buffers[names[index]], 0, views[names[index]]); bytes += views[names[index]].byteLength; }
+        this.dirty = false; this.stats.uploads++; this.stats.uploadedBytes += bytes; return bytes;
+    }
+    shaderLayout() { return { position: { binding: 0, stride: 12, format: "float32x3" }, normal: { binding: 1, stride: 12, format: "float32x3" }, uv: { binding: 2, stride: 8, format: "float32x2" }, index: { binding: 3, stride: 4, format: "uint32" } }; }
+    report() { return { vertexCapacity: this.vertexCapacity, indexCapacity: this.indexCapacity, vertexCount: this.vertexCount, indexCount: this.indexCount, cpuBytes: this.positions.byteLength + this.normals.byteLength + this.uvs.byteLength + this.indices.byteLength, stats: Object.assign({}, this.stats) }; }
+    destroyBuffers() { var names = Object.keys(this.buffers); for (var index = 0; index < names.length; index++) if (this.buffers[names[index]] && this.buffers[names[index]].destroy) this.buffers[names[index]].destroy(); this.buffers = Object.create(null); }
+    dispose() { this.destroyBuffers(); this.pages.clear(); return this; }
+}
+
+class FXOMIndirectCommandStream {
+    constructor(options) { options = options || {}; this.maxCommands = options.maxCommands || 65536; this.commands = new Uint32Array(this.maxCommands * 5); this.metadata = new Uint32Array(this.maxCommands * 4); this.count = 0; this.stats = { commands: 0, triangles: 0, rejected: 0, materialGroups: 0 }; }
+    build(entries, pageRecords, triangleBudget, drawBudget) {
+        triangleBudget = triangleBudget === undefined ? Infinity : triangleBudget; drawBudget = drawBudget === undefined ? this.maxCommands : Math.min(this.maxCommands, drawBudget);
+        this.count = 0; this.stats.triangles = 0; this.stats.rejected = 0; var materials = new Set;
+        var sorted = entries.slice().sort(function(a, b) { return a.material - b.material || String(a.pageId).localeCompare(String(b.pageId)) || a.pageFirst - b.pageFirst || a.instance - b.instance; });
+        for (var index = 0; index < sorted.length; index++) {
+            var entry = sorted[index], page = pageRecords.get(entry.pageId);
+            if (!page || this.count >= drawBudget || this.stats.triangles + entry.triangles > triangleBudget) { this.stats.rejected++; continue; }
+            var command = this.count * 5; this.commands[command] = entry.count; this.commands[command + 1] = 1; this.commands[command + 2] = page.indexOffset + entry.pageFirst; this.commands[command + 3] = 0; this.commands[command + 4] = entry.instance;
+            var metadata = this.count * 4; this.metadata[metadata] = entry.material; this.metadata[metadata + 1] = entry.id; this.metadata[metadata + 2] = page.vertexOffset; this.metadata[metadata + 3] = entry.level;
+            this.count++; this.stats.triangles += entry.triangles; materials.add(entry.material);
+        }
+        this.stats.commands = this.count; this.stats.materialGroups = materials.size;
+        return { commands: this.commands.subarray(0, this.count * 5), metadata: this.metadata.subarray(0, this.count * 4), count: this.count, stats: Object.assign({}, this.stats) };
+    }
+}
+
 class FXOMVGS {
     constructor(zahea, zaheb) {
         zaheb = zaheb || {};
@@ -350,6 +445,24 @@ class FXOMVGS {
         this.lastUsed = null;
         this.memoryBudget = Infinity;
         this.frame = 0;
+        this.id = zaheb.id || "fxomvgs-" + FXOMVGS.nextId++;
+        this.material = zaheb.material || 0;
+        this.pixelError = zaheb.pixelError === undefined ? 2 : zaheb.pixelError;
+        this.hysteresis = zaheb.hysteresis === undefined ? .15 : Math.max(0, zaheb.hysteresis);
+        this.pages = new Map;
+        this.pageRecords = new Map;
+        this.instances = [ { id: 0, position: { x: 0, y: 0, z: 0 }, importance: 1, visible: true } ];
+        this.cache = zaheb.cache || new RuntimeGeometryCache({ maxBytes: zaheb.cacheBytes || 256 * 1024 * 1024 });
+        this.residency = zaheb.residency || new GPUResidencyManager2({ budgetBytes: zaheb.budgetBytes || 512 * 1024 * 1024 });
+        this.store = new FXOMVertexPullingStore(this.device, zaheb);
+        this.commandStream = new FXOMIndirectCommandStream(zaheb);
+        this.pendingRequests = new Map;
+        this.selectionHistory = new Map;
+        this.visibilityPipeline = zaheb.visibilityPipeline || null;
+        this.gpuHierarchyFrame = 0;
+        this.gpuFeedbackPromise = null;
+        if (this.visibilityPipeline && this.visibilityPipeline.setGeometry) this.visibilityPipeline.setGeometry(this);
+        this.runtimeStats = { pages: 0, compressedBytes: 0, sourceBytes: 0, requests: 0, decoded: 0, uploaded: 0, evicted: 0, selectedClusters: 0, selectedTriangles: 0, commands: 0, uploadBytes: 0, backend: "cpu" };
         this.lastSelection = null;
         this.stats = {
             levels: 0,
@@ -365,6 +478,7 @@ class FXOMVGS {
             resident: 0
         };
         this.build();
+        this._buildStreamingData();
     }
     build() {
         var zahea = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -511,6 +625,176 @@ class FXOMVGS {
         this.stats.simplifyms = zahet;
         return this;
     }
+    _buildStreamingData() {
+        var self = this;
+        this.pages.clear();
+        for (var clusterIndex = 0; clusterIndex < this.clusters.length; clusterIndex++) this.clusters[clusterIndex].children = [];
+        for (var childIndex = 0; childIndex < this.clusters.length; childIndex++) {
+            var parent = this.clusters[childIndex].parent;
+            if (parent >= 0 && this.clusters[parent]) this.clusters[parent].children.push(childIndex);
+        }
+        for (var level = 0; level < this.levelRanges.length; level++) {
+            var range = this.levelRanges[level], remap = new Map, pagePositions = [], pageNormals = [], pageUVs = this.uvs ? [] : null, pageIndices = [];
+            for (var index = range.start; index < range.start + range.count; index++) {
+                var cluster = this.clusters[index];
+                cluster.id = index; cluster.material = this.material; cluster.pageId = this.id + ":level:" + level; cluster.pageFirst = pageIndices.length;
+                for (var offset = 0; offset < cluster.count; offset++) {
+                    var sourceIndex = this.clusterIndices[cluster.first + offset], localIndex = remap.get(sourceIndex);
+                    if (localIndex === undefined) {
+                        localIndex = remap.size; remap.set(sourceIndex, localIndex);
+                        pagePositions.push(this.positions[sourceIndex * 3], this.positions[sourceIndex * 3 + 1], this.positions[sourceIndex * 3 + 2]);
+                        pageNormals.push(this.normals[sourceIndex * 3], this.normals[sourceIndex * 3 + 1], this.normals[sourceIndex * 3 + 2]);
+                        if (pageUVs) pageUVs.push(this.uvs[sourceIndex * 2], this.uvs[sourceIndex * 2 + 1]);
+                    }
+                    pageIndices.push(localIndex);
+                }
+            }
+            var geometry = new Geometry;
+            geometry.setAttribute("position", new Float32Array(pagePositions), 3);
+            geometry.setAttribute("normal", new Float32Array(pageNormals), 3);
+            if (pageUVs) geometry.setAttribute("uv", new Float32Array(pageUVs), 2);
+            geometry.setIndex(remap.size > 65535 ? new Uint32Array(pageIndices) : new Uint16Array(pageIndices));
+            var encoded = GeometryPageCodec.encode(geometry), pageId = this.id + ":level:" + level;
+            var page = { id: pageId, level: level, encoded: encoded, resident: false, handle: null, pinned: level === this.levelRanges.length - 1 };
+            this.pages.set(pageId, page);
+            this.runtimeStats.compressedBytes += encoded.byteLength;
+            this.runtimeStats.sourceBytes += pagePositions.length * 4 + pageNormals.length * 4 + (pageUVs ? pageUVs.length * 4 : 0) + pageIndices.length * (remap.size > 65535 ? 4 : 2);
+            this.residency.register(pageId, {
+                category: "geometry-page", bytes: encoded.byteLength, importance: page.pinned ? 1000 : 1, pinned: page.pinned,
+                load: async function(context, resource) {
+                    var current = self.pages.get(resource.id);
+                    var decoded = await self.cache.getOrCreate(resource.id, function() { return GeometryPageCodec.decode(current.encoded); });
+                    self.runtimeStats.decoded++;
+                    current.resident = true; current.handle = decoded;
+                    self.pageRecords.set(resource.id, self.store.addPage(resource.id, decoded));
+                    return decoded;
+                },
+                unload: function(handle, reason, resource) {
+                    var id = resource.id, current = self.pages.get(id);
+                    if (current) { current.resident = false; current.handle = null; }
+                    self.store.removePage(id); self.pageRecords.delete(id); self.runtimeStats.evicted++;
+                }
+            });
+        }
+        this.runtimeStats.pages = this.pages.size;
+        return this;
+    }
+    resident(pageId) { var page = this.pages.get(pageId); return !!(page && page.resident); }
+    requestPage(pageId, context) {
+        if (!this.pages.has(pageId)) return Promise.resolve(null);
+        if (this.pendingRequests.has(pageId)) return this.pendingRequests.get(pageId);
+        this.runtimeStats.requests++;
+        var self = this;
+        var promise = this.residency.makeResident(pageId, context).then(function(handle) { self.pendingRequests.delete(pageId); return handle; }, function(error) { self.pendingRequests.delete(pageId); throw error; });
+        this.pendingRequests.set(pageId, promise); return promise;
+    }
+    async prepare() {
+        var rootRange = this.levelRanges[this.levelRanges.length - 1], requests = [];
+        for (var index = rootRange.start; index < rootRange.start + rootRange.count; index++) { var id = this.clusters[index].pageId; if (!this.resident(id)) requests.push(this.requestPage(id, { reason: "root" })); }
+        await Promise.all(requests); this.syncPages(); return this;
+    }
+    syncPages() {
+        var self = this;
+        this.pages.forEach(function(page, id) {
+            if (page.resident && page.handle && !self.pageRecords.has(id)) self.pageRecords.set(id, self.store.addPage(id, page.handle));
+            if (!page.resident && self.pageRecords.has(id)) { self.store.removePage(id); self.pageRecords.delete(id); }
+        });
+        return this;
+    }
+    addInstance(options) {
+        options = options || {};
+        var instance = { id: options.id === undefined ? this.instances.length : options.id, position: options.position || { x: 0, y: 0, z: 0 }, importance: options.importance === undefined ? 1 : options.importance, visible: options.visible !== false };
+        this.instances.push(instance); return instance;
+    }
+    removeInstance(id) { for (var index = 0; index < this.instances.length; index++) if (this.instances[index].id === id) { this.instances.splice(index, 1); return true; } return false; }
+    _cameraData(camera, viewportHeight) {
+        var matrix = camera && camera.projectionMatrix && camera.matrixWorldInverse ? (new Matrix4).multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements : null;
+        var planes = null;
+        if (matrix) {
+            planes = [ matrix[3] + matrix[0], matrix[7] + matrix[4], matrix[11] + matrix[8], matrix[15] + matrix[12], matrix[3] - matrix[0], matrix[7] - matrix[4], matrix[11] - matrix[8], matrix[15] - matrix[12], matrix[3] + matrix[1], matrix[7] + matrix[5], matrix[11] + matrix[9], matrix[15] + matrix[13], matrix[3] - matrix[1], matrix[7] - matrix[5], matrix[11] - matrix[9], matrix[15] - matrix[13], matrix[2], matrix[6], matrix[10], matrix[14], matrix[3] - matrix[2], matrix[7] - matrix[6], matrix[11] - matrix[10], matrix[15] - matrix[14] ];
+            for (var plane = 0; plane < 6; plane++) { var length = Math.sqrt(planes[plane * 4] ** 2 + planes[plane * 4 + 1] ** 2 + planes[plane * 4 + 2] ** 2) || 1; for (var component = 0; component < 4; component++) planes[plane * 4 + component] /= length; }
+        }
+        var position = camera && camera.position ? [ camera.position.x, camera.position.y, camera.position.z ] : Array.isArray(camera) ? camera : [ 0, 0, 0 ];
+        var fov = camera && camera.projectionMatrix ? 2 * Math.atan(1 / camera.projectionMatrix.elements[5]) : Math.PI / 3;
+        return { position: position, planes: planes, scale: (viewportHeight || 1080) / Math.max(.001, 2 * Math.tan(fov / 2)) };
+    }
+    _visible(cluster, data, instance, useCone) {
+        var x = cluster.center[0] + instance.position.x, y = cluster.center[1] + instance.position.y, z = cluster.center[2] + instance.position.z;
+        if (data.planes) for (var plane = 0; plane < 6; plane++) if (data.planes[plane * 4] * x + data.planes[plane * 4 + 1] * y + data.planes[plane * 4 + 2] * z + data.planes[plane * 4 + 3] < -cluster.radius) return false;
+        if (useCone !== false && cluster.cullable) {
+            var dx = data.position[0] - x, dy = data.position[1] - y, dz = data.position[2] - z, length = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1; dx /= length; dy /= length; dz /= length;
+            var cosine = dx * cluster.axis[0] + dy * cluster.axis[1] + dz * cluster.axis[2], sine = Math.sqrt(Math.max(0, 1 - cosine * cosine)), coneSine = Math.sqrt(Math.max(0, 1 - cluster.cosThetaMax * cluster.cosThetaMax)), bound = cosine * cluster.cosThetaMax + sine * coneSine;
+            if (cosine < cluster.cosThetaMax && bound < -1e-6 && length * -bound >= cluster.radius) return false;
+        }
+        return true;
+    }
+    _projectedError(cluster, data, instance) { var dx = data.position[0] - cluster.center[0] - instance.position.x, dy = data.position[1] - cluster.center[1] - instance.position.y, dz = data.position[2] - cluster.center[2] - instance.position.z; return cluster.err * data.scale / Math.max(.001, Math.sqrt(dx * dx + dy * dy + dz * dz) - cluster.radius); }
+    _cpuSelection(camera, options) {
+        options = options || {}; var data = this._cameraData(camera, options.viewportHeight), entries = [], requests = new Set, maxClusters = options.maxClusters || 65536, maxTriangles = options.maxTriangles === undefined ? Infinity : options.maxTriangles, triangles = 0;
+        var rootRange = this.levelRanges[this.levelRanges.length - 1], pixelError = options.pixelError === undefined ? (options.threshold === undefined ? this.pixelError : options.threshold) : options.pixelError;
+        for (var instanceIndex = 0; instanceIndex < this.instances.length; instanceIndex++) {
+            var instance = this.instances[instanceIndex]; if (!instance.visible) continue;
+            var stack = []; for (var root = rootRange.start; root < rootRange.start + rootRange.count; root++) stack.push(root);
+            while (stack.length) {
+                var id = stack.pop(), cluster = this.clusters[id]; if (!this._visible(cluster, data, instance, options.useCone)) continue;
+                var historyKey = instance.id + ":" + id, wasRefined = this.selectionHistory.get(historyKey) === true, threshold = pixelError * (wasRefined ? 1 - this.hysteresis : 1 + this.hysteresis), refine = cluster.children.length && this._projectedError(cluster, data, instance) > threshold;
+                if (refine) {
+                    var ready = true;
+                    for (var check = 0; check < cluster.children.length; check++) { var child = this.clusters[cluster.children[check]]; if (!this.resident(child.pageId)) { ready = false; requests.add(child.pageId); } }
+                    if (ready) { this.selectionHistory.set(historyKey, true); for (var childIndex = 0; childIndex < cluster.children.length; childIndex++) stack.push(cluster.children[childIndex]); continue; }
+                }
+                this.selectionHistory.set(historyKey, false);
+                if (!this.resident(cluster.pageId)) { requests.add(cluster.pageId); continue; }
+                if (entries.length >= maxClusters || triangles + cluster.triangles > maxTriangles) continue;
+                entries.push({ id: id, level: cluster.level, pageId: cluster.pageId, pageFirst: cluster.pageFirst, count: cluster.count, triangles: cluster.triangles, material: cluster.material, instance: instanceIndex }); triangles += cluster.triangles;
+            }
+        }
+        return { entries: entries, requests: requests, triangles: triangles };
+    }
+    _entriesFromMask(mask, options) {
+        options = options || {}; var entries = [], triangles = 0, maxClusters = options.maxClusters || 65536, maxTriangles = options.maxTriangles === undefined ? Infinity : options.maxTriangles;
+        for (var id = 0; id < mask.length; id++) if (mask[id]) { var cluster = this.clusters[id]; if (!this.resident(cluster.pageId) || entries.length >= maxClusters || triangles + cluster.triangles > maxTriangles) continue; entries.push({ id: id, level: cluster.level, pageId: cluster.pageId, pageFirst: cluster.pageFirst, count: cluster.count, triangles: cluster.triangles, material: cluster.material, instance: 0 }); triangles += cluster.triangles; }
+        return { entries: entries, triangles: triangles };
+    }
+    _updateGPUResidencyMask() {
+        if (!this.device) return;
+        this.ensuregpu(); var mask = new Uint32Array(this.clusters.length), count = 0;
+        for (var index = 0; index < this.clusters.length; index++) if (this.resident(this.clusters[index].pageId)) { mask[index] = 1; count++; }
+        this.residentMask = mask; this.stats.resident = count; this.device.queue.writeBuffer(this.residentbuffer, 0, mask);
+    }
+    async updateGPUResident(camera, options) {
+        options = options || {};
+        if (!this.visibilityPipeline || !this.visibilityPipeline.executeGPUHierarchy) throw new Error("FXOMVGS.updateGPUResident requires VirtualGeometryVisibilityPipeline");
+        await this.prepare(); this.syncPages(); this.store.upload();
+        var selector = this.visibilityPipeline.enableGPUHierarchy(options); selector.setGeometry(this);
+        this.visibilityPipeline.executeGPUHierarchy(camera, options);
+        this.gpuHierarchyFrame++;
+        var feedbackInterval = options.feedbackInterval === undefined ? 4 : Math.max(1, options.feedbackInterval);
+        if (this.gpuHierarchyFrame % feedbackInterval === 0 && !this.gpuFeedbackPromise) {
+            var self = this;
+            this.gpuFeedbackPromise = selector.requestPages({ reason: "gpu-hierarchy", frame: this.gpuHierarchyFrame }).then(function(ids) { self.gpuFeedbackPromise = null; return ids; }, function() { self.gpuFeedbackPromise = null; return []; });
+        }
+        this.runtimeStats.backend = "gpu-resident";
+        return { pipeline: this.visibilityPipeline, hierarchy: selector, feedback: this.gpuFeedbackPromise, stats: Object.assign({}, this.runtimeStats) };
+    }
+    async update(camera, options) {
+        options = options || {}; await this.prepare(); this.syncPages();
+        var cpu = this._cpuSelection(camera, options), self = this; cpu.requests.forEach(function(id) { self.requestPage(id, { reason: "refinement" }).catch(function() { return null; }); });
+        var useGPU = !!this.device && options.backend !== "cpu" && this.instances.length === 1 && this.instances[0].position.x === 0 && this.instances[0].position.y === 0 && this.instances[0].position.z === 0;
+        var selection = cpu;
+        if (useGPU) { this._updateGPUResidencyMask(); this.select(camera, { threshold: options.pixelError === undefined ? this.pixelError : options.pixelError, viewportHeight: options.viewportHeight, useCone: options.useCone }); var mask = await this.readback(); selection = this._entriesFromMask(mask, options); this.runtimeStats.backend = "gpu"; } else this.runtimeStats.backend = "cpu";
+        var commands = this.commandStream.build(selection.entries, this.pageRecords, options.triangleBudget, options.drawCallBudget), uploaded = this.store.upload();
+        this.runtimeStats.selectedClusters = selection.entries.length; this.runtimeStats.selectedTriangles = selection.triangles; this.runtimeStats.commands = commands.count; this.runtimeStats.uploadBytes = uploaded;
+        this.residency.update();
+        var frameResult = { selected: selection.entries, requests: Array.from(cpu.requests), commands: commands, buffers: this.store.buffers, layout: this.store.shaderLayout(), stats: Object.assign({}, this.runtimeStats) };
+        if (this.visibilityPipeline && this.visibilityPipeline.uploadCandidates) this.visibilityPipeline.uploadCandidates(frameResult, this);
+        return frameResult;
+    }
+    setByteBudget(bytes) { this.residency.setBudget(bytes, "geometry-page"); return this; }
+    setVisibilityPipeline(pipeline) { this.visibilityPipeline = pipeline || null; if (this.visibilityPipeline && this.visibilityPipeline.setGeometry) this.visibilityPipeline.setGeometry(this); return this; }
+    compact() { var decoded = new Map; this.pages.forEach(function(page, id) { if (page.resident && page.handle) decoded.set(id, page.handle); }); this.store.compact(decoded); this.pageRecords.clear(); var self = this; this.store.pages.forEach(function(record, id) { self.pageRecords.set(id, record); }); return this; }
+    report() { return { id: this.id, hierarchy: Object.assign({}, this.stats), runtime: Object.assign({}, this.runtimeStats), residency: this.residency.report(), cache: this.cache.report(), store: this.store.report(), commands: Object.assign({}, this.commandStream.stats), instances: this.instances.length }; }
+
     ensuregpu() {
         if (this.pipeline) return;
         if (!this.device) throw new Error("FXOMVGS needs a renderer (pass options.renderer)");
@@ -603,8 +887,18 @@ class FXOMVGS {
         });
     }
     select(zahea, zaheb) {
-        this.ensuregpu();
         zaheb = zaheb || {};
+        if (!this.device) {
+            var cpuselection = this._cpuSelection(zahea, { threshold: zaheb.threshold, viewportHeight: zaheb.viewportHeight, useCone: zaheb.useCone, maxClusters: zaheb.maxClusters, maxTriangles: zaheb.maxTriangles });
+            var cpumask = new Uint32Array(this.clusters.length);
+            for (var cpuindex = 0; cpuindex < cpuselection.entries.length; cpuindex++) cpumask[cpuselection.entries[cpuindex].id] = 1;
+            this.lastSelection = cpumask;
+            this.stats.selected = cpuselection.entries.length;
+            this.stats.selectedTriangles = cpuselection.triangles;
+            this.runtimeStats.backend = "cpu";
+            return this;
+        }
+        this.ensuregpu();
         var zahec = zaheb.threshold !== undefined ? zaheb.threshold : 2;
         var zahed = zaheb.viewportHeight !== undefined ? zaheb.viewportHeight : 600;
         var zahee = zaheb.useCone !== false;
@@ -652,6 +946,7 @@ class FXOMVGS {
     }
     readback() {
         var zahea = this;
+        if (!this.device) return Promise.resolve(this.lastSelection ? this.lastSelection.slice() : new Uint32Array(this.clusters.length));
         this.ensuregpu();
         var zaheb = this.clusters.length;
         var zahec = this.device.createCommandEncoder();
@@ -744,6 +1039,12 @@ class FXOMVGS {
         return this;
     }
     dispose() {
+        this.store.dispose();
+        var self = this;
+        this.pages.forEach(function(page, id) { var resource = self.residency.resources.get(id); if (resource) resource.pinned = false; self.residency.unregister(id); });
+        this.pages.clear();
+        this.pageRecords.clear();
+        this.pendingRequests.clear();
         if (this.clusterbuffer) this.clusterbuffer.destroy();
         if (this.selbuffer) this.selbuffer.destroy();
         if (this.flagsbuffer) this.flagsbuffer.destroy();
@@ -760,5 +1061,7 @@ class FXOMVGS {
         this.bind = null;
     }
 }
+
+FXOMVGS.nextId = 0;
 
 export { FXOMVGS };
